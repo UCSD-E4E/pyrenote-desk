@@ -4,7 +4,7 @@
 
 We are using `yarn` for this application! Please install `yarn` with `npm install -g yarn` ([tutorial](https://www.digitalocean.com/community/tutorials/how-to-install-and-use-the-yarn-package-manager-for-node-js)).
 
-Enter ``yarn && yarn dev` into the terminal, and the application should install all your dependencies and open up a new electron window!
+Enter `yarn && yarn dev` into the terminal, and the application should install all your dependencies and open up a new electron window!
 
 ## Development
 
