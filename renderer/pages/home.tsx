@@ -20,6 +20,8 @@ export default function HomePage() {
       <div>
         <p>
           ⚡ Electron + Next.js ⚡ -<Link href="/next">Go to next page</Link>
+          Use the Model -<Link href="/model">Go to model page</Link>
+          
         </p>
         <Image
           src="/images/logo.png"
