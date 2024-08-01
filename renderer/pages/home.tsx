@@ -5,13 +5,19 @@ import Image from 'next/image'
 import styles from './home.module.css'
 
 export default function HomePage() {
-  const [message, setMessage] = React.useState('No message found')
 
-  React.useEffect(() => {
-    window.ipc.on('message', (message: string) => {
-      setMessage(message)
-    })
-  }, [])
+  const toHome = () => {
+    window.location.href = '/home';
+  };
+  const toData = () => {
+    window.location.href = '/next';
+  };
+  const toModel = () => {
+    window.location.href = '/model';
+  };
+  const toLabel = () => {
+    window.location.href = '/label';
+  };
 
   return (
     <React.Fragment>
@@ -20,7 +26,7 @@ export default function HomePage() {
       </Head>
       <div className={styles.container}>
         <div>
-          <div className={styles.home}>
+          <div className={styles.home} onClick = {toHome}>
             <Image
               src="/images/home.png"
               alt="Home image"
@@ -32,7 +38,7 @@ export default function HomePage() {
               <span className={styles.linkStyle}>Home</span>
             </Link>
           </div>
-          <div className={styles.database}>
+          <div className={styles.database} onClick = {toData}>
             <Image
               src="/images/database.png"
               alt="Database image"
@@ -44,7 +50,7 @@ export default function HomePage() {
               <span className={styles.linkStyle}>Database</span>
             </Link>
           </div>
-          <div className={styles.model}>
+          <div className={styles.model} onClick = {toModel}>
             <Image
               src="/images/model.png"
               alt="Model image"
@@ -56,7 +62,7 @@ export default function HomePage() {
               <span className={styles.linkStyle}>Model</span>
             </Link>
           </div>
-          <div className={styles.label}>
+          <div className={styles.label} onClick = {toLabel}>
             <Image
               src="/images/tag.png"
               alt="Label image"
@@ -102,14 +108,6 @@ export default function HomePage() {
         </div>
       </div>
       <div>
-        <button
-          onClick={() => {
-            window.ipc.send('message', 'Hello')
-          }}
-        >
-          Test IPC
-        </button>
-        <p>{message}</p>
       </div>
     </React.Fragment>
   )

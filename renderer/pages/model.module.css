@@ -27,22 +27,45 @@
 .container {
     margin-top: 50px;
     display: flex;
-    align-items: flex-start; /* Align items at the start of the container */
-    justify-content: space-between; /* Space items evenly */
-    gap: 20px; /* Space between the items */
-    padding: 20px; /* Optional: Add some padding to the container */
-  } 
+    gap: 20px; /* Space between container and magnus */
+    /*width: 100%;*/
+    padding: 20px;
+    align-items: flex-start;
+    justify-content: space-between;
+}
 .magnus {
+    /*gap: 20px; /* Space between the items */
+    /*padding:20px; /* Optional: Add some padding to the container */
+    /*
+    padding-left: 25%;
     margin-top: 30px;
     background-color: rgb(243, 243, 243);
-    border-radius: 10px;
-    padding: 60px;
+    background-size: auto;
+    border-radius: 5px;
+    
+    
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
     justify-content: center;
     align-items: flex-start;
     flex: 1; /* Allow magnus to grow and take available space */
+    /*margin-top: 30px;*/
+    background-color: rgb(243, 243, 243);
+    border-radius: 10px;
+    padding: 10px;
+    box-sizing: border-box;
+    padding-left: 25%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-start;
+    flex: 1; /* Allow magnus to grow and take available space */
+  }
+  .images {
+    background-color: white;
+    
+    /*border-radius: 10px;*/
   }
   .linkStyle {
     color: black;
