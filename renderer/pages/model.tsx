@@ -170,7 +170,7 @@ export default function ModelPage() {
         </p> <p>
             Check out the database & label tab to examine the results or upload more data for labeling.
         </p></>}
-        
+        <Link href="/home">Go to home page</Link>
       </div>
     </React.Fragment>
   )

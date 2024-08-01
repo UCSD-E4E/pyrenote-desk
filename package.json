@@ -11,18 +11,26 @@
     "postinstall": "electron-builder install-app-deps"
   },
   "dependencies": {
+    "@types/wavesurfer.js": "^6.0.12",
     "electron-serve": "^1.3.0",
-    "electron-store": "^8.2.0"
+    "electron-store": "^8.2.0",
+    "papaparse": "^5.4.1",
+    "wavesurfer.js": "^7.8.2"
   },
   "devDependencies": {
     "@types/node": "^20.11.16",
     "@types/react": "^18.2.52",
+    "css-loader": "^7.1.2",
     "electron": "^31.0.1",
     "electron-builder": "^24.13.3",
     "next": "^14.2.4",
     "nextron": "^9.1.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "typescript": "^5.4.5"
+    "style-loader": "^4.0.0",
+    "ts-loader": "^9.5.1",
+    "typescript": "^5.5.4",
+    "webpack": "^5.93.0",
+    "webpack-cli": "^5.1.4"
   }
 }
