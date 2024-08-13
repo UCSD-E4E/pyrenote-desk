@@ -1,195 +1,137 @@
+import React, { useState, useRef, useEffect } from 'react';
 import Head from 'next/head'
 import Link from 'next/link'
+import Image from 'next/image'
+import styles from './label.module.css'
 import WaveSurfer from 'wavesurfer.js';
-import Spectrogram from 'wavesurfer.js/dist/plugins/spectrogram';
-import Papa from 'papaparse';
-import React, { useState, useEffect, ChangeEvent, MouseEvent } from 'react';
-import utils from '../../main/helpers/utils'; 
+import SpectrogramPlugin from 'wavesurfer.js/dist/plugins/spectrogram';
 
-const NUM_PER_PAGE = 5;
+const AudioPlayer: React.FC = () => {
+  const toHome = () => {
+    window.location.href = '/home';
+  };
+  const toData = () => {
+    window.location.href = '/next';
+  };
+  const toModel = () => {
+    window.location.href = '/model';
+  };
+  const toLabel = () => {
+    window.location.href = '/label';
+  };
+  const [audioURL, setAudioURL] = useState<string | undefined>(undefined);
+  const [audioFile, setAudioFile] = useState<File | undefined>(undefined);
+  const wavesurferRef = useRef(null);
+  const spectrogramRef = useRef(null);
 
-const NextPage: React.FC = () => {
-  const [pageNum, setPageNum] = useState(0);
-  const [csvData, setCsvData] = useState<any[]>([]);
-  const [wavesurferArray, setWavesurferArray] = useState<WaveSurfer[]>([]);
-  const [filename, setFilename] = useState('');
-  const [lastTime, setLastTime] = useState<number>(Date.now());
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const url = URL.createObjectURL(file);
+      setAudioFile(file);
+      setAudioURL(url);
+    }
+  };
 
   useEffect(() => {
-    const handleUploadSuccess = () => {
-      const fileInput = document.getElementById('UploadFile') as HTMLInputElement;
-      if (fileInput.files && fileInput.files[0]) {
-        setFilename(fileInput.files[0].name);
-        if (wavesurferArray.length !== 0) {
-          setLastTime(Date.now());
-          _downloadCSV();
-        }
+    if (audioURL) {
+      wavesurferRef.current = WaveSurfer.create({
+        container: '#waveform',
+        waveColor: 'violet',
+        progressColor: 'purple',
+        plugins: [
+          SpectrogramPlugin.create({
+            container: '#spectrogram',
+            labels: true,
+          })
+        ],
+      });
 
-        utils.removeALL(wavesurferArray);
-        setCsvData([]);
-        setWavesurferArray([]);
+      wavesurferRef.current.load(audioURL);
 
-        Papa.parse(fileInput.files[0], {
-          download: true,
-          header: true,
-          skipEmptyLines: true,
-          complete: handleCreatePage,
-        });
-      }
-    };
-
-    const uploadSuccessButton = document.getElementById('uploadsuccess');
-    uploadSuccessButton?.addEventListener('click', handleUploadSuccess);
-
-    return () => {
-      uploadSuccessButton?.removeEventListener('click', handleUploadSuccess);
-    };
-  }, [wavesurferArray]);
-
-  const handleCreatePage = (result: Papa.ParseResult<any>) => {
-    let newWavesurferArray: WaveSurfer[] = [];
-    let data = result.data;
-
-    for (let i = 0; i < data.length; i++) {
-      const rowData = data[i];
-      if (!rowData.hasOwnProperty("VERIFY_ID")) {
-        rowData["VERIFY_ID"] = "";
-        rowData["USER_CONFIDENCE"] = "";
-        rowData["TIME_TO_LABEL"] = 0;
-        rowData["TIME_LAST_LABELED"] = "";
-      }
-
-      const wavesurferContainer = document.createElement("div");
-      wavesurferContainer.id = `wavesurfer_${i}`;
-      wavesurferContainer.classList.add("wavesurfer_container");
-      wavesurferContainer.style.display = "none";
-      const currentDiv = document.getElementById("wavesurfer_divs");
-      currentDiv?.append(wavesurferContainer);
-
-      if (i < NUM_PER_PAGE) {
-        utils.addAudio(rowData, i, newWavesurferArray, WaveSurfer, Spectrogram);
-      }
-
-      newWavesurferArray.push(rowData);
+      return () => wavesurferRef.current.destroy();
     }
-
-    setCsvData(newWavesurferArray);
-  };
-
-  const handleVerify = (e: ChangeEvent<HTMLInputElement>) => {
-    const tempTime = Date.now();
-    const totalTime = (tempTime - lastTime) / 1000;
-    const id = Number(e.target.parentElement?.id.split("_")[2]);
-
-    const updatedCsvData = [...csvData];
-    updatedCsvData[id]["VERIFY_ID"] = e.target.value;
-    updatedCsvData[id]["TIME_TO_LABEL"] += totalTime;
-    updatedCsvData[id]["TIME_LAST_LABELED"] = new Date().toString();
-
-    utils.changeBackground(e.target.parentElement?.parentElement as HTMLElement, e.target.value);
-    setCsvData(updatedCsvData);
-    setLastTime(tempTime);
-  };
-
-  const handlePage = (e: MouseEvent<HTMLAnchorElement>) => {
-    e.preventDefault();
-    let startIdx = 0;
-    let endIdx = 0;
-
-    if ((e.target as HTMLAnchorElement).classList.contains("next")) {
-      startIdx = pageNum * NUM_PER_PAGE + NUM_PER_PAGE;
-      endIdx = (pageNum + 1) * NUM_PER_PAGE + NUM_PER_PAGE;
-      setPageNum(pageNum + 1);
-    } else {
-      startIdx = pageNum * NUM_PER_PAGE - NUM_PER_PAGE;
-      endIdx = pageNum * NUM_PER_PAGE;
-      setPageNum(pageNum - 1);
-    }
-
-    if (startIdx >= csvData.length) {
-      alert("Congrats! No more next pages. Download your labeled data now!");
-      return;
-    } else if (startIdx < 0) {
-      alert("No previous pages");
-      return;
-    }
-
-    csvData.forEach((rowData, i) => {
-      if (i >= startIdx && i < endIdx) {
-        utils.addAudio(rowData, i, wavesurferArray, WaveSurfer, Spectrogram);
-      } else {
-        utils.removeAudio(i, wavesurferArray);
-      }
-    });
-  };
-
-  const _downloadCSV = () => {
-    utils.downloadCSV(csvData, filename);
-  };
-
-  const handleConfidence = (e: ChangeEvent<HTMLInputElement>) => {
-    const id = Number(e.target.parentElement?.id.split("_")[2]);
-    const updatedCsvData = [...csvData];
-    updatedCsvData[id]["USER_CONFIDENCE"] = e.target.value;
-    setCsvData(updatedCsvData);
-  };
+  }, [audioURL]);
 
   return (
     <React.Fragment>
-      <head>
-        <link rel="stylesheet" href="style.css" />
-        <title>Labeling Page</title>
-      </head>
-      <Link href="/home">Go to home page</Link>
-
-      <div className="header">
-        <input type='file' id="UploadFile" accept=".csv" />
-        <button id="uploadsuccess">file uploaded</button>
-        <a href="#" className="previous round" onClick={handlePage}>&#8249;</a>
-        <a href="#" className="next round" onClick={handlePage}>&#8250;</a>
-        <button id="download" onClick={_downloadCSV}>download</button>
-      </div>
-
-      <div className="row_controls" id="original_form" style={{ display: 'none' }}>
-        <button className="media_controls">Play/pause</button>
-        <p>Verify Audio</p>
-        <input
-          className="radio"
-          type="radio"
-          id="exists"
-          name="verification"
-          value="PRESENT"
-          onChange={handleVerify}
-        />
-        <label htmlFor="exists">Species Exists</label><br />
-        <input
-          className="radio"
-          type="radio"
-          id="nonexists"
-          name="verification"
-          value="ABSENT"
-          onChange={handleVerify}
-        />
-        <label htmlFor="nonexists">Species Does Not Exist</label><br />
-        <p>How confident are you in your decision</p>
-        <p>left not very confident | right very confident</p>
-        <input
-          type="range"
-          min="1"
-          max="10"
-          value="5"
-          className="slider"
-          id="confidence"
-          style={{ width: '20em' }}
-          onChange={handleConfidence}
-        />
-      </div>
-
-      <div className="labeling_wrapper">
-        <div id="wavesurfer_divs"></div>
-      </div>
-    </React.Fragment>
+      <Head>
+        <title>Label Page</title>
+      </Head>
+      <div className ={styles.container}>
+      <div>
+          <div className={styles.home} onClick={toHome}>
+            <Image
+              src="/images/home.png"
+              alt="Home image"
+              width={45}
+              height={45}
+            />
+            <br />
+            <Link href="/home">
+              <span className={styles.linkStyle}>Home</span>
+            </Link>
+          </div>
+          <div className={styles.database} onClick={toData}>
+            <Image
+              src="/images/database.png"
+              alt="Database image"
+              width={45}
+              height={45}
+            />
+            <br />
+            <Link href="/next">
+              <span className={styles.linkStyle}>Database</span>
+            </Link>
+          </div>
+          <div className={styles.model} onClick={toModel}>
+            <Image
+              src="/images/model.png"
+              alt="Model image"
+              width={45}
+              height={45}
+            />
+            <br />
+            <Link href="/model">
+              <span className={styles.linkStyle}>Model</span>
+            </Link>
+          </div>
+          <div className={styles.label} onClick={toLabel}>
+            <Image
+              src="/images/tag.png"
+              alt="Label image"
+              width={45}
+              height={45}
+            />
+            <br />
+            <Link href="/label">
+              <span className={styles.linkStyle}>Label</span>
+            </Link>
+          </div>
+     
+        </div>
+    <div className={styles.abc}>
+      <input
+        type="file"
+        accept="audio/*"
+        onChange={handleFileChange}
+      />    
+      {audioURL && (
+        <audio controls className={styles.player}>
+          <source src={audioURL} type={audioFile?.type} />
+          Your browser does not support the audio element.
+        </audio>
+      )}
+      {audioURL && (
+        <div>
+          <div id="waveform" style={{ width: '75%', height: '120px' }}></div>
+          <div id="spectrogram" style={{ width: '75%', height: '120px' }}></div>
+        </div>
+      )}
+    </div>
+    </div>
+  </React.Fragment>
   );
 };
 
-export default NextPage;
+export default AudioPlayer;
