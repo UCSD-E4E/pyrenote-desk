@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron';
+
 var handler = {
     send: function (channel, value) {
         ipcRenderer.send(channel, value);
@@ -18,3 +19,13 @@ var handler = {
     },
 };
 contextBridge.exposeInMainWorld('ipc', handler);
+
+// Expose safe APIs to the renderer process
+//allows the user to send api's to the database
+contextBridge.exposeInMainWorld('api', {
+    runQuery: async (query, params) => {
+      // Use ipcRenderer.invoke to send the query to the main process
+      const result = await ipcRenderer.invoke('db-query', query, params);
+      return result; // Return the result to the renderer process
+    },
+  });
