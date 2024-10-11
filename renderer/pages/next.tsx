@@ -87,37 +87,29 @@ function UserForm() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
 
-  const insertRow = async (name, email) => {
+  const insertRow = async (name: string, email: string) => {
     // Use the IPC API exposed via preload script to send a query to the main process
     try {
-      console.log("name is "+ name);
-      await window.api.runQuery(
-        "INSERT INTO Labeler (name, email) VALUES (?, ?)",
-        [name, email]  // Passing parameters
-      );
-      console.log("Row inserted!");
-      
-      console.log("All rows in labeler:");
-      window.api.runQuery("SELECT * FROM Labeler").then(rows => {
-        console.log("Rows:", rows);
-      });
+        console.log("name is " + name);
 
+        // Insert a new row into the Labeler table
+        await window.api.runQuery(
+            "INSERT INTO Labeler (name, email) VALUES (?, ?)",
+            [name, email]  // Passing parameters
+        );
+        console.log("Row inserted!");
     } catch (error) {
-      console.error("Failed to insert row:", error);
+        console.error("Failed to insert row:", error);
     }
   };
 
-
-
-  
   const handleSubmit = (event) => {
     event.preventDefault();
     // Display the user's input in an alert
     alert(`Name: ${name}\nEmail: ${email}`);
 
-    //save into database
     insertRow(name, email);
-
+    
     // Reset the form fields
     setName('');
     setEmail('');
