@@ -19,16 +19,38 @@ let dbInstance: any;
 // Function to create the database and load the schema
 async function createDatabase() {
   const SQL = await initSqlJs();
+  const dbPath = './mydatabase.db';
+  let db: any;
 
   // Load SQL file or create new database
   const sqlFilePath = './magnus.sqlite.sql';  // Use proper path handling
   const sqlFile = fs.readFileSync(sqlFilePath, 'utf8');
 
-  const db = new SQL.Database(); // Create an in-memory SQL.js database
-  db.run(sqlFile);  // Load schema from file
+  //const db = new SQL.Database(); // Create an in-memory SQL.js database
+  //db.run(sqlFile);  // Load schema from file
+  if (fs.existsSync(dbPath)) {
+    //if file exists, you assume that schema has already been added and there may even be data potentially
+    console.log("file existed");
+    const fileBuffer = fs.readFileSync(dbPath);
+    db = new SQL.Database(fileBuffer);
+  } else {
+    console.log("file did NOT exist");
+    db = new SQL.Database();
+    db.run(sqlFile);  // Load schema from file
+  }
 
   console.log('Database initialized!');
   return db; // Return the database instance
+}
+
+async function saveDatabase() {
+  if (dbInstance) {
+    const dbPath = './mydatabase.db';
+    console.log("Saving database...");
+    const data = dbInstance.export(); // Export the database contents to a Uint8Array
+    fs.writeFileSync(dbPath, Buffer.from(data)); // Write the exported data to the file
+    console.log("Database saved!");
+  }
 }
 
 // Async function to initialize the app and database
@@ -44,7 +66,7 @@ async function createDatabase() {
     height: 600,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
-      contextIsolation: true, // added by me to use contextBridge
+      contextIsolation: true, // added to use contextBridge for database
       nodeIntegration:false, //prevents malicious attackers by not allowing thigns like import fs to get rendered in renderer
     },
   });
@@ -58,19 +80,6 @@ async function createDatabase() {
   }
 })();
 
-/*
-//returning weird things
-// Handle IPC requests for database queries from the renderer
-ipcMain.handle('db-query', async (event, query, params) => {
-  try {
-    const result = dbInstance.run(query, params); // Execute the query on the main process
-    return result;
-  } catch (error) {
-    console.error('Database Error:', error);
-    throw error;
-  }
-});
-*/
 
 //listener for the event called db-query
 ipcMain.handle('db-query', async (event, query, params) => {
@@ -95,6 +104,12 @@ ipcMain.handle('db-query', async (event, query, params) => {
 // Handle other IPC events, if necessary
 ipcMain.on('message', async (event, arg) => {
   event.reply('message', `${arg} World!`);
+});
+
+// This will trigger just before the app quits
+app.on('before-quit', async (event) => {
+  console.log('App is quitting, saving the database...');
+  await saveDatabase();  // Call the save function before quitting
 });
 
 // Quit when all windows are closed
