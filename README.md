@@ -18,3 +18,5 @@ Previously, I was using sql.js, which creates databases that don't persist. To c
 - renderer/pages/next.tsx
 - packages.json (due to the yarn add command mentioned above)
 - yarn.lock (due to the yarn add command mentioned above)
+
+Now, I added a button where the user can upload a csv and the code parses it and uploads it into the Labeler table of the database.

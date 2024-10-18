@@ -81,21 +81,28 @@
 
 // export default AudioVisualizer;
 
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
+import Papa from 'papaparse';
 
 function UserForm() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [csvData, setCsvData] = useState<Array<any>>([]);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const insertRow = async (name: string, email: string) => {
+  //need to mind the order of parameters but can enter any numbebr of parameters and this function will work
+  const insertRow = async (name: string | null, email: string | null, url: string | null, model_version: string | null, is_human: number | null ) => {
+    name= name || null;
+    email= email || null;
+    url= url || null;
+    model_version = model_version || null;
+    is_human = is_human || null;
     // Use the IPC API exposed via preload script to send a query to the main process
     try {
-        console.log("name is " + name);
-
         // Insert a new row into the Labeler table
         await window.api.runQuery(
-            "INSERT INTO Labeler (name, email) VALUES (?, ?)",
-            [name, email]  // Passing parameters
+            "INSERT INTO Labeler (name, email, url, model_version, is_human) VALUES (?, ?, ?, ?, ?)",
+            [name, email, url, model_version, is_human]  // Passing parameters
         );
         console.log("Row inserted!");
     } catch (error) {
@@ -108,12 +115,46 @@ function UserForm() {
     // Display the user's input in an alert
     alert(`Name: ${name}\nEmail: ${email}`);
 
+    //all the other values default to null if not specified
     insertRow(name, email);
+
+    const file = fileInputRef.current?.files?.[0];
+    if (file) {
+      parseCSV(file);
+    }
     
     // Reset the form fields
     setName('');
     setEmail('');
   };
+
+  const parseCSV = (file: File) => {
+    Papa.parse(file, {
+      header: true, //assuming that csv has a header row
+      skipEmptyLines: true,
+      complete: (result) => {
+        const processedData = result.data.map((row: any) => {
+          // Replace empty cells with null so that all data is valid before ingesting
+          return Object.fromEntries(
+            Object.entries(row).map(([key, value]) => [key, value === "" ? null : value])
+          );
+        });
+        console.log('Processed Data: ', processedData);
+        setCsvData(processedData); // Store processed data in state
+
+         // Insert each row into the database
+        for (const row of processedData) {
+          const { name, email, url, model_version, is_human } = row;
+          insertRow(name, email, url, model_version, is_human);
+        }
+      },
+      error: (error) => {
+        console.error('Error parsing CSV: ', error);
+      },
+    });
+  };
+
+  
 
   return (
     <div>
@@ -141,8 +182,35 @@ function UserForm() {
             />
           </label>
         </div>
+        <input type="file" accept=".csv" ref={fileInputRef}/>
+        <br/>
         <button type="submit">Submit</button>
       </form>
+
+      {/* Display parsed CSV data */}
+      {/* {csvData.length > 0 && ( */}
+        <div>
+          <h3>Parsed CSV Data:</h3>
+          <table>
+            <thead>
+              {/*<tr>
+                {Object.keys(csvData[0]).map((key) => (
+                  <th key={key}>{key}</th>
+                ))}
+              </tr> */}
+            </thead>
+            <tbody>
+              {csvData.map((row, index) => (
+                <tr key={index}>
+                  {Object.values(row).map((value, i) => (
+                    <td key={i}>{value}</td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      {/*)}*/}
     </div>
   );
 }
