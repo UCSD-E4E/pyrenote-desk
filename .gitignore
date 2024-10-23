@@ -1,13 +1,20 @@
-# dependencies
-node_modules
+# Ignore node_modules folder
+node_modules/
 
-# logs
+# Ignore build folders
+build/
+dist/
+release-builds/
+
+# Ignore Electron-packager and Electron-builder output
+release/
+out/
+
+# Ignore logs
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
-# next.js
-.next
-next-env.d.ts
-
-# build
-/app
-dist
+# Ignore .env files
+.env

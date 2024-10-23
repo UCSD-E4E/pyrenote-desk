@@ -8,7 +8,26 @@
   "scripts": {
     "dev": "nextron",
     "build": "nextron build",
-    "postinstall": "electron-builder install-app-deps"
+    "postinstall": "electron-builder install-app-deps",
+    "package-linux": "electron-builder --linux",
+    "package-mac": "electron-builder --mac",
+    "package-win": "electron-builder --win"
+  },
+  "build": {
+    "appId": "com.myapp.id",
+    "mac": {
+      "target": ["dmg", "zip"],
+      "category": "public.app-category.utilities",
+      "icon": "build/icons/icon.icns"
+    },
+    "linux": {
+      "target": ["AppImage", "deb", "rpm"],
+      "category": "Utility"
+    },
+    "win": {
+      "target": ["nsis", "zip"],
+      "icon": "build/icons/icon.ico"
+    }
   },
   "dependencies": {
     "@types/wavesurfer.js": "^6.0.12",
@@ -24,6 +43,7 @@
     "css-loader": "^7.1.2",
     "electron": "^31.0.1",
     "electron-builder": "^24.13.3",
+    "electron-packager": "^17.1.2",
     "next": "^14.2.4",
     "nextron": "^9.1.0",
     "react": "^18.3.1",
