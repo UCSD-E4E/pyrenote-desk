@@ -10,7 +10,6 @@ import SpectrogramPlugin from 'wavesurfer.js/dist/plugins/spectrogram';
 //import WaveSurfer from '../wavesurfer.js/src/wavesurfer.js';
 //import RegionsPlugin from '../wavesurfer.js/src/plugin/regions/index.js';
 //import SpectrogramPlugin from '../wavesurfer.js/src/plugin/spectrogram/index.js';
-import MultiCanvas from '../wavesurfer.js/src/drawer.multicanvas';
 //see if we can grab species from databse for dropdown, work with keybindings
 
 
@@ -40,6 +39,10 @@ const AudioPlayer: React.FC = () => {
   const [playing, setPlaying] = useState<Boolean>(false);
   const [index, setIndex] = useState<number>(0);
   const [wavesurfers, setWavesurfers] = useState([]);
+  const [isNextDisabled, setNextDisabled] = useState(false);
+  const [isPrevDisabled, setPrevDisabled] = useState(false);
+  const [isYesDisabled, setYesDisabled] = useState(false);
+  const [isNoDisabled, setNoDisabled] = useState(false);
   
   //Destroys Current Wavesurfer reference
   const destroyCurrentWaveSurfer = async () => {
@@ -52,17 +55,36 @@ const AudioPlayer: React.FC = () => {
   //Called when moving to previous audio clip 
   //destroys current wavesurfer and changes index
   const clickPrev = async () => {
+    if (isPrevDisabled){
+      return;
+    }
+    setPrevDisabled(true);
     if (index === 0) return;
     await destroyCurrentWaveSurfer();
     setIndex((prevIndex) => prevIndex - 1);
+
+    //buffer time between presses
+    setTimeout(() => {
+      setPrevDisabled(false);
+    }, 500); 
   }
 
   //Called when moving to next audio clip 
   //destroys current wavesurfer and changes index
   const clickNext = async () => {
+    if (isNextDisabled){
+      return;
+      //print message for user
+    }
+    setNextDisabled(true);
     if (index === wavesurfers.length - 1) return;
     await destroyCurrentWaveSurfer();
     setIndex((prevIndex) => prevIndex + 1);
+
+    //buffer time between presses
+    setTimeout(() => {
+      setNextDisabled(false);
+    }, 500); 
   }
 
   //Plays the current wavesurfer audio
@@ -82,16 +104,56 @@ const AudioPlayer: React.FC = () => {
     move rest up
     save annotation in database */
   const clickYes = async () => {
+    if (isYesDisabled){
+      return;
+    }
+    setYesDisabled(true);
+
+    if (index == 0){
+      let currentWaveSurfer = wavesurfers[index].instance
+      if (wavesurfers.length === 1){
+        setShowSpec(false);
+        setWavesurfers([]);
+      }
+      else {
+        await currentWaveSurfer.destroy();
+        currentWaveSurfer = null;
+        // Remove the first WaveSurfer 
+        setWavesurfers((wavesurfers) => wavesurfers.slice(1));
+        setIndex(0);
+
+        //buffer between button presses
+        setTimeout(() => {
+          setYesDisabled(false);
+        }, 500); 
+        return;
+      }
+      await currentWaveSurfer.destroy();
+      currentWaveSurfer = null;
+
+      //buffer between button presses
+      setTimeout(() => {
+        setYesDisabled(false);
+      }, 500); 
+
+      return;
+    }
     await destroyCurrentWaveSurfer();
     setWavesurfers(wavesurfers => {
       // Remove the WaveSurfer from the array
       return wavesurfers.filter((_, i) => i !== index);
     });
-
+    if (wavesurfers.length == 0){
+      setWavesurfers([]);
+    }
     //adjust index if array is shorter than index
     if (wavesurfers.length - 1 >= index){
       setIndex(index - 1);
     }
+    //buffer between button presses
+    setTimeout(() => {
+      setYesDisabled(false);
+    }, 500); 
   };
 
   /* called when audio doesn't match model annotation
@@ -99,16 +161,58 @@ const AudioPlayer: React.FC = () => {
     move rest up
     save annotation in database */
   const clickNo = async () => {
+    if (isNoDisabled){
+      return;
+    }
+    setNoDisabled(true);
+
+    if (index == 0){
+      let currentWaveSurfer = wavesurfers[index].instance
+      if (wavesurfers.length === 1){
+        setShowSpec(false);
+        setWavesurfers([]);
+      }
+      else {
+        await currentWaveSurfer.destroy();
+        currentWaveSurfer = null;
+        // Remove the first WaveSurfer 
+        setWavesurfers((wavesurfers) => wavesurfers.slice(1));
+        setIndex(0);
+
+        //buffer between button presses
+        setTimeout(() => {
+          setNoDisabled(false);
+        }, 500); 
+        return;
+      }
+      await currentWaveSurfer.destroy();
+      currentWaveSurfer = null;
+
+      //buffer between button presses
+      setTimeout(() => {
+        setNoDisabled(false);
+      }, 500); 
+      return;
+    }
     await destroyCurrentWaveSurfer();
     setWavesurfers(wavesurfers => {
       // Remove the WaveSurfer from the array
       return wavesurfers.filter((_, i) => i !== index);
     });
+    
     console.log(wavesurfers);
     //adjust index if array is shorter than index
+    if (wavesurfers.length == 0){
+      setWavesurfers([]);
+    }
     if (wavesurfers.length -1 >= index){
       setIndex(index - 1);
     }
+
+    //buffer between button presses
+    setTimeout(() => {
+      setNoDisabled(false);
+    }, 500); 
   };
   
   //Handle audio files upload/import and map new wavesurfers
@@ -164,6 +268,9 @@ const AudioPlayer: React.FC = () => {
     window.addEventListener('keydown', handleKeyDown);
       if (wavesurfers.length === 0){
         //alert user
+        
+        setShowSpec(false);
+        setIndex(0);
         console.log('No more audioclips');
       }
       else if (wavesurfers[index]) {
