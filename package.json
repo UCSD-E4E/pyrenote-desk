@@ -16,11 +16,8 @@
     "electron-serve": "^1.3.0",
     "electron-store": "^8.2.0",
     "papaparse": "^5.4.1",
-<<<<<<< HEAD
     "react-dropzone": "^14.2.3",
-=======
     "sql.js": "^1.11.0",
->>>>>>> 437c1c27016dba303baea552faab3e442ddcb7dd
     "wavesurfer.js": "^7.8.2"
   },
   "devDependencies": {
