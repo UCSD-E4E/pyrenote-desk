@@ -10,6 +10,7 @@ import SpectrogramPlugin from 'wavesurfer.js/dist/plugins/spectrogram';
 //import WaveSurfer from '../wavesurfer.js/src/wavesurfer.js';
 //import RegionsPlugin from '../wavesurfer.js/src/plugin/regions/index.js';
 //import SpectrogramPlugin from '../wavesurfer.js/src/plugin/spectrogram/index.js';
+
 //see if we can grab species from databse for dropdown, work with keybindings
 
 
