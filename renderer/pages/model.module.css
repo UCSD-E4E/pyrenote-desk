@@ -51,7 +51,7 @@
     align-items: flex-start;
     flex: 1; /* Allow magnus to grow and take available space */
     /*margin-top: 30px;*/
-    background-color: rgb(243, 243, 243);
+    /*background-color: rgb(243, 243, 243);*/
     border-radius: 10px;
     padding: 10px;
     box-sizing: border-box;

@@ -23,11 +23,130 @@
 .container {
     margin-top: 50px;
     display: flex;
+    gap: 20px; 
+    padding: 20px;
+    align-items: flex-start;
+    
 
 }
-.abc {
+.play:hover{
+    background-color: #b3fad1;
+    cursor: pointer;
+}
+.pause:hover{
+    background-color: #b3fad1;
+    cursor: pointer;
+}
+.replay:hover{
+    background-color: #b3fad1;
+    cursor: pointer;
+}
+.prevClip:hover{
+    background-color: #b3fad1;
+    cursor: pointer;
+}
+.nextClip:hover{
+    background-color: #b3fad1;
+    cursor: pointer;
+}
+.modelMatch:hover{
+    background-color: #b3fad1;
+    cursor: pointer;
+}
+.modelFail:hover{
+    background-color: #b3fad1;
+    cursor: pointer;
+}
+.play{
+    gap: 1px;
+    background-color: white;
+    padding: 1px;
+    margin-right: 20px;
+    border-radius: 10px;
+    border: none;
+    
+}
+.modelMatch{
+    gap: 1px;
+    background-color: white;
+    padding: 1px;
+    margin-right: 20px;
+    border-radius: 10px;
+    border: none;
+}
+.modelFail{
+    gap: 1px;
+    background-color: white;
+    padding: 1px;
+    margin-right: 20px;
+    border-radius: 10px;
+    border: none;
+}
+.pause{
+    gap: 1px;
+    background-color: white;
+    padding: 1px;
+    margin-right: 20px;
+    border-radius: 10px;
+    border: none;
+}
+.replay{
+    gap: 1px;
+    background-color: white;
+    padding: 1px;
+    margin-right: 20px;
+    border-radius: 10px;
+    border: none;
+}
+.prevClip{
+    gap: 1px;
+    background-color: white;
+    padding: 1px;
+    margin-right: 20px;
+    border-radius: 10px;
+    border: none;
+}
+.nextClip{
+    gap: 1px;
+    background-color: white;
+    padding: 1px;
+    margin-right: 20px;
+    border-radius: 10px;
+    border: none;
+}
+.waveContainer{
+    display: flex;
+    align-items: flex-start;
+    margin-bottom: 5px;
+    
+}
+.controls{
+    display: flex;
+    justify-content: center;
+    height: 90px;
+    margin-top: 10px;
+}
+.controls button {
+    margin: 10px; 
+    padding: 10px; 
+  }
+.controls button img {
+    height: 50px; 
+    width: 50px;
+
+  }
+.audioGraph {
+    gap: 1px;
+   
+}
+.main {
         margin-top: 20px; /* Add some margin to separate the waveform from the player */
-        text-align: center; /* Center text */
+        
+        text-align: left;
+        width: 75%;
+        /*text-align: center; /* Center text */
         flex-direction: column;
+        align-items: flex-start;
+        flex: 1; 
     }
 
