@@ -5,14 +5,6 @@ import Image from 'next/image'
 import styles from './label.module.css'
 import WaveSurfer from 'wavesurfer.js';
 import SpectrogramPlugin from 'wavesurfer.js/dist/plugins/spectrogram';
-//import WaveSurfer from '../wavesurfer.js/src/wavesurfer.js';
-//import SpectrogramPlugin from '../wavesurfer.js/src/plugin/spectrogram/spectrogram.js';
-//import WaveSurfer from '../wavesurfer.js/src/wavesurfer.js';
-//import RegionsPlugin from '../wavesurfer.js/src/plugin/regions/index.js';
-//import SpectrogramPlugin from '../wavesurfer.js/src/plugin/spectrogram/index.js';
-
-//see if we can grab species from databse for dropdown, work with keybindings
-
 
 //Generate ColorMap for Spectrogram
 const spectrogramColorMap = [];
@@ -239,7 +231,7 @@ const AudioPlayer: React.FC = () => {
   };
 
   //define keybindings
-  const handleKeyDown = async (event: KeyboardEvent) => {
+  /*const handleKeyDown = async (event: KeyboardEvent) => {
     switch (event.key) {
       case 'w': 
         clickYes();
@@ -260,13 +252,13 @@ const AudioPlayer: React.FC = () => {
       default:
         break;
     }
-  };
+  };*/
 
   //useEffect when index or wavesurfers updates
   useEffect(() => {
     console.log(index);
     
-    window.addEventListener('keydown', handleKeyDown);
+    //window.addEventListener('keydown', handleKeyDown);
       if (wavesurfers.length === 0){
         //alert user
         
@@ -304,7 +296,7 @@ const AudioPlayer: React.FC = () => {
       
       createWavesurfer();
         return () => {
-          window.removeEventListener('keydown', handleKeyDown);
+          //window.removeEventListener('keydown', handleKeyDown);
         };
       }
       else {
