@@ -31,6 +31,7 @@ const AudioPlayer: React.FC = () => {
   const [showSpec, setShowSpec] = useState<Boolean>(false);
   const [playing, setPlaying] = useState<Boolean>(false);
   const [index, setIndex] = useState<number>(0);
+  const [confidence, setConfidence] = useState<string>('10');
   const [wavesurfers, setWavesurfers] = useState([]);
   const [isNextDisabled, setNextDisabled] = useState(false);
   const [isPrevDisabled, setPrevDisabled] = useState(false);
@@ -51,6 +52,7 @@ const AudioPlayer: React.FC = () => {
     if (isPrevDisabled){
       return;
     }
+    setConfidence('10');
     setPrevDisabled(true);
     if (index === 0) return;
     await destroyCurrentWaveSurfer();
@@ -69,6 +71,7 @@ const AudioPlayer: React.FC = () => {
       return;
       //print message for user
     }
+    setConfidence('10');
     setNextDisabled(true);
     if (index === wavesurfers.length - 1) return;
     await destroyCurrentWaveSurfer();
@@ -100,6 +103,7 @@ const AudioPlayer: React.FC = () => {
     if (isYesDisabled){
       return;
     }
+    setConfidence('10');
     setYesDisabled(true);
 
     if (index == 0){
@@ -158,7 +162,7 @@ const AudioPlayer: React.FC = () => {
       return;
     }
     setNoDisabled(true);
-
+    setConfidence('10');
     if (index == 0){
       let currentWaveSurfer = wavesurfers[index].instance
       if (wavesurfers.length === 1){
@@ -230,6 +234,8 @@ const AudioPlayer: React.FC = () => {
     setIndex(0);
   };
 
+  //TODO: Implement Confidence Scale
+
   //define keybindings
   /*const handleKeyDown = async (event: KeyboardEvent) => {
     switch (event.key) {
@@ -253,7 +259,8 @@ const AudioPlayer: React.FC = () => {
         break;
     }
   };*/
-
+  
+  
   //useEffect when index or wavesurfers updates
   useEffect(() => {
     console.log(index);
@@ -428,9 +435,25 @@ const AudioPlayer: React.FC = () => {
               width={45}
               height={45}
             /></button>
+            
         </div>
+          
       )}
-    
+      {showSpec && 
+      <div>
+        <input 
+          type="range" 
+          id='confidence'
+          className={styles.confidence} 
+          name="confidence" 
+          min="0" 
+          max="10" 
+          value={confidence} 
+          onChange={(e) => setConfidence(e.target.value)}
+          list = "epochsList" />
+          <label className = {styles.confidenceLabel} htmlFor="confidence">Confidence: {confidence}</label>
+          </div>}
+      
       
     </div>
     </div>
