@@ -1,0 +1,48 @@
+.home,
+.model,
+.label,
+.database {
+    align-items: center;
+    margin-top: 50px;
+    padding: 10px;
+    /* Add some padding for better spacing */
+    border-radius: 8px;
+}
+
+.database:hover {
+    background-color: #b3fad1;
+    cursor: pointer;
+}
+
+.model:hover {
+    background-color: #b3fad1;
+    cursor: pointer;
+}
+
+.label:hover {
+    background-color: #b3fad1;
+    cursor: pointer;
+}
+
+.home:hover {
+    background-color: #b3fad1;
+    cursor: pointer;
+}
+
+.home img {
+    border-radius: 8px;
+}
+
+.container {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 20px;
+    padding: 16px;
+}
+
+.linkStyle {
+    color: black;
+    font-weight: normal;
+    text-decoration: none;
+}

@@ -18,7 +18,8 @@
     "papaparse": "^5.4.1",
     "react-dropzone": "^14.2.3",
     "sql.js": "^1.11.0",
-    "wavesurfer.js": "^7.8.2"
+    "wavesurfer.js": "^7.8.2",
+    "yarn": "^1.22.22"
   },
   "devDependencies": {
     "@types/node": "^20.11.16",
