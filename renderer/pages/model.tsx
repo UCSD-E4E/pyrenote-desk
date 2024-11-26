@@ -64,19 +64,6 @@ export default function ModelPage() {
   const imageIntervalRef = React.useRef<NodeJS.Timeout | null>(null);
   const messageIntervalRef = React.useRef<NodeJS.Timeout | null>(null);
 
-  const toHome = () => {
-    window.location.href = "/home";
-  };
-  const toData = () => {
-    window.location.href = "/next";
-  };
-  const toModel = () => {
-    window.location.href = "/model";
-  };
-  const toLabel = () => {
-    window.location.href = "/label";
-  };
-
   const images = [
     "/images/MagnusDefault.png",
     "/images/MagnusSing1.png",
@@ -161,56 +148,54 @@ export default function ModelPage() {
       <Head>
         <title>Model Page</title>
       </Head>
-      <div className={styles.container}>
-        <div className={styles.magnus}>
-          <div className={styles.images}>
-            <div>
-              {isButtonVisible && <FileUploadButton onClick={HandleClick} />}
-              {!isButtonVisible && <CancelButton onClick={HandleCancelClick} />}
-            </div>
+      <div className={styles.magnus}>
+        <div className={styles.images}>
+          <div>
+            {isButtonVisible && <FileUploadButton onClick={HandleClick} />}
+            {!isButtonVisible && <CancelButton onClick={HandleCancelClick} />}
+          </div>
 
-            <div style={{ textAlign: "center" }}>
-              {origionalImageVisible && (
-                <Image
-                  src="/images/MagnusDefault.png"
-                  alt="Image of Bird"
-                  width={610}
-                  height={400}
-                />
-              )}
+          <div style={{ textAlign: "center" }}>
+            {origionalImageVisible && (
+              <Image
+                src="/images/MagnusDefault.png"
+                alt="Image of Bird"
+                width={610}
+                height={400}
+              />
+            )}
 
-              {!origionalImageVisible && (
-                <Image
-                  src={images[imageIndex]}
-                  alt="Image of Bird Singing"
-                  width={610}
-                  height={400}
-                />
-              )}
+            {!origionalImageVisible && (
+              <Image
+                src={images[imageIndex]}
+                alt="Image of Bird Singing"
+                width={610}
+                height={400}
+              />
+            )}
 
-              {origionalTextVisible && (
-                <>
-                  <p>
-                    Magnus is waiting for you to select audio clip(s) from the
-                    library.
-                  </p>
-                  <p>Let's get Labeling!</p>
-                </>
-              )}
+            {origionalTextVisible && (
+              <>
+                <p>
+                  Magnus is waiting for you to select audio clip(s) from the
+                  library.
+                </p>
+                <p>Let's get Labeling!</p>
+              </>
+            )}
 
-              {loadingTextVisible && <p>{messages[messageIndex]}</p>}
-              {loadingTextVisible && <p>{loadingBar[messageIndex]}</p>}
+            {loadingTextVisible && <p>{messages[messageIndex]}</p>}
+            {loadingTextVisible && <p>{loadingBar[messageIndex]}</p>}
 
-              {successTextVisible && (
-                <>
-                  <p>Magnus has successfully labeled the data!</p>{" "}
-                  <p>
-                    Check out the database & label tab to examine the results or
-                    upload more data for labeling.
-                  </p>
-                </>
-              )}
-            </div>
+            {successTextVisible && (
+              <>
+                <p>Magnus has successfully labeled the data!</p>{" "}
+                <p>
+                  Check out the database & label tab to examine the results or
+                  upload more data for labeling.
+                </p>
+              </>
+            )}
           </div>
         </div>
       </div>

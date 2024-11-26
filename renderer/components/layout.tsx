@@ -19,8 +19,8 @@ function Layout({ children }: { children: React.ReactNode }) {
   return (
     <>
       <div className={styles.container}>
-        <div>
-          <div className={styles.home} onClick={toHome}>
+        <div className={styles.sidebar}>
+          <div className={styles.icon} onClick={toHome}>
             <Image
               src="/images/home.png"
               alt="Home image"
@@ -28,11 +28,9 @@ function Layout({ children }: { children: React.ReactNode }) {
               height={45}
             />
             <br />
-            <Link href="/next">
-              <span className={styles.linkStyle}>Home</span>
-            </Link>
+            <span className={styles.linkStyle}>Home</span>
           </div>
-          <div className={styles.database} onClick={toData}>
+          <div className={styles.icon} onClick={toData}>
             <Image
               src="/images/database.png"
               alt="Database image"
@@ -40,11 +38,9 @@ function Layout({ children }: { children: React.ReactNode }) {
               height={45}
             />
             <br />
-            <Link href="/next">
-              <span className={styles.linkStyle}>Database</span>
-            </Link>
+            <span className={styles.linkStyle}>Database</span>
           </div>
-          <div className={styles.model} onClick={toModel}>
+          <div className={styles.icon} onClick={toModel}>
             <Image
               src="/images/model.png"
               alt="Model image"
@@ -52,11 +48,9 @@ function Layout({ children }: { children: React.ReactNode }) {
               height={45}
             />
             <br />
-            <Link href="/model">
-              <span className={styles.linkStyle}>Model</span>
-            </Link>
+            <span className={styles.linkStyle}>Model</span>
           </div>
-          <div className={styles.label} onClick={toLabel}>
+          <div className={styles.icon} onClick={toLabel}>
             <Image
               src="/images/tag.png"
               alt="Label image"
@@ -64,9 +58,7 @@ function Layout({ children }: { children: React.ReactNode }) {
               height={45}
             />
             <br />
-            <Link href="/label">
-              <span className={styles.linkStyle}>Label</span>
-            </Link>
+            <span className={styles.linkStyle}>Label</span>
           </div>
         </div>
         <main>{children}</main>

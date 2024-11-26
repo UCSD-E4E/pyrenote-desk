@@ -11,10 +11,6 @@ export default function HomePage() {
         <title>Home - Magnus (basic-lang-typescript)</title>
       </Head>
       <div className={styles.container}>
-        <br />
-        <br />
-        <br />
-        <br />
         <div className={styles.magnus}>
           <br />
           <h1>MagnusNote</h1>

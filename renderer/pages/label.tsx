@@ -1,6 +1,5 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import Head from "next/head";
-import Link from "next/link";
 import Image from "next/image";
 import styles from "./label.module.css";
 import WaveSurfer from "wavesurfer.js";
@@ -14,24 +13,11 @@ for (let i = 0; i < 256; i++) {
 }
 
 const AudioPlayer: React.FC = () => {
-  //navigation
-  const toHome = () => {
-    window.location.href = "/home";
-  };
-  const toData = () => {
-    window.location.href = "/next";
-  };
-  const toModel = () => {
-    window.location.href = "/model";
-  };
-  const toLabel = () => {
-    window.location.href = "/label";
-  };
-
   const [showSpec, setShowSpec] = useState<Boolean>(false);
   const [playing, setPlaying] = useState<Boolean>(false);
   const [index, setIndex] = useState<number>(0);
   const [confidence, setConfidence] = useState<string>("10");
+  // TODO: Add typing
   const [wavesurfers, setWavesurfers] = useState([]);
   const [isNextDisabled, setNextDisabled] = useState(false);
   const [isPrevDisabled, setPrevDisabled] = useState(false);
@@ -86,13 +72,13 @@ const AudioPlayer: React.FC = () => {
   //Plays the current wavesurfer audio
   const clickPlay = async () => {
     wavesurfers[index].instance.playPause();
-    await setPlaying(true);
+    setPlaying(true);
   };
 
   //Pauses the current wavesurfer audio
   const clickPause = async () => {
     wavesurfers[index].instance.playPause();
-    await setPlaying(false);
+    setPlaying(false);
   };
 
   /* called when confirming audio matches model annotation
