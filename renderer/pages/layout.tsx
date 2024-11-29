@@ -1,23 +1,25 @@
 import Image from "next/image";
 import styles from "./layout.module.css";
+import { useRouter } from "next/router";
 
 function Layout({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
   const toHome = () => {
-    window.location.href = "/home";
+    router.push("/home");
   };
   const toData = () => {
-    window.location.href = "/next";
+    router.push("/next");
   };
   const toModel = () => {
-    window.location.href = "/model";
+    router.push("/model");
   };
   const toLabel = () => {
-    window.location.href = "/label";
+    router.push("/label");
   };
 
   return (
     <>
-      <div className={styles.container}>
+      <div className="flex gap-5 p-4">
         <div className={styles.sidebar}>
           <div className={styles.icon} onClick={toHome}>
             <Image

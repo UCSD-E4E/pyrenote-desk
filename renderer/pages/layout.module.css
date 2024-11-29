@@ -20,13 +20,6 @@
     cursor: pointer;
 }
 
-.container {
-    display: flex;
-    align-items: flex-start;
-    gap: 20px;
-    padding: 16px;
-}
-
 .linkStyle {
     color: black;
     font-weight: normal;
