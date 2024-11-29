@@ -12,13 +12,21 @@ for (let i = 0; i < 256; i++) {
   spectrogramColorMap.push([val / 2, val / 3, val, 1]);
 }
 
+type WavesurferDetails = {
+  id: string;
+  spectrogramId: string;
+  file: File;
+  instance: WaveSurfer;
+  class: string;
+};
+
 const AudioPlayer: React.FC = () => {
   const [showSpec, setShowSpec] = useState<Boolean>(false);
   const [playing, setPlaying] = useState<Boolean>(false);
   const [index, setIndex] = useState<number>(0);
   const [confidence, setConfidence] = useState<string>("10");
   // TODO: Add typing
-  const [wavesurfers, setWavesurfers] = useState([]);
+  const [wavesurfers, setWavesurfers] = useState<WavesurferDetails[]>([]);
   const [isNextDisabled, setNextDisabled] = useState(false);
   const [isPrevDisabled, setPrevDisabled] = useState(false);
   const [isYesDisabled, setYesDisabled] = useState(false);
@@ -27,7 +35,7 @@ const AudioPlayer: React.FC = () => {
   //Destroys Current Wavesurfer reference
   const destroyCurrentWaveSurfer = async () => {
     if (wavesurfers[index]?.instance) {
-      await wavesurfers[index].instance.destroy();
+      wavesurfers[index].instance.destroy();
       wavesurfers[index].instance = null;
     }
   };
@@ -98,7 +106,7 @@ const AudioPlayer: React.FC = () => {
         setShowSpec(false);
         setWavesurfers([]);
       } else {
-        await currentWaveSurfer.destroy();
+        currentWaveSurfer.destroy();
         currentWaveSurfer = null;
         // Remove the first WaveSurfer
         setWavesurfers((wavesurfers) => wavesurfers.slice(1));
@@ -110,7 +118,7 @@ const AudioPlayer: React.FC = () => {
         }, 500);
         return;
       }
-      await currentWaveSurfer.destroy();
+      currentWaveSurfer.destroy();
       currentWaveSurfer = null;
 
       //buffer between button presses
@@ -154,7 +162,7 @@ const AudioPlayer: React.FC = () => {
         setShowSpec(false);
         setWavesurfers([]);
       } else {
-        await currentWaveSurfer.destroy();
+        currentWaveSurfer.destroy();
         currentWaveSurfer = null;
         // Remove the first WaveSurfer
         setWavesurfers((wavesurfers) => wavesurfers.slice(1));
@@ -166,7 +174,7 @@ const AudioPlayer: React.FC = () => {
         }, 500);
         return;
       }
-      await currentWaveSurfer.destroy();
+      currentWaveSurfer.destroy();
       currentWaveSurfer = null;
 
       //buffer between button presses
@@ -197,7 +205,7 @@ const AudioPlayer: React.FC = () => {
   };
 
   //Handle audio files upload/import and map new wavesurfers
-  const handleFiles = (acceptedFiles) => {
+  const handleFiles = (acceptedFiles: File[]) => {
     console.log("Files dropped:", acceptedFiles);
 
     const newWaveSurfers = acceptedFiles.map((file, index) => {
@@ -205,7 +213,7 @@ const AudioPlayer: React.FC = () => {
       const spectrogramId = `spectrogram-${wavesurfers.length + index}`;
       return {
         id: containerId,
-        specId: spectrogramId,
+        spectrogramId: spectrogramId,
         file: file,
         instance: null,
         class: "spectrogramContainer",
