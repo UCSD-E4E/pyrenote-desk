@@ -97,6 +97,32 @@ function UserForm() {
     setEmail('');
   };
 
+  const runPython = async () => {
+    try {
+      const result = await window.api.runScript();
+      console.log('Script Output:', result);
+    } catch (error) {
+      console.error('Error running script:', error);
+    }
+  };
+
+  //inserts entry into the "Labeler" table in the database
+  const insertRow = async (name: string | null, email: string | null, url: string | null, model_version: string | null, is_human: number | null ) => {
+    name= name || null;
+    email= email || null;
+    url= url || null;
+    model_version = model_version || null;
+    is_human = is_human || null;
+    try {
+        await window.api.runQuery(
+            "INSERT INTO Labeler (name, email, url, model_version, is_human) VALUES (?, ?, ?, ?, ?)",
+            [name, email, url, model_version, is_human]  // Passing parameters
+        );
+    } catch (error) {
+        console.error("Failed to insert row:", error);
+    }
+  };
+
   return (
     <div>
       <h1>User Form</h1>
@@ -125,6 +151,7 @@ function UserForm() {
         </div>
         <button type="submit">Submit</button>
       </form>
+      <button onClick={runPython}>Run Python Script</button>
     </div>
   );
 }

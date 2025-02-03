@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@types/wavesurfer.js": "^6.0.12",
+    "better-sqlite3": "^11.8.1",
     "debounce": "^2.1.1",
     "electron-serve": "^1.3.0",
     "electron-store": "^8.2.0",

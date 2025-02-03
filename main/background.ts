@@ -2,6 +2,9 @@ import path from 'path'
 import { app, ipcMain } from 'electron'
 import serve from 'electron-serve'
 import { createWindow } from './helpers'
+import Database from 'better-sqlite3';
+import fs from 'fs';
+import { execFile } from 'child_process';
 
 const isProd = process.env.NODE_ENV === 'production'
 
@@ -11,14 +14,37 @@ if (isProd) {
   app.setPath('userData', `${app.getPath('userData')} (development)`)
 }
 
+let dbInstance: any;
+
+function createDatabase() {
+  const dbPath = './pyrenoteDeskDatabase.db';
+  let db: any;
+
+  if (fs.existsSync(dbPath)) {
+    db = new Database(dbPath);
+  }
+  else{
+    //Creates new database if it did not exist already
+    db = new Database(dbPath);
+    const sqlFilePath = './magnus.sqlite.sql';
+    const sqlFile = fs.readFileSync(sqlFilePath, 'utf8');
+    db.exec(sqlFile);
+  }
+  return db;
+}
+
+
 ;(async () => {
   await app.whenReady()
+  dbInstance = createDatabase();
 
   const mainWindow = createWindow('main', {
     width: 1000,
     height: 600,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration:false,
     },
   })
 
@@ -34,6 +60,38 @@ if (isProd) {
 app.on('window-all-closed', () => {
   app.quit()
 })
+
+//Closes database connection right before app quits
+app.on('before-quit', async (event) => {
+  if (dbInstance) {
+      dbInstance.close(); 
+  }
+});
+
+//Listener for running queries on the database
+ipcMain.handle('db-query', async (event, query, params) => {
+  try {
+      const stmt = dbInstance.prepare(query); 
+      stmt.run(params); 
+      return { success: true };
+  } catch (error) {
+      console.error("Failed to run query:", error);
+      throw error; 
+  }
+});
+
+//Listener for running the script
+ipcMain.handle('run-script', async () => {
+  return new Promise((resolve, reject) => {
+    execFile('python', ['pyfiles/script.py'], (error, stdout, stderr) => {
+      if (error) {
+        return reject(stderr); 
+      }
+      //Passes output back to the renderer
+      resolve(stdout);
+    });
+  });
+});
 
 ipcMain.on('message', async (event, arg) => {
   event.reply('message', `${arg} World!`)

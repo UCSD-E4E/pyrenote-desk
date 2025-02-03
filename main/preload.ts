@@ -1,5 +1,10 @@
 import { contextBridge, ipcRenderer, IpcRendererEvent } from 'electron'
 
+contextBridge.exposeInMainWorld('api', {
+  runQuery: (query: string, params: any) => ipcRenderer.invoke('db-query', query, params),
+  runScript: () => ipcRenderer.invoke('run-script'), 
+});
+
 const handler = {
   send(channel: string, value: unknown) {
     ipcRenderer.send(channel, value)
