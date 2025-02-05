@@ -399,12 +399,7 @@ const AudioPlayer: React.FC = () => {
               height={45}
             />
           </button>
-          <button className={styles.modelMatch} onClick={clickYes}><Image
-              src="/images/check.png"
-              alt="Model Prediction Success Button"
-              width={45}
-              height={45}
-            />
+          <button className={styles.modelMatch} onClick={clickYes}>Save
           </button>
           {!playing && 
             <button className={styles.play} onClick={clickPlay}><Image
@@ -422,12 +417,7 @@ const AudioPlayer: React.FC = () => {
               height={45}
             />
           </button>}
-          <button className={styles.modelFail} onClick={clickNo}><Image
-              src="/images/X.png"
-              alt="Model Prediction Fail Button"
-              width={45}
-              height={45}
-            />
+          <button className={styles.modelFail} onClick={clickNo}>Delete
           </button>
           <button className={styles.nextClip} onClick={clickNext}><Image
               src="/images/RArrow.png"
