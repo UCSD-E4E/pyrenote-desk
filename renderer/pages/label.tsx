@@ -5,6 +5,7 @@ import Image from 'next/image'
 import styles from './label.module.css'
 import WaveSurfer from 'wavesurfer.js';
 import SpectrogramPlugin from 'wavesurfer.js/dist/plugins/spectrogram';
+import RegionsPlugin from 'wavesurfer.js/dist/plugins/regions';
 
 //Generate ColorMap for Spectrogram
 const spectrogramColorMap = [];
@@ -266,50 +267,104 @@ const AudioPlayer: React.FC = () => {
     console.log(index);
     
     //window.addEventListener('keydown', handleKeyDown);
-      if (wavesurfers.length === 0){
-        //alert user
-        
-        setShowSpec(false);
-        setIndex(0);
-        console.log('No more audioclips');
-      }
-      else if (wavesurfers[index]) {
-        //if wavesurfers[index] exists
-        console.log(index); 
-        //create wavesurfer
-        const createWavesurfer = async () => {
-          const ws = await WaveSurfer.create({
-            container: `#${wavesurfers[index].id}`,
-            waveColor: 'violet',
-            progressColor: 'purple',
-            plugins: [
-              SpectrogramPlugin.create({
-                container: `#${wavesurfers[index].spectrogramId}`,
-                labels: true,
-                colorMap: spectrogramColorMap
-                
-              }),
-            ],
-          });
-        
-          await ws.load(URL.createObjectURL(wavesurfers[index].file));
-          console.log(ws);
-          console.log('loaded ws');
-          wavesurfers[index].instance = ws;
-          
+      if (wavesurfers.length === 0) {
+      //alert user
 
-          document.getElementById(wavesurfers[index].spectrogramId)?.classList.add('spectrogramContainer');
-      }
-      
+      setShowSpec(false);
+      setIndex(0);
+      console.log('No more audioclips');
+    } else if (wavesurfers[index]) {
+      //if wavesurfers[index] exists
+      console.log(index);
+      //create wavesurfer
+      const createWavesurfer = async () => {
+        const ws = await WaveSurfer.create({
+          container: `#${wavesurfers[index].id}`,
+          waveColor: 'violet',
+          progressColor: 'purple',
+          plugins: [
+            SpectrogramPlugin.create({
+              container: `#${wavesurfers[index].spectrogramId}`,
+              labels: true,
+              colorMap: spectrogramColorMap
+              
+
+            }),
+            // Creates Region plugins 
+            ((RegionsPlugin as any).create({
+              name: 'regions',
+              regions: [],
+              drag: true,
+              resize: true,
+              color: 'rgba(0, 255, 0, 0.3)'
+            }) as any)            
+          ],
+        });
+
+        // Enable region resizing by dragging
+        const regionsPlugin = (ws as any).regions;
+        if (regionsPlugin && typeof regionsPlugin.enableDragSelection === 'function') {
+          regionsPlugin.enableDragSelection({ color: 'rgba(0, 255, 0, 0.3)' });
+        } else {
+          console.warn('Regions plugin or enableDragSelection method unavailable.');
+        }           
+
+        await ws.load(URL.createObjectURL(wavesurfers[index].file));
+        console.log(ws);
+        console.log('loaded ws');
+        wavesurfers[index].instance = ws;
+        
+        // Prompt the user to label regions
+        ws.on('region-created' as any, (region: any) => {
+          setTimeout(() => {
+            const label = prompt("Enter label for this region:", "");
+            if (label) {
+              region.data = { label };
+              // Create label elements 
+              (region as any).update({ color: 'rgba(0, 0, 255, 0.3)' });
+              const labelElem = document.createElement('span');
+              labelElem.className = 'region-label';
+              labelElem.textContent = label;
+              (region as any).element.appendChild(labelElem);
+            }
+          }, 500);
+        });
+        
+        // Edit region labels
+        ws.on('region-dblclick' as any, (region: any) => {
+          const label = prompt("Edit label for this region:", region.data?.label || "");
+          if (label !== null) {
+            region.data = { label };
+            const labelElem = (region as any).element.querySelector('.region-label');
+            if (labelElem) {
+              labelElem.textContent = label;
+            } else {
+              const newLabelElem = document.createElement('span');
+              newLabelElem.className = 'region-label';
+              newLabelElem.textContent = label;
+              (region as any).element.appendChild(newLabelElem);
+            }
+          }
+        });   
+
+        // Allows for console creation of regions for testing
+        window.ws = ws;
+        // Type ignore later
+        const regionPlugin = (ws as any).plugins.find((p: any) => p.name === 'regions');
+
+
+        document.getElementById(wavesurfers[index].spectrogramId)?.classList.add('spectrogramContainer');
+      };
+
       createWavesurfer();
-        return () => {
-          //window.removeEventListener('keydown', handleKeyDown);
-        };
-      }
-      else {
-        console.log('failed initialization');
-      }
+      return () => {
+        //window.removeEventListener('keydown', handleKeyDown);
+      };
+    } else {
+      console.log('failed initialization');
+    }
   }, [index, wavesurfers]);
+
   
   return (
     <React.Fragment>
