@@ -18,6 +18,9 @@ export default function HomePage() {
   const toLabel = () => {
     window.location.href = '/label';
   };
+  const toVerify = () => {
+    window.location.href = '/verify';
+  };
 
   return (
     <React.Fragment>
@@ -72,6 +75,20 @@ export default function HomePage() {
             <br />
             <Link href="/label">
               <span className={styles.linkStyle}>Label</span>
+            </Link>
+          </div>
+
+
+		  <div className={styles.verify} onClick = {toVerify}>
+            <Image
+              src="/images/verify.png"
+              alt="Verify image"
+              width={45}
+              height={45}
+            />
+            <br />
+            <Link href="/verify">
+              <span className={styles.linkStyle}>Verify</span>
             </Link>
           </div>
         </div>

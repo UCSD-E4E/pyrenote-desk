@@ -1,9 +1,9 @@
-.home,.model,.label,.database {
+.home,.model,.label,.database,.verify {
     align-items: center;
     margin-top:50px;
     padding: 10px; /* Add some padding for better spacing */
     border-radius: 8px;
-  }
+}
 .database:hover{
     background-color: #b3fad1;
     cursor: pointer;
@@ -20,14 +20,16 @@
     background-color: #b3fad1;
     cursor: pointer;
 }
+.verify:hover{
+    background-color: #b3fad1;
+    cursor: pointer;
+}
 .container {
     margin-top: 50px;
     display: flex;
     gap: 20px; 
     padding: 20px;
     align-items: flex-start;
-    
-
 }
 .play:hover{
     background-color: #b3fad1;
@@ -157,13 +159,13 @@
    
 }
 .main {
-        margin-top: 20px; /* Add some margin to separate the waveform from the player */
-        
-        text-align: left;
-        width: 75%;
-        /*text-align: center; /* Center text */
-        flex-direction: column;
-        align-items: flex-start;
-        flex: 1; 
-    }
+	margin-top: 20px; /* Add some margin to separate the waveform from the player */
+	
+	text-align: left;
+	width: 75%;
+	/*text-align: center; /* Center text */
+	flex-direction: column;
+	align-items: flex-start;
+	flex: 1; 
+}
 

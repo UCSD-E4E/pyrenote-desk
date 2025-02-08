@@ -1,4 +1,4 @@
-.home,.model,.label,.database {
+.home,.model,.label,.database,.verify {
     align-items: center;
     margin-top:50px;
     padding: 10px; /* Add some padding for better spacing */
@@ -17,6 +17,10 @@
     cursor: pointer;
 }
 .home:hover{
+    background-color: #b3fad1;
+    cursor: pointer;
+}
+.verify:hover{
     background-color: #b3fad1;
     cursor: pointer;
 }
