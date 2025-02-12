@@ -5,6 +5,27 @@ import sys
 from datetime import datetime
 import os
 
+id = 0; 
+def process_audio_files(file_paths):
+    """
+    Takes in a list of strings file_paths
+    Outputs dataframe
+    """
+    results = []
+    for file_path in file_paths:
+        file_name = os.path.basename(file_path) #gets just the file name from the path
+        id+=1;
+        result = {
+            "FILE NAME": file_name,
+            "id": id,
+            "Amabaw1_x": 0.453,  #placeholder inference results
+            "Amapyo1_y": 0.873,  #placeholder inference results
+        }
+        results.append(result)
+
+    return pd.DataFrame(results);
+
+
 # Sample DataFrame 
 data = {
     "FILE NAME": ["file1.wav", "file2.wav", "file3.wav"],
@@ -12,7 +33,8 @@ data = {
     "Amabaw1_x": [0.453, 0.234, 0.895],
     "Amapyo1_y": [0.873, 0.657, 0.345],
 }
-eval_df = pd.DataFrame(data)
+eval_df = pd.DataFrame(data) 
+#^eval_df can now be replaced with process_audio_files(file_paths)
 
 # Identify the bird species with the highest probability and simply include that in the final data frame
 species_columns = [col for col in eval_df.columns if col not in ["FILE NAME", "id"] and pd.api.types.is_numeric_dtype(eval_df[col])]
