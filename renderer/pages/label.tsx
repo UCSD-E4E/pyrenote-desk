@@ -39,6 +39,8 @@ const AudioPlayer: React.FC = () => {
   const [isYesDisabled, setYesDisabled] = useState(false);
   const [isNoDisabled, setNoDisabled] = useState(false);
   
+  const activeRegionRef = useRef<any>(null);
+
   //Destroys Current Wavesurfer reference
   const destroyCurrentWaveSurfer = async () => {
     if (wavesurfers[index]?.instance) {
@@ -86,10 +88,17 @@ const AudioPlayer: React.FC = () => {
 
   //Plays the current wavesurfer audio
   const clickPlay = async () => {
-    wavesurfers[index].instance.playPause();
-    await setPlaying(true);
+    const wsInstance = wavesurfers[index].instance;
+
+    // plays the active region
+    if (wsInstance && activeRegionRef.current) {
+      activeRegionRef.current.play();
+    } else if (wsInstance) {
+      wsInstance.playPause();
+    }
+    setPlaying(true);
   };
-  
+
   //Pauses the current wavesurfer audio
   const clickPause = async() => {
     wavesurfers[index].instance.playPause();
@@ -273,7 +282,8 @@ const AudioPlayer: React.FC = () => {
       setShowSpec(false);
       setIndex(0);
       console.log('No more audioclips');
-    } else if (wavesurfers[index]) {
+    } 
+    else if (wavesurfers[index]) {
       //if wavesurfers[index] exists
       console.log(index);
       //create wavesurfer
@@ -286,81 +296,103 @@ const AudioPlayer: React.FC = () => {
             SpectrogramPlugin.create({
               container: `#${wavesurfers[index].spectrogramId}`,
               labels: true,
-              colorMap: spectrogramColorMap
-              
-
+              colorMap: spectrogramColorMap,
             }),
-            // Creates Region plugins 
-            ((RegionsPlugin as any).create({
-              name: 'regions',
-              regions: [],
-              drag: true,
-              resize: true,
-              color: 'rgba(0, 255, 0, 0.3)'
-            }) as any)            
           ],
         });
-
-        // Enable region resizing by dragging
-        const regionsPlugin = (ws as any).regions;
-        if (regionsPlugin && typeof regionsPlugin.enableDragSelection === 'function') {
-          regionsPlugin.enableDragSelection({ color: 'rgba(0, 255, 0, 0.3)' });
-        } else {
-          console.warn('Regions plugin or enableDragSelection method unavailable.');
-        }           
-
+      
+        // Allow draw selection with Regions plugin
+        const wsRegions = ws.registerPlugin((RegionsPlugin as any).create({
+          name: 'regions',
+          regions: [],
+          drag: true,
+          resize: true,
+          color: 'rgba(0, 255, 0, 0.3)',
+          dragSelection: true
+        }));
+      
+        // Enable drag selection with a constant color and threshold.
+        const disableDragSelection = wsRegions.enableDragSelection({ color: 'rgba(0,255,0,0.3)' }, 3);
+      
         await ws.load(URL.createObjectURL(wavesurfers[index].file));
-        console.log(ws);
         console.log('loaded ws');
         wavesurfers[index].instance = ws;
-        
-        // Prompt the user to label regions
-        ws.on('region-created' as any, (region: any) => {
-          setTimeout(() => {
-            const label = prompt("Enter label for this region:", "");
-            if (label) {
-              region.data = { label };
-              // Create label elements 
-              (region as any).update({ color: 'rgba(0, 0, 255, 0.3)' });
-              const labelElem = document.createElement('span');
-              labelElem.className = 'region-label';
-              labelElem.textContent = label;
-              (region as any).element.appendChild(labelElem);
-            }
-          }, 500);
+
+        wsRegions.on('region-clicked', (region) => {
+          // selecting selected region cancels loop
+          if (activeRegionRef.current === region) {
+            region.setOptions({ color: 'rgba(0,255,0,0.3)' });
+            region.data = { ...region.data, loop: false };
+            activeRegionRef.current = null;
+          } else {
+          // sets all other red regions to green
+          if (activeRegionRef.current) {
+            activeRegionRef.current.setOptions({ color: 'rgba(0,255,0,0.3)' });
+          }
+
+          // turns region red on click
+          console.log("region-clicked fired");
+          region.setOptions({ color: 'rgba(255,0,0,0.3)' });
+          activeRegionRef.current = region;
+
+          region.data = { ...region.data, loop: true };
+        }
         });
         
-        // Edit region labels
-        ws.on('region-dblclick' as any, (region: any) => {
-          const label = prompt("Edit label for this region:", region.data?.label || "");
-          if (label !== null) {
-            region.data = { label };
-            const labelElem = (region as any).element.querySelector('.region-label');
-            if (labelElem) {
-              labelElem.textContent = label;
-            } else {
-              const newLabelElem = document.createElement('span');
-              newLabelElem.className = 'region-label';
-              newLabelElem.textContent = label;
-              (region as any).element.appendChild(newLabelElem);
-            }
+        // loops clicked region
+        wsRegions.on('region-out', (region: any) => {
+          if (region.data?.loop) {
+            region.play();
           }
-        });   
+        });
+        
+        wsRegions.on('region-double-clicked', (region, event) => {
+          // creates label, prompt not being supported on electron
+          // possibly replace with prompt plugin in future, change to module css
+          const input = document.createElement('input');
+          input.type = 'text';
+          input.value = region.data?.label || "";
+          input.style.position = 'absolute';
+          input.style.top = '0';
+          input.style.left = '0';
+          input.style.width = '100%';
+          input.style.boxSizing = 'border-box';
+          input.style.textAlign = 'center';
+          input.style.display = 'block';
 
-        // Allows for console creation of regions for testing
-        window.ws = ws;
-        // Type ignore later
-        const regionPlugin = (ws as any).plugins.find((p: any) => p.name === 'regions');
+          region.element.appendChild(input);
+          input.focus();
+          input.addEventListener('blur', () => {
+            region.data = { label: input.value };
+            let labelElem = region.element.querySelector('.region-label');
+            if (labelElem) {
+              labelElem.textContent = input.value;
+            } else {
+              labelElem = document.createElement('span');
+              labelElem.className = 'region-label';
+              labelElem.textContent = input.value;
+              region.element.appendChild(labelElem);
+            }
+            region.element.removeChild(input);
+          });
 
+          // enter to confirm label
+          input.addEventListener('keydown', (e: KeyboardEvent) => {
+            if (e.key === 'Enter') {
+              input.blur();
+            }
+          });
+        });
 
         document.getElementById(wavesurfers[index].spectrogramId)?.classList.add('spectrogramContainer');
       };
-
+      
       createWavesurfer();
       return () => {
         //window.removeEventListener('keydown', handleKeyDown);
       };
-    } else {
+    } 
+    else {
       console.log('failed initialization');
     }
   }, [index, wavesurfers]);
