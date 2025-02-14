@@ -5,26 +5,164 @@ import sys
 from datetime import datetime
 import os
 
+# For dataloader and dataset simulation (assuming torch is used)
+from torch.utils.data import DataLoader, Dataset
 
-def process_audio_files(file_paths):
+
+# DbHelper class to handle database operations as a singleton
+class DBHelper:
+    _instance = None
+
+    def __new__(cls, db_url="pseudo_db_url"):
+        if cls._instance is None:
+            cls._instance = super(DBHelper, cls).__new__(cls)
+            # For the pseudo db url, using in-memory database as a placeholder
+            cls._instance.connection = sqlite3.connect(":memory:")
+            cls._instance.cursor = cls._instance.connection.cursor()
+            # Create a pseudo result table if not exists
+            cls._instance.cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS Result (
+                    id INTEGER PRIMARY KEY,
+                    url TEXT,
+                    species TEXT
+                )
+                """
+            )
+            cls._instance.connection.commit()
+        return cls._instance
+
+    def insert_result(self, id, url, species):
+        """
+        Insert the inference result into the Result table.
+        """
+        self.cursor.execute(
+            "INSERT INTO Result (id, url, species) VALUES (?, ?, ?)",
+            (id, url, species),
+        )
+        self.connection.commit()
+
+    def fetch_recordings(self, recording_ids):
+        """
+        Fetch recordings from the Recording table based on recording_ids.
+        Returns a list of tuples (recordingId, url).
+        For this pseudo code, a dummy list is returned.
+        """
+        # In a real scenario, this would execute a query like:
+        # SELECT recordingId, url FROM Recording WHERE recordingId IN (?,?,...)
+        # For now, we simulate with dummy data.
+        dummy_data = [
+            (rec_id, f"/path/to/recording_{rec_id}.wav") for rec_id in recording_ids
+        ]
+        return dummy_data
+
+
+class VideoDataset(Dataset):
+    def __init__(self, samples):
+        """
+        Initialize the dataset with a list of samples.
+        Each sample is a dictionary containing 'id' and 'video' keys.
+        """
+        self.samples = samples
+
+    def __len__(self):
+        return len(self.samples)
+
+    def __getitem__(self, index):
+        return self.samples[index]
+
+
+def download_video(url):
     """
-    Process audio files and simulate feature extraction.
-    Each file path is processed to extract file attributes and a placeholder feature vector.
+    Simulate downloading video content from the given URL.
+    In a real scenario, this function would perform an actual download.
+    Here, we simply return dummy video content.
     """
-    results = []
-    # Use enumerate to generate unique IDs
-    for idx, file_path in enumerate(file_paths, start=1):
-        file_name = os.path.basename(file_path)  # gets just the file name from the path
-        # Simulate extracting a feature vector from the audio file (placeholder values)
-        feature_vector = [0.453, 0.873]
-        result = {
-            "FILE NAME": file_name,
-            "id": idx,
-            "Amabaw1_x": feature_vector[0],
-            "Amapyo1_y": feature_vector[1],
-        }
-        results.append(result)
-    return pd.DataFrame(results)
+    # If the file exists locally, you could read its binary content.
+    # Otherwise, return a dummy string representing the video content.
+    if os.path.exists(url):
+        with open(url, "rb") as f:
+            return f.read()
+    return f"Dummy video content from {os.path.basename(url)}"
+
+
+def get_dataloader_for_recordings(recording_ids, classes, cfg):
+    """
+    Given a list of recordingIds, fetch the corresponding recording URLs from the Recording table,
+    download the videos (.wav files) and construct a DataLoader.
+    The dataset contains only the video content (along with recording id).
+    Returns the DataLoader and the original list of recording IDs.
+    """
+    db_helper = DBHelper()
+    # Fetch recording details (simulated based on Recording table schema)
+    recordings = db_helper.fetch_recordings(recording_ids)
+
+    # Download each video from its URL and create a list of samples
+    samples = []
+    for rec in recordings:
+        rec_id, url = rec
+        video = download_video(url)
+        sample = {"id": rec_id, "video": video}
+        samples.append(sample)
+
+    # Create the dataset using the list of video samples
+    video_dataset = VideoDataset(samples)
+
+    # Create DataLoader with the specified batch size and number of workers from cfg
+    dataloader = DataLoader(
+        video_dataset,
+        batch_size=cfg.validation_batch_size,
+        shuffle=False,
+        num_workers=cfg.jobs,
+    )
+    return dataloader, recording_ids
+
+
+def process_result(result_df):
+    """
+    Process the inference result DataFrame.
+    The DataFrame contains probability columns for different labels (e.g., Amxxx columns).
+    For each row, determine the label with the highest probability (argmax) and return a DataFrame
+    with id and the final predicted species.
+    Then, save the result into the pseudo Result table in the database using DBHelper.
+    """
+    result_df = result_df.copy()
+    # Assuming the result_df has an 'id' column and the rest probability columns
+    prob_columns = [col for col in result_df.columns if col != "id"]
+    # Get the prediction as the column name with the maximal probability
+    result_df["prediction"] = result_df[prob_columns].idxmax(axis=1)
+    final_df = result_df[["id", "prediction"]].rename(columns={"prediction": "species"})
+
+    # Insert each result into the Result table using DBHelper
+    db_helper = DBHelper()
+    for _, row in final_df.iterrows():
+        db_helper.insert_result(
+            row["id"],  # assuming id corresponds to a result id
+            "",  # URL can be inserted if available
+            row["species"],
+        )
+    return final_df
+
+
+# def process_audio_files(file_paths):
+#    """
+#    Process audio files and simulate feature extraction.
+#    Each file path is processed to extract file attributes and a placeholder feature vector.
+#    """
+#    results = []
+#    # Use enumerate to generate unique IDs
+#    for idx, file_path in enumerate(file_paths, start=1):
+#        file_name = os.path.basename(file_path)  # gets just the file name from the path
+#        # Simulate extracting a feature vector from the audio file (placeholder values)
+#        feature_vector = [0.453, 0.873]
+#        result = {
+#            "FILE NAME": file_name,
+#            "id": idx,
+#            "Amabaw1_x": feature_vector[0],
+#            "Amapyo1_y": feature_vector[1],
+#        }
+#        results.append(result)
+#    return pd.DataFrame(results)
 
 
 # Sample DataFrame
@@ -33,6 +171,7 @@ data = {
     "id": [1, 2, 3],
     "Amabaw1_x": [0.453, 0.234, 0.895],
     "Amapyo1_y": [0.873, 0.657, 0.345],
+    # "Amabxxxx": .....
 }
 eval_df = pd.DataFrame(data)
 # ^eval_df can now be replaced with process_audio_files(file_paths)
@@ -106,20 +245,6 @@ finally:
 sys.stdout.flush()
 
 
-# New functions for ML model processing
-
-
-def convert_df_to_ml_input(df):
-    """
-    Convert a DataFrame to a format suitable for ML model input.
-    For this example, extract the numerical features into a list of vectors.
-    """
-    # Here we assume that the features are in the columns 'Amabaw1_x' and 'Amapyo1_y'
-    # If necessary, adjust the feature selection based on the actual audio processing.
-    ml_input = df[["Amabaw1_x", "Amapyo1_y"]].values.tolist()
-    return ml_input
-
-
 def pseudo_inference(model_input):
     """
     Pseudo inference function that takes model inputs and returns a simulated prediction.
@@ -135,25 +260,32 @@ def pseudo_inference(model_input):
 
 # Example usage of new functions (for debugging purposes)
 if __name__ == "__main__":
-    # Simulate reading file paths
-    sample_file_paths = [
-        # "/file1.wav",
-        # "/file2.wav",
-        # "/file3.wav"
-    ]
-    """
-    # Debug process_audio_files function
-    processed_df = process_audio_files(sample_file_paths)
-    print("Processed DataFrame from audio files:")
-    print(processed_df)
-    
-    # Convert DataFrame to ML model input
-    ml_input = convert_df_to_ml_input(processed_df)
-    print("ML model input:")
-    print(ml_input)
-    
-    # Perform pseudo inference
-    predictions = pseudo_inference(ml_input)
-    print("Pseudo inference predictions:")
-    print(predictions)
-    """
+    # Create a dummy config object with necessary attributes
+    class Config:
+        validation_batch_size = 2
+        jobs = 0
+
+    cfg = Config()
+
+    # Dummy species classes list (not used here since dataset only carries video data)
+    dummy_classes = []
+
+    # Test get_dataloader_for_recordings with two recording ids [1, 2]
+    dataloader, rec_ids = get_dataloader_for_recordings([1, 2], dummy_classes, cfg)
+    print("Generated DataLoader for recording IDs:", rec_ids)
+    for batch in dataloader:
+        print("Batch:")
+        print(batch)
+
+    # Create a dummy inference result DataFrame (simulate global inference result)
+    dummy_result_data = {
+        "id": [1, 2, 3],
+        "Amabaw1_x": [0.453, 0.234, 0.895],
+        "Amapyo1_y": [0.873, 0.657, 0.345],
+    }
+    result_df = pd.DataFrame(dummy_result_data)
+
+    # Process inference results and save them into the pseudo Result table
+    final_predictions = process_result(result_df)
+    print("Final predictions saved:")
+    print(final_predictions)
