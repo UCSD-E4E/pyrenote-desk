@@ -1,0 +1,62 @@
+.home,.model,.label,.database {
+    align-items: center;
+    margin-top:40px;
+    padding: 10px; /* Add some padding for better spacing */
+    border-radius: 8px;
+  }
+.database:hover{
+    background-color: #b3fad1;
+    cursor: pointer;
+}
+.model:hover{
+    background-color: #b3fad1;
+    cursor: pointer;
+}
+.label:hover{
+    background-color: #b3fad1;
+    cursor: pointer;
+}
+.home:hover{
+    background-color: #b3fad1;
+    cursor: pointer;
+}
+
+.home img {
+    border-radius: 8px; /* Rounded corners for the image */
+  }
+.container {
+    margin-top: 50px;
+    display: flex;
+    align-items: flex-start; /* Align items at the start of the container */
+    justify-content: space-between; /* Space items evenly */
+    gap: 20px; /* Space between the items */
+    padding: 20px; /* Optional: Add some padding to the container */
+  } 
+.magnus {
+    margin-top: 30px;
+    background-color: rgb(243, 243, 243);
+    border-radius: 10px;
+    padding: 60px;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-start;
+    flex: 1; /* Allow magnus to grow and take available space */
+  }
+  .linkStyle {
+    color: black;
+    font-weight: normal;
+    text-decoration: none;
+  }
+.intro{
+    background-color: white;
+    border-radius: 10px;
+    padding: 40px;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-start;
+    flex: 1;
+}

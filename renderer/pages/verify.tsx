@@ -38,89 +38,7 @@ function createViridisColorMap() {
     return colorMap;
 }
 
-const SideBar = () => { 
-	const toHome = () => {
-		window.location.href = '/home';
-	};
-	const toData = () => {
-		window.location.href = '/next';
-	};
-	const toModel = () => {
-		window.location.href = '/model';
-	};
-	const toLabel = () => {
-		window.location.href = '/label';
-	};
-	const toVerify = () => {
-		window.location.href = '/verify';
-	};
 
-	return <div>
-		<div className={styles.home} onClick={toHome}>
-			<Image
-			src="/images/home.png"
-			alt="Home image"
-			width={45}
-			height={45}
-			/>
-			<br />
-			<Link href="/home">
-			<span className={styles.linkStyle}>Home</span>
-			</Link>
-		</div>
-		<div className={styles.database} onClick={toData}>
-			<Image
-			src="/images/database.png"
-			alt="Database image"
-			width={45}
-			height={45}
-			/>
-			<br />
-			<Link href="/next">
-			<span className={styles.linkStyle}>Database</span>
-			</Link>
-		</div>
-		<div className={styles.model} onClick={toModel}>
-			<Image
-			src="/images/model.png"
-			alt="Model image"
-			width={45}
-			height={45}
-			/>
-			<br />
-			<Link href="/model">
-			<span className={styles.linkStyle}>Model</span>
-			</Link>
-		</div>
-		<div className={styles.label} onClick={toLabel}>
-			<Image
-			src="/images/tag.png"
-			alt="Label image"
-			width={45}
-			height={45}
-			/>
-			<br />
-			<Link href="/label">
-			<span className={styles.linkStyle}>Label</span>
-			</Link>
-		</div>
-
-
-		<div className={styles.verify} onClick = {toVerify}>
-			<Image
-			src="/images/verify.png"
-			alt="Verify image"
-			width={45}
-			height={45}
-			/>
-			<br />
-			<Link href="/verify">
-			<span className={styles.linkStyle}>Verify</span>
-			</Link>
-		</div>
-		
-	</div>
-}
 
 const spectrogramCache: Record<string, WaveSurfer> = {}
 const spectrograms = []
@@ -261,7 +179,7 @@ export default function VerifyPage() {
 				<title>Verify Page</title>
 			</Head>
 			<div className ={styles.container}>
-				<SideBar/>
+				
 
 				<input type="file" multiple onChange={handleFileSelection} />
 

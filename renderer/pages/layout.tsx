@@ -16,6 +16,9 @@ function Layout({ children }: { children: React.ReactNode }) {
   const toLabel = () => {
     router.push("/label");
   };
+  const toVerify = () => {
+    router.push("/verify");
+  };
 
   return (
     <>
@@ -60,6 +63,16 @@ function Layout({ children }: { children: React.ReactNode }) {
             />
             <br />
             <span className={styles.linkStyle}>Label</span>
+          </div>
+          <div className={styles.icon} onClick={toVerify}>
+            <Image
+              src="/images/tag.png"
+              alt="Label image"
+              width={45}
+              height={45}
+            />
+            <br />
+            <span className={styles.linkStyle}>Verify</span>
           </div>
         </div>
         <main>{children}</main>
