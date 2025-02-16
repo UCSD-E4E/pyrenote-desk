@@ -9,6 +9,10 @@
     padding: 20px;
     /* Optional: Add some padding to the container */
 }
+.verify:hover{
+    background-color: #b3fad1;
+    cursor: pointer;
+}
 
 .magnus {
     margin-top: 30px;

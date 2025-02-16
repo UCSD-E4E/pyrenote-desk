@@ -153,6 +153,18 @@
 
 .audioGraph {
     gap: 1px;
+   
+}
+.main {
+	margin-top: 20px; /* Add some margin to separate the waveform from the player */
+	
+	text-align: left;
+	width: 75%;
+	/*text-align: center; /* Center text */
+	flex-direction: column;
+	align-items: flex-start;
+	flex: 1; 
+}
 
 }
 
