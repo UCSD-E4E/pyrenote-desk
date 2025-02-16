@@ -71,23 +71,31 @@
     border: none;
 
 }
-
-.modelMatch {
-    gap: 1px;
-    background-color: white;
-    padding: 1px;
-    margin-right: 20px;
-    border-radius: 10px;
-    border: none;
+.modelMatch{
+    background-color: orange; 
+    color: black; 
+    font-size: 16px;
+    font-weight: bold; 
+    padding: 10px 20px; 
+    margin: 10px 0; 
+    border: none; 
+    text-align: center;
+    display: inline-block; 
+    align-self: center;
+    width: 150px;
 }
-
-.modelFail {
-    gap: 1px;
-    background-color: white;
-    padding: 1px;
-    margin-right: 20px;
-    border-radius: 10px;
-    border: none;
+.modelFail{
+    background-color: orange; 
+    color: black; 
+    font-size: 16px;
+    font-weight: bold; 
+    padding: 10px 20px; 
+    margin: 10px 0; 
+    border: none; 
+    text-align: center;
+    display: inline-block; 
+    align-self: center;
+    width: 150px; 
 }
 
 .pause {
