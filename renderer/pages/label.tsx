@@ -14,21 +14,13 @@ for (let i = 0; i < 256; i++) {
   spectrogramColorMap.push([val / 2, val / 3, val, 1]);
 }
 
-type WavesurferDetails = {
-  id: string;
-  spectrogramId: string;
-  file: File;
-  instance: WaveSurfer;
-  class: string;
-};
-
 const AudioPlayer: React.FC = () => {
   const [showSpec, setShowSpec] = useState<Boolean>(false);
   const [playing, setPlaying] = useState<Boolean>(false);
   const [index, setIndex] = useState<number>(0);
   const [confidence, setConfidence] = useState<string>("10");
   // TODO: Add typing
-  const [wavesurfers, setWavesurfers] = useState<WavesurferDetails[]>([]);
+  const [wavesurfers, setWavesurfers] = useState([]);
   const [isNextDisabled, setNextDisabled] = useState(false);
   const [isPrevDisabled, setPrevDisabled] = useState(false);
   const [isYesDisabled, setYesDisabled] = useState(false);
@@ -224,13 +216,13 @@ const AudioPlayer: React.FC = () => {
       const spectrogramId = `spectrogram-${wavesurfers.length + index}`;
       return {
         id: containerId,
-        spectrogramId: spectrogramId,
+        specId: spectrogramId,
         file: file,
         instance: null,
         class: "spectrogramContainer",
       };
     });
-
+    
     console.log("New WaveSurfers:", newWaveSurfers);
     setWavesurfers(newWaveSurfers);
     setShowSpec(true);
@@ -424,80 +416,6 @@ const AudioPlayer: React.FC = () => {
               </div>
             )}
           </div>
-          {showSpec && (
-            <div className={styles.controls}>
-              <button className={styles.prevClip} onClick={clickPrev}>
-                <Image
-                  src="/images/LArrow.png"
-                  alt="Previous Button"
-                  width={45}
-                  height={45}
-                />
-              </button>
-              <button className={styles.modelMatch} onClick={clickYes}>
-                <Image
-                  src="/images/check.png"
-                  alt="Model Prediction Success Button"
-                  width={45}
-                  height={45}
-                />
-              </button>
-              {!playing && (
-                <button className={styles.play} onClick={clickPlay}>
-                  <Image
-                    src="/images/Play.png"
-                    alt="Play Button"
-                    width={45}
-                    height={45}
-                  />
-                </button>
-              )}
-              {playing && (
-                <button className={styles.pause} onClick={clickPause}>
-                  <Image
-                    src="/images/Pause.png"
-                    alt="Pause Button"
-                    width={45}
-                    height={45}
-                  />
-                </button>
-              )}
-              <button className={styles.modelFail} onClick={clickNo}>
-                <Image
-                  src="/images/X.png"
-                  alt="Model Prediction Fail Button"
-                  width={45}
-                  height={45}
-                />
-              </button>
-              <button className={styles.nextClip} onClick={clickNext}>
-                <Image
-                  src="/images/RArrow.png"
-                  alt="Next Button"
-                  width={45}
-                  height={45}
-                />
-              </button>
-            </div>
-          )}
-          {showSpec && (
-            <div>
-              <input
-                type="range"
-                id="confidence"
-                className={styles.confidence}
-                name="confidence"
-                min="0"
-                max="10"
-                value={confidence}
-                onChange={(e) => setConfidence(e.target.value)}
-                list="epochsList"
-              />
-              <label className={styles.confidenceLabel} htmlFor="confidence">
-                Confidence: {confidence}
-              </label>
-            </div>
-          )}
         </div>
       </div>
       {showSpec && (
