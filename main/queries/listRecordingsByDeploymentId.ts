@@ -1,17 +1,18 @@
 import { IpcMainInvokeEvent } from "electron";
 import { getDatabase } from "../background";
+import { Recording } from "../schema";
 
 const listRecordingsByDeploymentId = async (
   _event: IpcMainInvokeEvent,
   deploymentId: string,
-) => {
+): Promise<Recording[]> => {
   const db = getDatabase();
-  const statement = db.prepare(`
+  const statement = db.prepare<string, Recording>(`
     SELECT * FROM recording
     WHERE deploymentId = ?
   `);
-  statement.run(deploymentId);
-  return Promise.resolve(deploymentId);
+  const rows = statement.all(deploymentId);
+  return Promise.resolve(rows);
 };
 
 export default listRecordingsByDeploymentId;
