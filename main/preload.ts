@@ -1,8 +1,12 @@
 import { contextBridge, ipcRenderer, IpcRendererEvent } from "electron";
-import * as queries from "./queries";
+
+const exposedQueries: QueriesApi = {
+  listRecordingsByDeploymentId: (deploymentId: string) =>
+    ipcRenderer.invoke("listRecordingsByDeploymentId", deploymentId),
+};
 
 contextBridge.exposeInMainWorld("api", {
-  ...queries,
+  ...exposedQueries,
   runScript: () => ipcRenderer.invoke("run-script"),
 });
 

@@ -5,6 +5,7 @@ import { createWindow } from "./helpers";
 import BetterSqlite3 from "better-sqlite3";
 import fs from "fs";
 import { execFile } from "child_process";
+import { setupQueries as queries } from "./queries";
 
 const isProd = process.env.NODE_ENV === "production";
 
@@ -69,6 +70,11 @@ app.on("before-quit", async (event) => {
     dbInstance.close();
   }
 });
+
+// Setup all queries
+for (const query in queries) {
+  ipcMain.handle(query, queries[query]);
+}
 
 //Listener for running queries on the database
 ipcMain.handle("db-query", async (event, query, params) => {

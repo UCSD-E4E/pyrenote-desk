@@ -1,11 +1,7 @@
-import { ipcMain, IpcMainInvokeEvent, ipcRenderer } from "electron";
+import { IpcMainInvokeEvent } from "electron";
 import { getDatabase } from "../background";
 
 const queryName = "listRecordingsByDeploymentId";
-
-const exposed = async (deploymentId: string) => {
-  return ipcRenderer.invoke(queryName, deploymentId);
-};
 
 const listRecordingsByDeploymentId = async (
   _event: IpcMainInvokeEvent,
@@ -20,6 +16,7 @@ const listRecordingsByDeploymentId = async (
   return Promise.resolve(deploymentId);
 };
 
-ipcMain.handle(queryName, listRecordingsByDeploymentId);
-
-export default exposed;
+export default {
+  query: listRecordingsByDeploymentId,
+  queryName,
+};
