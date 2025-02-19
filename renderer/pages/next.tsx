@@ -81,13 +81,13 @@
 
 // export default AudioVisualizer;
 
-import React, { useState } from "react";
+import React, { useState, FormEvent } from "react";
 
 function UserForm() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
 
-  const handleSubmit = (event) => {
+  const handleSubmit = (event: FormEvent) => {
     event.preventDefault();
     // Display the user's input in an alert
     alert(`Name: ${name}\nEmail: ${email}`);

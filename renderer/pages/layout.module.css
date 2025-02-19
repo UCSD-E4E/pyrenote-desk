@@ -1,0 +1,27 @@
+.icon {
+    display: flex;
+    flex-direction: column;
+    border-radius: 8px;
+    padding: 4px;
+    align-items: center;
+}
+
+.sidebar {
+    display: flex;
+    align-items: center;
+    flex-direction: column;
+
+    padding: 10px;
+    gap: 50px;
+}
+
+.icon:hover {
+    background-color: #b3fad1;
+    cursor: pointer;
+}
+
+.linkStyle {
+    color: black;
+    font-weight: normal;
+    text-decoration: none;
+}
