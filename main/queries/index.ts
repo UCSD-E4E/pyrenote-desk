@@ -1,5 +1,7 @@
 import listRecordingsByDeploymentId from "./listRecordingsByDeploymentId";
+import listRecordings from "./listRecordings";
 
 export const setupQueries = {
-  [listRecordingsByDeploymentId.queryName]: listRecordingsByDeploymentId.query,
+  listRecordingsByDeploymentId: listRecordingsByDeploymentId,
+  listRecordings: listRecordings,
 };

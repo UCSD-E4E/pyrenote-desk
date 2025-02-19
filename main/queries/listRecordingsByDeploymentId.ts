@@ -1,8 +1,6 @@
 import { IpcMainInvokeEvent } from "electron";
 import { getDatabase } from "../background";
 
-const queryName = "listRecordingsByDeploymentId";
-
 const listRecordingsByDeploymentId = async (
   _event: IpcMainInvokeEvent,
   deploymentId: string,
@@ -16,7 +14,4 @@ const listRecordingsByDeploymentId = async (
   return Promise.resolve(deploymentId);
 };
 
-export default {
-  query: listRecordingsByDeploymentId,
-  queryName,
-};
+export default listRecordingsByDeploymentId;
