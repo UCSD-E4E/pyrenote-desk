@@ -16,6 +16,10 @@ if (isProd) {
 
 let dbInstance: BetterSqlite3.Database;
 
+export const getDatabase = () => {
+  return dbInstance;
+};
+
 function createDatabase() {
   const dbPath = "./pyrenoteDeskDatabase.db";
   let db: BetterSqlite3.Database;

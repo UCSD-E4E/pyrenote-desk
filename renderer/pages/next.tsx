@@ -81,45 +81,37 @@
 
 // export default AudioVisualizer;
 
-import React, { useState } from 'react';
+import React, { useState } from "react";
 
 function UserForm() {
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
 
   const handleSubmit = (event) => {
     event.preventDefault();
     // Display the user's input in an alert
     alert(`Name: ${name}\nEmail: ${email}`);
-    
+
     // Reset the form fields
-    setName('');
-    setEmail('');
+    setName("");
+    setEmail("");
   };
 
   const runPython = async () => {
     try {
       const result = await window.api.runScript();
-      console.log('Script Output:', result);
+      console.log("Script Output:", result);
     } catch (error) {
-      console.error('Error running script:', error);
+      console.error("Error running script:", error);
     }
   };
 
-  //inserts entry into the "Labeler" table in the database
-  const insertRow = async (name: string | null, email: string | null, url: string | null, model_version: string | null, is_human: number | null ) => {
-    name= name || null;
-    email= email || null;
-    url= url || null;
-    model_version = model_version || null;
-    is_human = is_human || null;
+  const getDeploymentById = async () => {
     try {
-        await window.api.runQuery(
-            "INSERT INTO Labeler (name, email, url, model_version, is_human) VALUES (?, ?, ?, ?, ?)",
-            [name, email, url, model_version, is_human]  // Passing parameters
-        );
-    } catch (error) {
-        console.error("Failed to insert row:", error);
+      const result = await window.api.listRecordingsByDeploymentId("hello");
+      console.log(result);
+    } catch (e) {
+      console.log(e);
     }
   };
 
@@ -152,9 +144,9 @@ function UserForm() {
         <button type="submit">Submit</button>
       </form>
       <button onClick={runPython}>Run Python Script</button>
+      <button onClick={getDeploymentById}>Run thing </button>
     </div>
   );
 }
 
 export default UserForm;
-

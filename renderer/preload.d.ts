@@ -1,10 +1,10 @@
-import { IpcHandler } from '../main/preload'
+import { IpcHandler } from "../main/preload";
 
 declare global {
   interface Window {
-    ipc: IpcHandler
+    ipc: IpcHandler;
     api: {
-      runQuery: (query: string, params?: any[]) => Promise<any>;  
+      listRecordingsByDeploymentId: (deploymentId: string) => Promise<string>;
       runScript: () => Promise<any>;
     };
   }
