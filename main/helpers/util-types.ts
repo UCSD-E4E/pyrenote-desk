@@ -7,3 +7,7 @@ export type OmitEventArg<F> = F extends (
 ) => infer R
   ? (...args: P) => R
   : never;
+
+export type ApiWithoutEvent<T> = {
+  [Property in keyof T]: OmitEventArg<T[Property]>;
+};

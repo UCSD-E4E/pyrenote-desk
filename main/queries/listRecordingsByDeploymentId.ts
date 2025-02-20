@@ -11,8 +11,13 @@ const listRecordingsByDeploymentId = async (
     SELECT * FROM recording
     WHERE deploymentId = ?
   `);
-  const rows = statement.all(deploymentId);
-  return Promise.resolve(rows);
+  try {
+    const rows = statement.all(deploymentId);
+    return Promise.resolve(rows);
+  } catch (e) {
+    console.log("Error: failed listing recordings by deploymentId", e);
+  }
+  return Promise.resolve([]);
 };
 
 export default listRecordingsByDeploymentId;

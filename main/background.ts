@@ -6,6 +6,7 @@ import BetterSqlite3 from "better-sqlite3";
 import fs from "fs";
 import { execFile } from "child_process";
 import { setupQueries as queries } from "./queries";
+import { setupMutations as mutations } from "./mutations";
 
 const isProd = process.env.NODE_ENV === "production";
 
@@ -74,6 +75,10 @@ app.on("before-quit", async (event) => {
 // Setup all queries
 for (const query in queries) {
   ipcMain.handle(query, queries[query]);
+}
+
+for (const mutation in mutations) {
+  ipcMain.handle(mutation, mutations[mutation]);
 }
 
 //Listener for running queries on the database

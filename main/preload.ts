@@ -6,8 +6,14 @@ const exposedQueries: QueriesApi = {
   listRecordings: () => ipcRenderer.invoke("listRecordings"),
 };
 
+const exposedMutations: MutationsApi = {
+  createAnnotation: (deploymentId) =>
+    ipcRenderer.invoke("createAnnotation", deploymentId),
+};
+
 contextBridge.exposeInMainWorld("api", {
   ...exposedQueries,
+  ...exposedMutations,
   runScript: () => ipcRenderer.invoke("run-script"),
 });
 
