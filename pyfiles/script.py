@@ -260,6 +260,11 @@ def pseudo_inference(model_input):
 
 # Example usage of new functions (for debugging purposes)
 if __name__ == "__main__":
+
+    # Get the recording ID from the command line argument
+    recording_id = sys.argv[1]
+    print("Sucessfully retreived recording ID:", recording_id)
+
     # Create a dummy config object with necessary attributes
     class Config:
         validation_batch_size = 2

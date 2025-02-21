@@ -21,6 +21,42 @@ function FileUploadButton({ onClick }) {
     ></button>
   );
 }
+
+function recordingIDQuery() {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const recordingID = (event.target as HTMLFormElement).recordingID.value;
+
+    try {
+      const response = await fetch('/api/run-script', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ recordingID }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
+      }
+
+      const result = await response.json();
+      alert(`Recording ID submitted: ${recordingID}\n${result.output}`);
+    } catch (error) {
+      console.error('Error:', error);
+      alert('Error submitting recording ID');
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <label htmlFor="recordingID">Recording ID:</label>
+      <input type="text" id="recordingID" name="recordingID" />
+      <button type="submit">Submit</button>
+    </form>
+  );
+}
+
 //Cancel Button appears while model is running, replacing file select button
 function CancelButton({ onClick }) {
   return (
@@ -152,6 +188,10 @@ export default function ModelPage() {
           <div>
             {isButtonVisible && <FileUploadButton onClick={HandleClick} />}
             {!isButtonVisible && <CancelButton onClick={HandleCancelClick} />}
+          </div>
+
+          <div>
+            {recordingIDQuery()}
           </div>
 
           <div style={{ textAlign: "center" }}>
