@@ -25,7 +25,7 @@
     cursor: pointer;
 }
 .container {
-    margin-top: 50px;
+    margin-top: 10px;
     display: flex;
     gap: 20px; 
     padding: 20px;
@@ -33,9 +33,17 @@
 }
 
 
+.verifyContent {
+	display: flex;
+    flex-direction: column;
+}
+.verifyButtonMenu {
+	display: flex;
+    flex-direction: row;
+}
+
 .nextFiles,.prevFiles {
 	align-items: center;
-    margin-top:50px;
     padding: 10px; /* Add some padding for better spacing */
     border-radius: 8px;
 }
@@ -56,7 +64,7 @@
 }
 
 .grid {
-	margin-top: 70px;
+	margin-top: 20px;
 	display: grid;
 	grid-template-columns: repeat(2, 1fr);
 	gap: 30px;
@@ -103,4 +111,25 @@
 }
 .unselectOutline {
 	box-shadow: 0 0 0 0px black;
+}
+
+
+.modal {
+	display: flex;
+	justify-content: space-evenly;
+	align-items: center;
+	box-shadow: rgba(100, 100, 111, 0.3) 0px 7px 29px 0px;
+	background-color: white;
+	border: 2px solid rgb(240, 240, 240);
+	border-radius: 12px;
+	position:  absolute;
+	width: 250px;
+	top: 70px;
+	left: calc(50% - 125px);
+	bottom: 70px;
+	z-index: 1000;
+}
+
+.noInteraction {
+	pointer-events: none; /* Disable interaction with the background */
 }
