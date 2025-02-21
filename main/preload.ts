@@ -15,54 +15,20 @@ function invokeMutation<C extends keyof MutationsApi>(
 }
 
 const exposedQueries: QueriesApi = {
-  listSurveys: () => invokeQuery("listSurveys"),
-  listRecordingsByDeploymentId: (deploymentId) =>
-    invokeQuery("listRecordingsByDeploymentId", deploymentId),
-  listRecordings: () => invokeQuery("listRecordings"),
-  listRecordingsBySiteId: (siteId) =>
-    invokeQuery("listRecordingsBySiteId", siteId),
-  listAnnotationsByRegionId: (regionId) =>
-    invokeQuery("listAnnotationsByRegionId", regionId),
+  listSurveys: (...args) => invokeQuery("listSurveys", ...args),
+  listRecordingsByDeploymentId: (...args) =>
+    invokeQuery("listRecordingsByDeploymentId", ...args),
+  listRecordings: (...args) => invokeQuery("listRecordings", ...args),
+  listRecordingsBySiteId: (...args) =>
+    invokeQuery("listRecordingsBySiteId", ...args),
+  listAnnotationsByRegionId: (...args) =>
+    invokeQuery("listAnnotationsByRegionId", ...args),
 };
 
 const exposedMutations: MutationsApi = {
-  createSite: (
-    surveyId: number,
-    site_code: string,
-    latitude: number,
-    longitude: number,
-    elevation: number,
-  ) =>
-    invokeMutation(
-      "createSite",
-      surveyId,
-      site_code,
-      latitude,
-      longitude,
-      elevation,
-    ),
-  createAnnotation: (
-    recordingId: number,
-    labelerId: number,
-    regionId: number,
-    speciesId: number,
-    speciesProbability: number,
-  ) =>
-    invokeMutation(
-      "createAnnotation",
-      recordingId,
-      labelerId,
-      regionId,
-      speciesId,
-      speciesProbability,
-    ),
-  updateAnnotation: (annotationId, speciesId, speciesProbability) =>
-    invokeMutation(
-      "updateAnnotation",
-      annotationId,
-      speciesId,
-      speciesProbability,
-    ),
+  createSite: (...args) => invokeMutation("createSite", ...args),
+  createAnnotation: (...args) => invokeMutation("createAnnotation", ...args),
+  updateAnnotation: (...args) => invokeMutation("updateAnnotation", ...args),
 };
 
 contextBridge.exposeInMainWorld("api", {
