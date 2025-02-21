@@ -13,6 +13,17 @@ const exposedQueries: QueriesApi = {
 const exposedMutations: MutationsApi = {
   createAnnotation: (deploymentId) =>
     ipcRenderer.invoke("createAnnotation", deploymentId),
+  updateAnnotation: (
+    annotationId: string,
+    speciesId: string,
+    speciesProbability: number,
+  ) =>
+    ipcRenderer.invoke(
+      "createAnnotation",
+      annotationId,
+      speciesId,
+      speciesProbability,
+    ),
 };
 
 contextBridge.exposeInMainWorld("api", {
