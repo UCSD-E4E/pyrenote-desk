@@ -1,4 +1,3 @@
-import { IpcMainInvokeEvent } from "electron";
 import { Annotation } from "../schema";
 import { getDatabase } from "../background";
 
@@ -8,7 +7,6 @@ type QueryParams = {
 };
 
 const createAnnotation = async (
-  _event: IpcMainInvokeEvent,
   recordingId: string,
   labelerId: string,
 ): Promise<Annotation | undefined> => {

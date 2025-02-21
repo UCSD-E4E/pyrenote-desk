@@ -1,11 +1,7 @@
-import { IpcMainInvokeEvent } from "electron";
 import { getDatabase } from "../background";
 import { Recording } from "../schema";
 
-const listRecordingsBySiteId = async (
-  _event: IpcMainInvokeEvent,
-  siteId: string,
-): Promise<Recording[]> => {
+const listRecordingsBySiteId = async (siteId: string): Promise<Recording[]> => {
   const db = getDatabase();
   const statement = db.prepare<string, Recording>(`
     SELECT recordingId, deploymentId, filename, url, datetime, duration, samplerate, bitrate FROM recording

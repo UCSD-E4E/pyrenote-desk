@@ -1,9 +1,7 @@
-import { IpcMainInvokeEvent } from "electron";
 import { getDatabase } from "../background";
 import { Recording } from "../schema";
 
 const listRecordingsByDeploymentId = async (
-  _event: IpcMainInvokeEvent,
   deploymentId: string,
 ): Promise<Recording[]> => {
   const db = getDatabase();

@@ -74,15 +74,16 @@ app.on("before-quit", async () => {
 
 // Setup all queries
 for (const query in queries) {
-  ipcMain.handle(query, queries[query]);
+  ipcMain.handle(query, (_event, ...args) => queries[query](...args));
 }
 
+// Setup all mutations
 for (const mutation in mutations) {
-  ipcMain.handle(mutation, mutations[mutation]);
+  ipcMain.handle(mutation, (_event, ...args) => mutations[mutation](...args));
 }
 
 //Listener for running queries on the database
-ipcMain.handle("db-query", async (event, query, params) => {
+ipcMain.handle("db-query", async (_event, query, params) => {
   try {
     const stmt = dbInstance.prepare(query);
     stmt.run(params);

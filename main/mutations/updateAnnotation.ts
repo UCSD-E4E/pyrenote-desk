@@ -1,4 +1,3 @@
-import { IpcMainInvokeEvent } from "electron";
 import { Annotation } from "../schema";
 import { getDatabase } from "../background";
 
@@ -9,7 +8,6 @@ type QueryParams = {
 };
 
 const updateAnnotation = async (
-  _event: IpcMainInvokeEvent,
   annotationId: string,
   speciesId: string,
   speciesProbability: number,

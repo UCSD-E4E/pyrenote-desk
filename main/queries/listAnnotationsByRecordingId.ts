@@ -1,9 +1,7 @@
-import { IpcMainInvokeEvent } from "electron";
 import { getDatabase } from "../background";
 import { Annotation } from "../schema";
 
 const listAnnotationsByRecordingId = async (
-  _event: IpcMainInvokeEvent,
   recordingId: string,
 ): Promise<Annotation[]> => {
   const db = getDatabase();
