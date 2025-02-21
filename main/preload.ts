@@ -1,13 +1,27 @@
 import { contextBridge, ipcRenderer, IpcRendererEvent } from "electron";
 
+function invokeQuery<C extends keyof QueriesApi>(
+  channel: C,
+  ...args: Parameters<QueriesApi[C]>
+): ReturnType<QueriesApi[C]> {
+  return ipcRenderer.invoke(channel, ...args) as ReturnType<QueriesApi[C]>;
+}
+
+function invokeMutation<C extends keyof MutationsApi>(
+  channel: C,
+  ...args: Parameters<MutationsApi[C]>
+): ReturnType<MutationsApi[C]> {
+  return ipcRenderer.invoke(channel, ...args) as ReturnType<MutationsApi[C]>;
+}
+
 const exposedQueries: QueriesApi = {
   listRecordingsByDeploymentId: (deploymentId) =>
-    ipcRenderer.invoke("listRecordingsByDeploymentId", deploymentId),
-  listRecordings: () => ipcRenderer.invoke("listRecordings"),
+    invokeQuery("listRecordingsByDeploymentId", deploymentId),
+  listRecordings: () => invokeQuery("listRecordings"),
   listRecordingsBySiteId: (siteId) =>
-    ipcRenderer.invoke("listRecordingsBySiteId", siteId),
+    invokeQuery("listRecordingsBySiteId", siteId),
   listAnnotationsByRegionId: (regionId) =>
-    ipcRenderer.invoke("listAnnotationsByRegionId", regionId),
+    invokeQuery("listAnnotationsByRegionId", regionId),
 };
 
 const exposedMutations: MutationsApi = {
@@ -18,7 +32,7 @@ const exposedMutations: MutationsApi = {
     speciesId: number,
     speciesProbability: number,
   ) =>
-    ipcRenderer.invoke(
+    invokeMutation(
       "createAnnotation",
       recordingId,
       labelerId,
@@ -27,8 +41,8 @@ const exposedMutations: MutationsApi = {
       speciesProbability,
     ),
   updateAnnotation: (annotationId, speciesId, speciesProbability) =>
-    ipcRenderer.invoke(
-      "createAnnotation",
+    invokeMutation(
+      "updateAnnotation",
       annotationId,
       speciesId,
       speciesProbability,
