@@ -6,7 +6,7 @@ declare global {
   type ScriptApi = {
     runScript: () => Promise<string>;
   };
-  type WindowApi = QueriesApi & ScriptApi;
+  type WindowApi = QueriesApi & MutationsApi & ScriptApi;
   interface Window {
     ipc: IpcHandler;
     api: WindowApi;

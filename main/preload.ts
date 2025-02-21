@@ -26,6 +26,21 @@ const exposedQueries: QueriesApi = {
 };
 
 const exposedMutations: MutationsApi = {
+  createSite: (
+    surveyId: number,
+    site_code: string,
+    latitude: number,
+    longitude: number,
+    elevation: number,
+  ) =>
+    invokeMutation(
+      "createSite",
+      surveyId,
+      site_code,
+      latitude,
+      longitude,
+      elevation,
+    ),
   createAnnotation: (
     recordingId: number,
     labelerId: number,

@@ -114,6 +114,18 @@ function UserForm() {
       console.log(result2);
       const result3 = await window.api.listRecordingsBySiteId(1);
       console.log(result3);
+      const surveys = await window.api.listSurveys();
+      console.log(surveys);
+      if (surveys.length > 0) {
+        const site = await window.api.createSite(
+          surveys[0].surveyId,
+          "new test site",
+          31.232,
+          -32.33333,
+          32,
+        );
+        console.log(site);
+      }
     } catch (e) {
       console.log(e);
     }
