@@ -83,16 +83,16 @@ for (const mutation in mutations) {
 }
 
 //Listener for running queries on the database
-ipcMain.handle("db-query", async (_event, query, params) => {
-  try {
-    const stmt = dbInstance.prepare(query);
-    stmt.run(params);
-    return { success: true };
-  } catch (error) {
-    console.error("Failed to run query:", error);
-    throw error;
-  }
-});
+// ipcMain.handle("db-query", async (_event, query, params) => {
+//   try {
+//     const stmt = dbInstance.prepare(query);
+//     stmt.run(params);
+//     return { success: true };
+//   } catch (error) {
+//     console.error("Failed to run query:", error);
+//     throw error;
+//   }
+// });
 
 // Listener for running the script
 ipcMain.handle("run-script", async () => {
