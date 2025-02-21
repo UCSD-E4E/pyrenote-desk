@@ -11,8 +11,21 @@ const exposedQueries: QueriesApi = {
 };
 
 const exposedMutations: MutationsApi = {
-  createAnnotation: (deploymentId) =>
-    ipcRenderer.invoke("createAnnotation", deploymentId),
+  createAnnotation: (
+    recordingId: number,
+    labelerId: number,
+    regionId: number,
+    speciesId: number,
+    speciesProbability: number,
+  ) =>
+    ipcRenderer.invoke(
+      "createAnnotation",
+      recordingId,
+      labelerId,
+      regionId,
+      speciesId,
+      speciesProbability,
+    ),
   updateAnnotation: (annotationId, speciesId, speciesProbability) =>
     ipcRenderer.invoke(
       "createAnnotation",

@@ -15,6 +15,8 @@ const createAnnotation = async (
   recordingId: number,
   labelerId: number,
   regionId: number,
+  speciesId: number,
+  speciesProbability: number,
 ): Promise<Annotation | undefined> => {
   const db = getDatabase();
   // TODO: finish this mutation
@@ -23,7 +25,15 @@ const createAnnotation = async (
     VALUES (@regionId, @labelerId, @annotationDate, @speciesId, @speciesProbability, @mostRecent)
   `);
   try {
-    const rows = statement.get({ recordingId, labelerId })!;
+    const rows = statement.get({
+      recordingId,
+      labelerId,
+      regionId,
+      speciesId,
+      speciesProbability,
+      annotationDate: Date.now().toString(),
+      mostRecent: true,
+    })!;
     return Promise.resolve(rows);
   } catch (e) {
     console.log("Error: failed to create annotation", e);
