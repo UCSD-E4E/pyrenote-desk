@@ -1,0 +1,106 @@
+.home,.model,.label,.database,.verify {
+    align-items: center;
+    margin-top:50px;
+    padding: 10px; /* Add some padding for better spacing */
+    border-radius: 8px;
+}
+.database:hover{
+    background-color: #b3fad1;
+    cursor: pointer;
+}
+.model:hover{
+    background-color: #b3fad1;
+    cursor: pointer;
+}
+.label:hover{
+    background-color: #b3fad1;
+    cursor: pointer;
+}
+.home:hover{
+    background-color: #b3fad1;
+    cursor: pointer;
+}
+.verify:hover{
+    background-color: #b3fad1;
+    cursor: pointer;
+}
+.container {
+    margin-top: 50px;
+    display: flex;
+    gap: 20px; 
+    padding: 20px;
+    align-items: flex-start;
+}
+
+
+.nextFiles,.prevFiles {
+	align-items: center;
+    margin-top:50px;
+    padding: 10px; /* Add some padding for better spacing */
+    border-radius: 8px;
+}
+.nextFiles:hover,.prevFiles:hover {
+	background-color: #b3fad1;
+    cursor: pointer;
+}
+
+.main {
+	margin-top: 20px; /* Add some margin to separate the waveform from the player */
+	
+	text-align: left;
+	width: 75%;
+	
+	display: flex;
+	flex-direction: column;
+	gap: "30px";
+}
+
+.grid {
+	margin-top: 70px;
+	display: grid;
+	grid-template-columns: repeat(2, 1fr);
+	gap: 30px;
+	max-width: 75%;
+	
+	align-items: start;
+}
+
+.waveLoadingCircle {
+	width: 50px;
+	height: 50px;
+	border: 5px solid #ddd;
+	border-top: 5px solid #808588;
+	border-radius: 50%;
+	animation: spin 1s linear infinite;
+	display: block; /* Initially hidden */
+
+	position: relative;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+@keyframes spin {
+	0% { transform: translate(-50%, -50%) rotate(0deg); }
+	100% { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+.waveContainer{
+	margin-bottom: 0px;
+    width: 512px;
+	height: 128px;
+	flex-direction: column;
+}
+
+.redOutline {
+	outline: 8px solid rgba(255, 0, 0, 0.7);
+}
+.greenOutline {
+	outline: 8px solid rgba(0, 128, 0, 0.7); /* Default GREEN */
+}
+.selectOutline {
+	box-shadow: 0 0 0 12px black;
+}
+.unselectOutline {
+	box-shadow: 0 0 0 0px black;
+}
