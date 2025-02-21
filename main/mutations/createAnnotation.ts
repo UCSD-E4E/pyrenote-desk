@@ -31,7 +31,7 @@ const createAnnotation = async (
       regionId,
       speciesId,
       speciesProbability,
-      annotationDate: Date.now().toString(),
+      annotationDate: new Date().toISOString(),
       mostRecent: true,
     })!;
     return Promise.resolve(rows);
