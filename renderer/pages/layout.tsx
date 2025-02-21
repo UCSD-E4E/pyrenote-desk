@@ -75,7 +75,7 @@ function Layout({ children }: { children: React.ReactNode }) {
             <span className={styles.linkStyle}>Verify</span>
           </div>
         </div>
-        <main>{children}</main>
+        <main className={styles.children}>{children}</main>
       </div>
     </>
   );

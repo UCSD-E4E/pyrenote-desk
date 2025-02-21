@@ -281,6 +281,8 @@ const AudioPlayer: React.FC = () => {
               container: `#${wavesurfers[index].spectrogramId}`,
               labels: true,
               colorMap: spectrogramColorMap,
+              fftSamples: 2048,
+              height: 400,
             }),
           ],
         });
@@ -406,11 +408,11 @@ const AudioPlayer: React.FC = () => {
               <div key={wavesurfers[index].id} className={styles.waveContainer}>
                 <div
                   id={wavesurfers[index].id}
-                  style={{ width: "10000%", height: "420px", padding: "1px" }}
+                  style={{ width: "10000%", height: "auto", padding: "1px" }}
                 ></div>
                 <div
                   id={wavesurfers[index].spectrogramId}
-                  style={{ width: "100%", height: "50px", padding: "1px" }}
+                  style={{ width: "100%", height: "auto", padding: "1px" }}
                 ></div>
                 <div className={styles.controls}></div>
               </div>
