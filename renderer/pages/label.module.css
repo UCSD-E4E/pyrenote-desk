@@ -8,16 +8,36 @@
 
 .waveSpectroContainer {
 	position: relative;
-	overflow: visible; /* let the region div extend downward */
+	width: 100%;
+	height: 350px;
+	overflow: visible;
+}
+
+.waveContainer {
+    position: absolute;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 200px;
+	padding: 1px;
+}
+
+.spectrogramContainer {
+	position: absolute;
+	top: 125px; /* possibly recalculate based on monitor */
+	left: 0;
+	width: 100%;
+	height: 150px;
+	padding: 1px;
 }
 
 .spectrogramContainer canvas {
+	z-index: 1 !important;
 	position: relative;
-	z-index: 1; /* behind the region’s z-index of 9999 */
 }
 
 .play:hover {
-	background-color: #b3fad1;
+    background-color: #b3fad1;
 	cursor: pointer;
 }
 
@@ -140,12 +160,6 @@
 	border: none;
 }
 
-.waveContainer {
-	display: flex;
-	align-items: flex-start;
-	margin-bottom: 5px;
-}
-
 .controls {
 	display: flex;
 	justify-content: center;
@@ -170,9 +184,9 @@
 .bottomBar {
 	display: flex;
 	align-items: center;
-	justify-content: center; 
-	gap: 30px; 
-	margin-top: 10px; 
+	justify-content: center;
+	gap: 30px;
+	margin-top: 10px;
 }
 
 .main {

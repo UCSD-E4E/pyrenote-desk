@@ -219,7 +219,7 @@ const AudioPlayer: React.FC = () => {
 			const spectrogramId = `spectrogram-${wavesurfers.length + index}`;
 			return {
 				id: containerId,
-				specId: spectrogramId,
+				spectrogramId: spectrogramId,
 				file: file,
 				instance: null,
 				class: 'spectrogramContainer',
@@ -275,6 +275,9 @@ const AudioPlayer: React.FC = () => {
 				console.log(index);
 				//create wavesurfer
 				const createWavesurfer = async () => {
+					const waveId = wavesurfers[index].id;
+					const spectroId = wavesurfers[index].spectrogramId;
+
 					const ws = await WaveSurfer.create({
 						container: `#${wavesurfers[index].id}`,
 						waveColor: 'violet',
@@ -286,9 +289,9 @@ const AudioPlayer: React.FC = () => {
 								colorMap: spectrogramColorMap,
 								// height set to minimum of height val and fftSamples / 8 on some versions
 								fftSamples: 2048,
-								height: 400,
+								height: 230,
 							}),
-							// Add timeline plugin syncing to audio files
+							// add timeline plugin syncing to audio files
 							TimelinePlugin.create({
 								container: '#wave-timeline',
 								height: 20,
@@ -318,27 +321,48 @@ const AudioPlayer: React.FC = () => {
 					console.log('loaded ws');
 					wavesurfers[index].instance = ws;
 
-					// const waveId = wavesurfers[index].id;
-					// const spectroId = wavesurfers[index].specId;
+					// list of all regions for overlay
+					let regionList = [];
 
-					// ws.on('ready', () => {
-					//   wsRegions.on('region-created', (region) => {
-					//     const waveEl = document.getElementById(waveId);
-					//     const spectroEl = document.getElementById(spectroId);
-					//     console.log(spectroEl)
-					//     if (!waveEl || !spectroEl) return;
-					//     const waveSpectroContainer = waveEl.parentElement;
-					//     if (!waveSpectroContainer) return;
-					//     waveSpectroContainer.appendChild(region.element);
-					//     const waveHeight = waveEl.offsetHeight;
-					//     const spectroHeight = spectroEl.offsetHeight;
-					//     const totalHeight = waveHeight + spectroHeight;
-					//     region.element.style.position = 'absolute';
-					//     region.element.style.top = '0px';
-					//     region.element.style.height = `${totalHeight}px`;
-					//     region.element.style.zIndex = '9999';
-					//   });
-					// });
+					// helper function to reapply spectrogram overlay
+					function redraw(region) {
+						const waveEl = document.getElementById(waveId);
+						const spectroEl = document.getElementById(spectroId);
+						const waveSpectroContainer = waveEl?.parentElement;
+						if (!waveEl || !spectroEl || !waveSpectroContainer) return;
+
+						waveSpectroContainer.appendChild(region.element);
+
+						// recalc height, may need to change for diff monitor sizes
+						const waveHeight = waveEl.offsetHeight;
+						const spectroHeight = spectroEl.offsetHeight;
+						region.element.style.position = 'absolute';
+						region.element.style.top = '0px';
+						region.element.style.height = `${waveHeight + spectroHeight}px`;
+						region.element.style.zIndex = '9999';
+					}
+
+					wsRegions.on('region-created', (region) => {
+						redraw(region);
+
+						// add to list to redraw on movements
+						regionList.push(region);
+
+						// needed due to redrawing by plugin
+						setTimeout(() => {
+							redraw(region);
+						}, 50);
+					});
+
+					wsRegions.on('redraw', () => {
+						regionList.forEach((region) => {
+							regionList.forEach((region) => redraw(region));
+						});
+					});
+
+					wsRegions.on('region-updated', (region) => {
+						redraw(region);
+					});
 
 					wsRegions.on('region-clicked', (region) => {
 						// selecting selected region cancels loop
@@ -448,17 +472,20 @@ const AudioPlayer: React.FC = () => {
 							<div className={styles.waveSpectroContainer}>
 								<div
 									id={wavesurfers[index].id}
-									style={{ width: '100%', height: '200px', padding: '1px' }}
+									className={styles.waveContainer}
 								></div>
 								<div
 									id={wavesurfers[index].spectrogramId}
-									style={{ width: '100%', height: '150px', padding: '1px' }}
+									className={styles.spectrogramContainer}
 								></div>
 							</div>
 						)}
 					</div>
 				</div>
 			</div>
+			{showSpec && (
+				<div id="wave-timeline" style={{ height: '20px', padding: '10px' }} />
+			)}
 			{showSpec && (
 				<div className={styles.controls}>
 					<button className={styles.prevClip} onClick={clickPrev}>
@@ -506,9 +533,6 @@ const AudioPlayer: React.FC = () => {
 				</div>
 			)}
 			{showSpec && (
-				<div id="wave-timeline" style={{ height: '20px', padding: '10px' }} />
-			)}
-			{showSpec && (
 				<div className={styles.bottomBar}>
 					<div className={styles.confidence}>
 						<input
@@ -519,13 +543,15 @@ const AudioPlayer: React.FC = () => {
 							value={confidence}
 							onChange={(e) => setConfidence(e.target.value)}
 						/>
-            <label className = {styles.confidenceLabel} htmlFor="confidence">Confidence: {confidence}</label>
+						<label className={styles.confidenceLabel} htmlFor="confidence">
+							Confidence: {confidence}
+						</label>
 					</div>
 
 					<div className={styles.confidence}>
 						<input
 							type="range"
-              id="speed"
+							id="speed"
 							min="0.5"
 							max="2"
 							step="0.1"
@@ -538,7 +564,9 @@ const AudioPlayer: React.FC = () => {
 								);
 							}}
 						/>
-            <label className = {styles.confidenceLabel} htmlFor="confidence">Speed: {playbackRate}</label>
+						<label className={styles.confidenceLabel} htmlFor="confidence">
+							Speed: {playbackRate}
+						</label>
 					</div>
 				</div>
 			)}
