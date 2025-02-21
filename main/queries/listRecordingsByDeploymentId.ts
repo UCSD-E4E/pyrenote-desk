@@ -2,10 +2,10 @@ import { getDatabase } from "../background";
 import { Recording } from "../schema";
 
 const listRecordingsByDeploymentId = async (
-  deploymentId: string,
+  deploymentId: number,
 ): Promise<Recording[]> => {
   const db = getDatabase();
-  const statement = db.prepare<string, Recording>(`
+  const statement = db.prepare<number, Recording>(`
     SELECT * FROM recording
     WHERE deploymentId = ?
   `);

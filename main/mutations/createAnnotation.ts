@@ -2,19 +2,25 @@ import { Annotation } from "../schema";
 import { getDatabase } from "../background";
 
 type QueryParams = {
-  recordingId: string;
-  labelerId: string;
+  recordingId: number;
+  labelerId: number;
+  regionId: number;
+  annotationDate: string;
+  speciesId: number;
+  speciesProbability: number;
+  mostRecent: boolean;
 };
 
 const createAnnotation = async (
-  recordingId: string,
-  labelerId: string,
+  recordingId: number,
+  labelerId: number,
+  regionId: number,
 ): Promise<Annotation | undefined> => {
   const db = getDatabase();
   // TODO: finish this mutation
   const statement = db.prepare<QueryParams, Annotation>(`
-    INSERT INTO annotation
-    VALUES ()
+    INSERT INTO annotation (regionId, labelerId, annotationDate, speciesId, speciesProbability, mostRecent)
+    VALUES (@regionId, @labelerId, @annotationDate, @speciesId, @speciesProbability, @mostRecent)
   `);
   try {
     const rows = statement.get({ recordingId, labelerId })!;

@@ -1,23 +1,19 @@
 import { contextBridge, ipcRenderer, IpcRendererEvent } from "electron";
 
 const exposedQueries: QueriesApi = {
-  listRecordingsByDeploymentId: (deploymentId: string) =>
+  listRecordingsByDeploymentId: (deploymentId) =>
     ipcRenderer.invoke("listRecordingsByDeploymentId", deploymentId),
   listRecordings: () => ipcRenderer.invoke("listRecordings"),
-  listRecordingsBySiteId: (siteId: string) =>
-    ipcRenderer.invoke("listAnnotationsByRecordingId", siteId),
-  listAnnotationsByRecordingId: (recordingId: string) =>
-    ipcRenderer.invoke("listRecordingsBySiteId", recordingId),
+  listRecordingsBySiteId: (siteId) =>
+    ipcRenderer.invoke("listRecordingsBySiteId", siteId),
+  listAnnotationsByRegionId: (regionId) =>
+    ipcRenderer.invoke("listAnnotationsByRegionId", regionId),
 };
 
 const exposedMutations: MutationsApi = {
   createAnnotation: (deploymentId) =>
     ipcRenderer.invoke("createAnnotation", deploymentId),
-  updateAnnotation: (
-    annotationId: string,
-    speciesId: string,
-    speciesProbability: number,
-  ) =>
+  updateAnnotation: (annotationId, speciesId, speciesProbability) =>
     ipcRenderer.invoke(
       "createAnnotation",
       annotationId,

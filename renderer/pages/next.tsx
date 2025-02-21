@@ -108,10 +108,12 @@ function UserForm() {
 
   const getDeploymentById = async () => {
     try {
-      const result = await window.api.listRecordingsByDeploymentId("1");
+      const result = await window.api.listRecordingsByDeploymentId(1);
       console.log(result);
       const result2 = await window.api.listRecordings();
       console.log(result2);
+      const result3 = await window.api.listRecordingsBySiteId(1);
+      console.log(result3);
     } catch (e) {
       console.log(e);
     }
