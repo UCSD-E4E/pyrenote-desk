@@ -4,6 +4,10 @@ const exposedQueries: QueriesApi = {
   listRecordingsByDeploymentId: (deploymentId: string) =>
     ipcRenderer.invoke("listRecordingsByDeploymentId", deploymentId),
   listRecordings: () => ipcRenderer.invoke("listRecordings"),
+  listRecordingsBySiteId: (siteId: string) =>
+    ipcRenderer.invoke("listAnnotationsByRecordingId", siteId),
+  listAnnotationsByRecordingId: (recordingId: string) =>
+    ipcRenderer.invoke("listRecordingsBySiteId", recordingId),
 };
 
 const exposedMutations: MutationsApi = {
