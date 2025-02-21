@@ -15,6 +15,7 @@ function invokeMutation<C extends keyof MutationsApi>(
 }
 
 const exposedQueries: QueriesApi = {
+  listSurveys: () => invokeQuery("listSurveys"),
   listRecordingsByDeploymentId: (deploymentId) =>
     invokeQuery("listRecordingsByDeploymentId", deploymentId),
   listRecordings: () => invokeQuery("listRecordings"),
