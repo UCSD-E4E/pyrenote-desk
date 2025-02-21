@@ -66,7 +66,7 @@ app.on("window-all-closed", () => {
 });
 
 //Closes database connection right before app quits
-app.on("before-quit", async (event) => {
+app.on("before-quit", async () => {
   if (dbInstance) {
     dbInstance.close();
   }

@@ -7,7 +7,7 @@ export default tseslint.config([
     plugins: {
       "unused-imports": unusedImports,
     },
-    files: ["main/**/*.ts", "renderer/**/*.tsx"],
+    files: ["main/**/*.ts", "renderer/**/*.tsx", "renderer/**/*.ts{,x}"],
     rules: {
       "unused-imports/no-unused-imports": "error",
     },
