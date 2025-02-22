@@ -1,11 +1,10 @@
 import { Annotation } from "../schema";
 import { getDatabase } from "../background";
 
-type QueryParams = {
+type CreateParams = {
   recordingId: number;
   labelerId: number;
   regionId: number;
-  annotationDate: string;
   speciesId: number;
   speciesProbability: number;
   mostRecent: boolean;
@@ -20,9 +19,9 @@ const createAnnotation = async (
 ): Promise<Annotation | undefined> => {
   const db = getDatabase();
   // TODO: finish this mutation
-  const statement = db.prepare<QueryParams, Annotation>(`
+  const statement = db.prepare<CreateParams, Annotation>(`
     INSERT INTO annotation (regionId, labelerId, annotationDate, speciesId, speciesProbability, mostRecent)
-    VALUES (@regionId, @labelerId, @annotationDate, @speciesId, @speciesProbability, @mostRecent)
+    VALUES (@regionId, @labelerId, CURRENT_TIMESTAMP, @speciesId, @speciesProbability, @mostRecent)
   `);
   try {
     const rows = statement.get({
@@ -31,7 +30,6 @@ const createAnnotation = async (
       regionId,
       speciesId,
       speciesProbability,
-      annotationDate: new Date().toISOString(),
       mostRecent: true,
     })!;
     return Promise.resolve(rows);

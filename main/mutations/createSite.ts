@@ -1,7 +1,7 @@
 import { Annotation } from "../schema";
 import { getDatabase } from "../background";
 
-type QueryParams = {
+type CreateParams = {
   surveyId: number;
   site_code: string;
   latitude: number;
@@ -18,7 +18,7 @@ const createSite = async (
 ): Promise<Annotation | undefined> => {
   const db = getDatabase();
   // TODO: finish this mutation
-  const statement = db.prepare<QueryParams, Annotation>(`
+  const statement = db.prepare<CreateParams, Annotation>(`
     INSERT INTO site (surveyId, site_code, latitude, longitude, elevation)
     VALUES (@surveyId, @site_code, @latitude, @longitude, @elevation)
     RETURNING *

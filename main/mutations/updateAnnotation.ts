@@ -1,7 +1,7 @@
 import { Annotation } from "../schema";
 import { getDatabase } from "../background";
 
-type QueryParams = {
+type UpdateParams = {
   annotationId: string;
   speciesId: string;
   speciesProbability: number;
@@ -13,7 +13,7 @@ const updateAnnotation = async (
   speciesProbability: number,
 ): Promise<Annotation | undefined> => {
   const db = getDatabase();
-  const statement = db.prepare<QueryParams, Annotation>(`
+  const statement = db.prepare<UpdateParams, Annotation>(`
     UPDATE annotation
     SET speciesId = @speciesId, speciesProbability = @speciesProbability
     WHERE annotationId = @annotationId

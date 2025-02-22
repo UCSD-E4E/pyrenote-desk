@@ -29,6 +29,7 @@ const exposedMutations: MutationsApi = {
   createSite: (...args) => invokeMutation("createSite", ...args),
   createAnnotation: (...args) => invokeMutation("createAnnotation", ...args),
   updateAnnotation: (...args) => invokeMutation("updateAnnotation", ...args),
+  createRecording: (...args) => invokeMutation("createRecording", ...args),
 };
 
 contextBridge.exposeInMainWorld("api", {
