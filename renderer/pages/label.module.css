@@ -1,187 +1,199 @@
 .container {
-    margin-top: 50px;
-    display: flex;
-    gap: 20px;
-    padding: 20px;
-    align-items: flex-start;
+	margin-top: 50px;
+	display: flex;
+	gap: 20px;
+	padding: 20px;
+	align-items: flex-start;
+}
+
+.waveSpectroContainer {
+	position: relative;
+	width: 100%;
+	height: 350px;
+	overflow: visible;
+}
+
+.waveContainer {
+    position: absolute;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 200px;
+	padding: 1px;
+}
+
+.spectrogramContainer {
+	position: absolute;
+	top: 125px; /* possibly recalculate based on monitor */
+	left: 0;
+	width: 100%;
+	height: 150px;
+	padding: 1px;
+}
+
+.spectrogramContainer canvas {
+	z-index: 1 !important;
+	position: relative;
 }
 
 .play:hover {
     background-color: #b3fad1;
-    cursor: pointer;
+	cursor: pointer;
 }
 
 .pause:hover {
-    background-color: #b3fad1;
-    cursor: pointer;
+	background-color: #b3fad1;
+	cursor: pointer;
 }
 
 .replay:hover {
-    background-color: #b3fad1;
-    cursor: pointer;
+	background-color: #b3fad1;
+	cursor: pointer;
 }
 
 .confidence {
-    font-family: 'Gill Sans', 'Gill Sans MT', 'Trebuchet MS', sans-serif;
-    margin: 10px;
-    box-sizing: border-box;
-    width: 30%;
-    border-radius: 5%;
-    outline: none;
-    justify-content: center;
-    display: flex;
-    align-items: center;
-    margin-left: 35%;
+	font-family: 'Gill Sans', 'Gill Sans MT', 'Trebuchet MS', sans-serif;
+	margin: 10px;
+	box-sizing: border-box;
+	width: 20%;
+	border-radius: 5%;
+	outline: none;
+	justify-content: center;
+	display: flex;
+	align-items: center;
+	flex-direction: column;
 }
 
 .confidenceLabel {
-    font-family: 'Gill Sans', 'Gill Sans MT', 'Trebuchet MS', sans-serif;
-    align-items: center;
-    margin-left: 45%;
+	font-family: 'Gill Sans', 'Gill Sans MT', 'Trebuchet MS', sans-serif;
+	align-items: center;
 }
 
 .prevClip:hover {
-    background-color: #b3fad1;
-    cursor: pointer;
+	background-color: #b3fad1;
+	cursor: pointer;
 }
 
 .nextClip:hover {
-    background-color: #b3fad1;
-    cursor: pointer;
+	background-color: #b3fad1;
+	cursor: pointer;
 }
 
 .modelMatch:hover {
-    background-color: #b3fad1;
-    cursor: pointer;
+	background-color: #b3fad1;
+	cursor: pointer;
 }
 
 .modelFail:hover {
-    background-color: #b3fad1;
-    cursor: pointer;
+	background-color: #b3fad1;
+	cursor: pointer;
 }
 
 .play {
-    gap: 1px;
-    background-color: white;
-    padding: 1px;
-    margin-right: 20px;
-    border-radius: 10px;
-    border: none;
-
+	gap: 1px;
+	background-color: white;
+	padding: 1px;
+	margin-right: 20px;
+	border-radius: 10px;
+	border: none;
 }
-.modelMatch{
-    background-color: orange; 
-    color: black; 
-    font-size: 16px;
-    font-weight: bold; 
-    padding: 10px 20px; 
-    margin: 10px 0; 
-    border: none; 
-    text-align: center;
-    display: inline-block; 
-    align-self: center;
-    width: 150px;
+.modelMatch {
+	background-color: orange;
+	color: black;
+	font-size: 16px;
+	font-weight: bold;
+	padding: 10px 20px;
+	margin: 10px 0;
+	border: none;
+	text-align: center;
+	display: inline-block;
+	align-self: center;
+	width: 150px;
 }
-.modelFail{
-    background-color: orange; 
-    color: black; 
-    font-size: 16px;
-    font-weight: bold; 
-    padding: 10px 20px; 
-    margin: 10px 0; 
-    border: none; 
-    text-align: center;
-    display: inline-block; 
-    align-self: center;
-    width: 150px; 
+.modelFail {
+	background-color: orange;
+	color: black;
+	font-size: 16px;
+	font-weight: bold;
+	padding: 10px 20px;
+	margin: 10px 0;
+	border: none;
+	text-align: center;
+	display: inline-block;
+	align-self: center;
+	width: 150px;
 }
 
 .pause {
-    gap: 1px;
-    background-color: white;
-    padding: 1px;
-    margin-right: 20px;
-    border-radius: 10px;
-    border: none;
+	gap: 1px;
+	background-color: white;
+	padding: 1px;
+	margin-right: 20px;
+	border-radius: 10px;
+	border: none;
 }
 
 .replay {
-    gap: 1px;
-    background-color: white;
-    padding: 1px;
-    margin-right: 20px;
-    border-radius: 10px;
-    border: none;
+	gap: 1px;
+	background-color: white;
+	padding: 1px;
+	margin-right: 20px;
+	border-radius: 10px;
+	border: none;
 }
 
 .prevClip {
-    gap: 1px;
-    background-color: white;
-    padding: 1px;
-    margin-right: 20px;
-    border-radius: 10px;
-    border: none;
+	gap: 1px;
+	background-color: white;
+	padding: 1px;
+	margin-right: 20px;
+	border-radius: 10px;
+	border: none;
 }
 
 .nextClip {
-    gap: 1px;
-    background-color: white;
-    padding: 1px;
-    margin-right: 20px;
-    border-radius: 10px;
-    border: none;
-}
-
-.waveContainer {
-    display: flex;
-    align-items: flex-start;
-    margin-bottom: 5px;
-
+	gap: 1px;
+	background-color: white;
+	padding: 1px;
+	margin-right: 20px;
+	border-radius: 10px;
+	border: none;
 }
 
 .controls {
-    display: flex;
-    justify-content: center;
-    height: 90px;
-    margin-top: 10px;
+	display: flex;
+	justify-content: center;
+	height: 90px;
+	margin-top: 10px;
 }
 
 .controls button {
-    margin: 10px;
-    padding: 10px;
+	margin: 10px;
+	padding: 10px;
 }
 
 .controls button img {
-    height: 50px;
-    width: 50px;
-
+	height: 50px;
+	width: 50px;
 }
 
 .audioGraph {
-    gap: 1px;
-   
+	gap: 1px;
 }
+
+.bottomBar {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 30px;
+	margin-top: 10px;
+}
+
 .main {
-	margin-top: 20px; /* Add some margin to separate the waveform from the player */
-	
+	margin-top: 20px;
 	text-align: left;
 	width: 75%;
-	/*text-align: center; /* Center text */
 	flex-direction: column;
 	align-items: flex-start;
-	flex: 1; 
-}
-
-
-
-.main {
-    margin-top: 20px;
-    /* Add some margin to separate the waveform from the player */
-
-    text-align: left;
-    width: 75%;
-    /*text-align: center; /* Center text */
-    flex-direction: column;
-    align-items: flex-start;
-    flex: 1;
+	flex: 1;
 }
