@@ -25,3 +25,7 @@
     font-weight: normal;
     text-decoration: none;
 }
+
+.children {
+    flex-grow: 1;
+}
