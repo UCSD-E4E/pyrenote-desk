@@ -19,6 +19,7 @@ const exposedQueries: QueriesApi = {
   listRecordingsByDeploymentId: (...args) =>
     invokeQuery("listRecordingsByDeploymentId", ...args),
   listRecordings: (...args) => invokeQuery("listRecordings", ...args),
+  listDeployments: (...args) => invokeQuery("listDeployments", ...args),
   listRecordingsBySiteId: (...args) =>
     invokeQuery("listRecordingsBySiteId", ...args),
   listAnnotationsByRegionId: (...args) =>
