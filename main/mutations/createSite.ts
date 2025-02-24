@@ -17,7 +17,7 @@ const createSite = async (
   elevation: number,
 ): Promise<Annotation | undefined> => {
   const db = getDatabase();
-  // TODO: finish this mutation
+  // TODO: test this mutation
   const statement = db.prepare<CreateParams, Annotation>(`
     INSERT INTO site (surveyId, site_code, latitude, longitude, elevation)
     VALUES (@surveyId, @site_code, @latitude, @longitude, @elevation)

@@ -21,10 +21,11 @@ const createRecording = async (
   bitrate: number,
 ): Promise<Recording | undefined> => {
   const db = getDatabase();
-  // TODO: finish this mutation
+  // TODO: test this mutation
   const statement = db.prepare<CreateParams, Recording>(`
     INSERT INTO recording (deploymentId, filename, url, datetime, duration, samplerate, bitrate)
     VALUES (@deploymentId, @filename, @url, @datetime, @duration, @samplerate, @bitrate)
+    RETURNING * 
   `);
   try {
     const rows = statement.get({

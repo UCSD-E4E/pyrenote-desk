@@ -18,10 +18,11 @@ const createAnnotation = async (
   speciesProbability: number,
 ): Promise<Annotation | undefined> => {
   const db = getDatabase();
-  // TODO: finish this mutation
+  // TODO: test this mutation
   const statement = db.prepare<CreateParams, Annotation>(`
     INSERT INTO annotation (regionId, labelerId, annotationDate, speciesId, speciesProbability, mostRecent)
     VALUES (@regionId, @labelerId, CURRENT_TIMESTAMP, @speciesId, @speciesProbability, @mostRecent)
+    RETURNING * 
   `);
   try {
     const rows = statement.get({
