@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, MouseEvent } from 'react'
+import React, { useState, useRef, useEffect, MouseEvent, useCallback, useImperativeHandle } from 'react'
 import { createPortal } from 'react-dom'
 import Head from 'next/head'
 import Link from 'next/link'
@@ -42,11 +42,11 @@ const ROWS = 5;
 const COLS = 2;
 
 const spectrograms = []
-let spectrogramPlaying = -1;
+let spectrogramPlaying = null;
 const DEFAULT_SKIPINTERVAL = 2;
 const DEFAULT_PLAYSPEED = 1;
 
-const Spectrogram = ({id, filePath, onMouseEnter, onMouseLeave}) => {
+const Spectrogram = ({id, filePath, onMouseEnter, onMouseLeave, selectedSpectrogram=-1}) => {
 	const wavesurferRef = useRef(null);
 	const containerRef = useRef(null);
 	const innerRef = useRef(null);
@@ -54,14 +54,19 @@ const Spectrogram = ({id, filePath, onMouseEnter, onMouseLeave}) => {
 	const [isSelected, setIsSelected] = useState(false);
 	const [isLoaded, setIsLoaded] = useState(false);
 
+	const smallSpectrogram = (id == -1) ? spectrograms[selectedSpectrogram] : null;
+
 	const toggleRed = () => {
 		setIsRed(prev => !prev);
+		if (smallSpectrogram != null) {
+			smallSpectrogram.toggleRed();
+		}
 	};
 	const toggleSelected = (S) => {
 		setIsSelected(S);
 	};
 	const playPause = (playSpeed = 1) => {
-		if (spectrogramPlaying != -1 && spectrogramPlaying != id) {
+		if (spectrogramPlaying != null && spectrogramPlaying != id) {
 			spectrograms[spectrogramPlaying].ws.pause();
 			spectrograms[spectrogramPlaying].ws.setTime(0);
 		}
@@ -80,34 +85,48 @@ const Spectrogram = ({id, filePath, onMouseEnter, onMouseLeave}) => {
 				progressColor: 'white',
 				cursorColor: 'yellow',
 				cursorWidth: 2,
+				sampleRate: 16000,
 			});
 			wavesurferRef.current.registerPlugin(
 				SpectrogramPlugin.create({
 					colorMap: createViridisColorMap(),
-					height: 256,
-					fftSamples: 1024,
+					
+					scale: "linear",
+					fftSamples: (id==-1) ? 512 : 256, // 2 * height
+					labels: (id==-1),
 				}),
 			)
-
+	
 			wavesurferRef.current.load(filePath);
 			wavesurferRef.current.on('ready', function() {
 				document.getElementById(`loading-spinner-${id}`).style.display = 'none';
 				setIsLoaded(true);
-				console.log(id);
 			});
-		}
+			
+			if (id == -1) {
+				setIsRed(smallSpectrogram.getIsRed());
+				wavesurferRef.current.setTime(smallSpectrogram.ws.getCurrentTime());
 
+				wavesurferRef.current.on("timeupdate", (progress) => {
+					smallSpectrogram.ws?.setTime(progress);
+				});
+			}
+		}
+		
 		spectrograms[id] = {
 			id: id,
 			ws: wavesurferRef.current,
 			container: innerRef.current,
-			isRed: isRed,
+			filePath: filePath,
 			toggleRed: toggleRed,
 			toggleSelected: toggleSelected,
 			playPause: playPause,
 		};
 
-		return () => { wavesurferRef.current.destroy(); };
+		return () => { 
+			wavesurferRef.current.destroy(); 
+			spectrograms[id] = null 
+		};
 	}, []);
 
 	// left click reposition functionality already handled by wavesurfer
@@ -117,7 +136,7 @@ const Spectrogram = ({id, filePath, onMouseEnter, onMouseLeave}) => {
 		<div 
 			key={id} 
 			className={`
-				${styles.waveContainer} 
+				${(id==-1) ? styles.waveContainerBig : styles.waveContainer} 
 				${isLoaded && (isRed ? styles.redOutline : styles.greenOutline)}
 				${isLoaded && (isSelected ? styles.selectOutline : styles.unselectOutline)}
 			`}
@@ -173,11 +192,11 @@ export default function VerifyPage() {
 	// SELECTION
 	
 	const [selectedSpectrogram, setSelectedSpectrogram] = useState(null);
-	let frozenSelection = false;
+	const [frozen, setFrozen] = useState(false);
+	const [mouseControl, setMouseControl] = useState(true);
 
-	const setSelected = (i) => { // wraps setSelectedSpectrogram
-		console.log("setselected: ", i, frozenSelection);
-		if (!frozenSelection) {
+	const setSelected = useCallback((i) => { // wraps setSelectedSpectrogram
+		if (!frozen) {
 			setSelectedSpectrogram((prev) => {
 				if (prev != null) {
 					spectrograms[prev].toggleSelected(false);
@@ -189,27 +208,28 @@ export default function VerifyPage() {
 				return i;
 			})
 		}
-	}
+	}, [selectedSpectrogram, frozen]);
 
 	// MODAL
 
 	const [showModal, setShowModal] = useState(false);
-	const toggleModal = () => {  // wraps setShowModal
-		console.log("toggle modal: ", selectedSpectrogram, frozenSelection);
+	const toggleModal = useCallback(() => {  // wraps setShowModal
+		//console.log("toggle modal: ", selectedSpectrogram, frozen);
 		if (selectedSpectrogram != null) {
 			setShowModal((prev) => {
-				frozenSelection = !prev;
+				setFrozen(!prev);
 				if (prev) { // EXIT MODAL
+					spectrogramPlaying = null;
 					return false;
 				} else { // SHOW MODAL
-					if (spectrogramPlaying != -1) {
+					if (spectrogramPlaying != null) {
 						spectrograms[spectrogramPlaying].ws.pause();
 					}
 					return true;
 				}
 			});
 		}		
-	}
+	}, [selectedSpectrogram, frozen]);
 
 	useEffect(() => {
 		if (showModal) {
@@ -223,6 +243,22 @@ export default function VerifyPage() {
 		return (
 			<div className={styles.modal}>
 				<div>{selectedSpectrogram}</div>
+				<Spectrogram 
+					key={-1}
+					id={-1} 
+					filePath={spectrograms[selectedSpectrogram].filePath} 
+					onMouseEnter={() => {
+						if (mouseControl) {
+							setSelected(-1);
+						}
+					}}
+					onMouseLeave={() => {
+						if (mouseControl) {
+							setSelected(null);
+						}
+					}}
+					selectedSpectrogram={selectedSpectrogram}
+				/>
 				<button onClick={toggleModal}>Close</button>
 			</div>
 		);
@@ -236,19 +272,19 @@ export default function VerifyPage() {
 	// ACTIONS
 
 	{ // defining functions and handling keyboard controls
-		const moveSelectionUp = () => { setSelected(Math.max(selectedSpectrogram - COLS, selectedSpectrogram % COLS)); }
-		const moveSelectionDown = () => { setSelected(Math.min(selectedSpectrogram + COLS, numFiles-1, numSpots-COLS+(selectedSpectrogram % COLS))); }
-		const moveSelectionLeft = () => { setSelected(Math.max(selectedSpectrogram - 1, 0)); }
-		const moveSelectionRight = () => { setSelected(Math.min(selectedSpectrogram + 1, numFiles-1)) }
-		const toggleValidity = () => { if (selectedSpectrogram != null) {spectrograms[selectedSpectrogram].toggleRed();} }
-		const playPauseSelection = () => { if (selectedSpectrogram != null) {spectrograms[selectedSpectrogram].playPause();} }
-		const skipBack = () => { if (selectedSpectrogram != null) {spectrograms[selectedSpectrogram].ws.skip(-skipInterval);} }
-		const skipForward = () => { if (selectedSpectrogram != null) {spectrograms[selectedSpectrogram].ws.skip(skipInterval);} } 
+		const moveSelectionUp = () => { setSelected(Math.max(selectedSpectrogram - COLS, selectedSpectrogram % COLS)); setMouseControl(false);}
+		const moveSelectionDown = () => { setSelected(Math.min(selectedSpectrogram + COLS, numFiles-1, numSpots-COLS+(selectedSpectrogram % COLS))); setMouseControl(false);}
+		const moveSelectionLeft = () => { setSelected(Math.max(selectedSpectrogram - 1, 0)); setMouseControl(false);}
+		const moveSelectionRight = () => { setSelected(Math.min(selectedSpectrogram + 1, numFiles-1)); setMouseControl(false);}
+		const toggleValidity = () => { if (selectedSpectrogram != null) {spectrograms[selectedSpectrogram].toggleRed();}; if (showModal) {spectrograms[-1].toggleRed();}}
+		const playPauseSelection = () => { if (selectedSpectrogram != null) {spectrograms[showModal ? -1 : selectedSpectrogram].playPause();}; }
+		const skipBack = () => { if (selectedSpectrogram != null) {spectrograms[showModal ? -1 : selectedSpectrogram].ws.skip(-skipInterval);}; }
+		const skipForward = () => { if (selectedSpectrogram != null) {spectrograms[showModal ? -1 : selectedSpectrogram].ws.skip(skipInterval);}; } 
 		const doubleSkipInterval = () => { setSkipInterval((prev) => prev*2) } 
 		const halveSkipInterval = () => { setSkipInterval((prev) => prev/2) } 
-		const doublePlaySpeed = () => { setPlaySpeed((prev) => {let p = Math.min(2, prev*2); if (spectrogramPlaying != -1) {spectrograms[spectrogramPlaying].ws.setPlaybackRate(p)}; return p;}); }
-		const halvePlaySpeed = () => { setPlaySpeed((prev) => {let p = Math.max(0.25, prev/2); if (spectrogramPlaying != -1) {spectrograms[spectrogramPlaying].ws.setPlaybackRate(p)}; return p;}); }
-		const resetIncrements = () => { setSkipInterval(DEFAULT_SKIPINTERVAL); setPlaySpeed(DEFAULT_PLAYSPEED); if (spectrogramPlaying != -1) {spectrograms[spectrogramPlaying].ws.setPlaybackRate(DEFAULT_PLAYSPEED)}; }
+		const doublePlaySpeed = () => { setPlaySpeed((prev) => {let p = Math.min(2, prev*2); if (spectrogramPlaying != null) {spectrograms[spectrogramPlaying].ws.setPlaybackRate(p)}; return p;}); }
+		const halvePlaySpeed = () => { setPlaySpeed((prev) => {let p = Math.max(0.25, prev/2); if (spectrogramPlaying != null) {spectrograms[spectrogramPlaying].ws.setPlaybackRate(p)}; return p;}); }
+		const resetIncrements = () => { setSkipInterval(DEFAULT_SKIPINTERVAL); setPlaySpeed(DEFAULT_PLAYSPEED); if (spectrogramPlaying != null) {spectrograms[spectrogramPlaying].ws.setPlaybackRate(DEFAULT_PLAYSPEED)}; }
 
 		const keybinds = {
 			"w": moveSelectionUp,
@@ -264,12 +300,12 @@ export default function VerifyPage() {
 			"m": doublePlaySpeed,
 			"n": halvePlaySpeed,
 			"r": resetIncrements,
-			"x": toggleModal,
+			"o": toggleModal,
 			"Enter": nextPage,
 			"Backspace": prevPage,
 		}
 
-		useEffect(() => {
+		useEffect(() => { // handle keyboard input
 			const handleKeyDown = (event) => {
 				if (event.key == " ") {
 					event.preventDefault(); 
@@ -283,7 +319,7 @@ export default function VerifyPage() {
 
 			window.addEventListener("keydown", handleKeyDown);
 			return () => window.removeEventListener("keydown", handleKeyDown);
-		}, [selectedSpectrogram, spectrogramPlaying, playSpeed, skipInterval]);
+		}, [selectedSpectrogram, spectrogramPlaying, playSpeed, skipInterval, frozen]);
 	}
 	
 	return (
@@ -291,7 +327,7 @@ export default function VerifyPage() {
 			<Head>
 				<title>Verify Page</title>
 			</Head>
-			<div id="container" className={styles.container}>
+			<div id="container" className={styles.container} onMouseMove={() => {if (!frozen) setMouseControl(true)}}>
 				<div className = {styles.verifyContent}>
 					<div className = {styles.verifyButtonMenu}>
 						<input type="file" multiple onChange={handleFileSelection} />
@@ -332,10 +368,14 @@ export default function VerifyPage() {
 										id={i} 
 										filePath={filePath} 
 										onMouseEnter={() => {
-											setSelected(i);
+											if (mouseControl) {
+												setSelected(i);
+											}
 										}}
 										onMouseLeave={() => {
-											setSelected(null);
+											if (mouseControl) {
+												setSelected(null);
+											}
 										}}
 									/>
 								))}

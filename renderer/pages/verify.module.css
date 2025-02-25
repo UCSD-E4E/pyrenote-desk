@@ -99,6 +99,12 @@
 	height: 128px;
 	flex-direction: column;
 }
+.waveContainerBig{
+	margin-bottom: 0px;
+    width: 1024px;
+	height: 256px;
+	flex-direction: column;
+}
 
 .redOutline {
 	outline: 8px solid rgba(255, 0, 0, 0.7);
@@ -116,17 +122,19 @@
 
 .modal {
 	display: flex;
-	justify-content: space-evenly;
 	align-items: center;
+	justify-content: center;  /* Centers horizontally */
 	box-shadow: rgba(100, 100, 111, 0.3) 0px 7px 29px 0px;
 	background-color: white;
 	border: 2px solid rgb(240, 240, 240);
 	border-radius: 12px;
-	position:  absolute;
-	width: 250px;
-	top: 70px;
-	left: calc(50% - 125px);
-	bottom: 70px;
+
+	width: 1400px;
+	height: 400px;
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
 	z-index: 1000;
 }
 
