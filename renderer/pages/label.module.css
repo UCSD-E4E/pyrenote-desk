@@ -14,7 +14,7 @@
 }
 
 .waveContainer {
-    position: absolute;
+	position: absolute;
 	top: 0;
 	left: 0;
 	width: 100%;
@@ -37,7 +37,7 @@
 }
 
 .play:hover {
-    background-color: #b3fad1;
+	background-color: #b3fad1;
 	cursor: pointer;
 }
 

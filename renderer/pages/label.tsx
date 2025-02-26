@@ -316,6 +316,36 @@ const AudioPlayer: React.FC = () => {
 						{ color: 'rgba(0,255,0,0.3)' },
 						3
 					);
+					
+					// Select timeline
+					const timelineContainer = document.getElementById('wave-timeline');
+					if (timelineContainer) {
+						timelineContainer.style.position = 'relative';
+						timelineContainer.style.overflow = 'visible';
+					}
+
+					// Create the dot 
+					const dot = document.createElement('div');
+					dot.style.position = 'absolute';
+					dot.style.width = '8px';
+					dot.style.height = '8px';
+					dot.style.borderRadius = '50%';
+					dot.style.backgroundColor = 'black';
+					dot.style.top = '50%';
+					dot.style.transform = 'translateY(-50%)';
+					dot.style.left = '0px';
+
+					timelineContainer?.appendChild(dot);
+
+					// Move dot according to audio time
+					ws.on('audioprocess', (currentTime) => {
+						const duration = ws.getDuration();
+						if (!duration) return;
+						const fraction = currentTime / duration;
+						const timelineWidth = timelineContainer?.offsetWidth;
+
+						dot.style.left = fraction * timelineWidth + 'px';
+					});
 
 					await ws.load(URL.createObjectURL(wavesurfers[index].file));
 					console.log('loaded ws');
@@ -484,7 +514,7 @@ const AudioPlayer: React.FC = () => {
 				</div>
 			</div>
 			{showSpec && (
-				<div id="wave-timeline" style={{ height: '20px', padding: '10px' }} />
+				<div id="wave-timeline" style={{ height: '20px', margin: '20px'}} />
 			)}
 			{showSpec && (
 				<div className={styles.controls}>
