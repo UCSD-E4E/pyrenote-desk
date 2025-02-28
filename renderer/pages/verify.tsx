@@ -269,7 +269,7 @@ export default function VerifyPage() {
 		}
 	}, [showModal]);
 
-	function PortalContent() {
+	const PortalContent = () => {
 		return (
 			<div className={styles.modal}>
 				<div>{selectedSpectro.current}</div>
