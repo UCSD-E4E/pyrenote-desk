@@ -2,6 +2,7 @@ import React from "react";
 import Head from "next/head";
 import Image from "next/image";
 import styles from "./model.module.css";
+import { useState } from 'react';
 
 //File Upload Button appears at top left of model page and disappears while model runs
 function FileUploadButton({ onClick }) {
@@ -22,38 +23,38 @@ function FileUploadButton({ onClick }) {
   );
 }
 
-function recordingIDQuery() {
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const recordingID = (event.target as HTMLFormElement).recordingID.value;
+function RecordingIDQuery({ onClick, onSuccess }) {
+  const [inputValue, setInputValue] = useState('');
+  const [result, setResult] = useState('');
 
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     try {
-      const response = await fetch('/api/run-script', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ recordingID }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Network response was not ok');
-      }
-
-      const result = await response.json();
-      alert(`Recording ID submitted: ${recordingID}\n${result.output}`);
+      const response = await window.api.runScript(inputValue);
+      setResult(response);
+      onSuccess();
     } catch (error) {
-      console.error('Error:', error);
-      alert('Error submitting recording ID');
+      console.error('Error running script:', error);
+      setResult('Error executing script');
     }
   };
 
   return (
-    <form onSubmit={handleSubmit}>
-      <label htmlFor="recordingID">Recording ID:</label>
-      <input type="text" id="recordingID" name="recordingID" />
-      <button type="submit">Submit</button>
-    </form>
+    <div>
+      <form onSubmit={handleSubmit}>
+        <label htmlFor="recordingID">Recording ID: </label>
+        <input
+          type="text"
+          id="recordingID"
+          value={inputValue}
+          onChange={(e) => setInputValue(e.target.value)}
+        />
+        <button type="submit" onClick={onClick}>Submit</button>
+      </form>
+      {result && (
+        <p>Result: {result}</p>
+      )}
+    </div>
   );
 }
 
@@ -144,7 +145,6 @@ export default function ModelPage() {
 
   //defines click behavior of file select button
   function HandleClick() {
-    alert("Clicked");
     // TODO: Add Backend Functionality Here
     setIsButtonVisible(false);
     setOrigionalImageVisible(false);
@@ -168,11 +168,25 @@ export default function ModelPage() {
 
   //defines behavior of model success
   function HandleSuccessClick() {
-    alert("Success");
     // TODO: Add backend Functionality Here
     setOrigionalImageVisible(true);
     setOrigionalTextVisible(false);
     setIsButtonVisible(true);
+    setSuccessTextVisible(true);
+    setLoadingTextVisible(false);
+    stopImageRotation();
+  }
+
+  function HandleSubmit() {
+    setOrigionalImageVisible(false);
+    setOrigionalTextVisible(false);
+    setLoadingTextVisible(true);
+    setSuccessTextVisible(false);
+    startImageRotation();
+  }
+  function HandleSuccessSubmit() {
+    setOrigionalImageVisible(true);
+    setOrigionalTextVisible(false);
     setSuccessTextVisible(true);
     setLoadingTextVisible(false);
     stopImageRotation();
@@ -191,7 +205,10 @@ export default function ModelPage() {
           </div>
 
           <div>
-            {recordingIDQuery()}
+            {<RecordingIDQuery 
+              onClick={HandleSubmit} 
+              onSuccess={HandleSuccessSubmit} 
+            />}
           </div>
 
           <div style={{ textAlign: "center" }}>

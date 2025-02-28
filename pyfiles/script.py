@@ -262,9 +262,12 @@ def pseudo_inference(model_input):
 if __name__ == "__main__":
 
     # Get the recording ID from the command line argument
-    recording_id = sys.argv[1]
-    print("Sucessfully retreived recording ID:", recording_id)
-
+    if len(sys.argv) > 1:
+        recording_id = sys.argv[1]
+        print(f"Received recording ID: {recording_id}")
+    else:
+        print("Input was empty\n")
+    
     # Create a dummy config object with necessary attributes
     class Config:
         validation_batch_size = 2

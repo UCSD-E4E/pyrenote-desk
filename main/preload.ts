@@ -2,7 +2,7 @@ import { contextBridge, ipcRenderer, IpcRendererEvent } from 'electron'
 
 contextBridge.exposeInMainWorld('api', {
   runQuery: (query: string, params: any) => ipcRenderer.invoke('db-query', query, params),
-  runScript: () => ipcRenderer.invoke('run-script'), 
+  runScript: (input: string) => ipcRenderer.invoke('run-script', input),
 });
 
 const handler = {

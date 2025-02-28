@@ -81,13 +81,12 @@ ipcMain.handle('db-query', async (event, query, params) => {
 });
 
 //Listener for running the script
-ipcMain.handle('run-script', async () => {
+ipcMain.handle('run-script', async (event, input) => {
   return new Promise((resolve, reject) => {
-    execFile('python', ['pyfiles/script.py'], (error, stdout, stderr) => {
+    execFile('python', ['pyfiles/script.py', input], (error, stdout, stderr) => {
       if (error) {
-        return reject(stderr); 
+        return reject(stderr);
       }
-      //Passes output back to the renderer
       resolve(stdout);
     });
   });
