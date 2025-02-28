@@ -91,7 +91,8 @@ def get_dataloader_for_recordings(recording_ids, classes, cfg):
     Given a list of recordingIds, fetch the corresponding recording URLs from the Recording table,
     download the videos (.wav files) and construct a DataLoader.
     The dataset contains only the video content (along with recording id).
-    Returns the DataLoader and the original list of recording IDs.
+    If video content is None for a recording, that recording is skipped.
+    Returns the DataLoader (or None if no video available) and the original list of recording IDs.
     """
     db_helper = DBHelper()
     # Fetch recording details (simulated based on Recording table schema)
@@ -102,19 +103,24 @@ def get_dataloader_for_recordings(recording_ids, classes, cfg):
     for rec in recordings:
         rec_id, url = rec
         video = download_video(url)
+        # Do not process if video is None
+        if video is None:
+            continue
         sample = {"id": rec_id, "video": video}
         samples.append(sample)
 
-    # Create the dataset using the list of video samples
-    video_dataset = VideoDataset(samples)
+    # Only create a VideoDataset if there are valid samples
+    if samples:
+        video_dataset = VideoDataset(samples)
+        dataloader = DataLoader(
+            video_dataset,
+            batch_size=cfg.validation_batch_size,
+            shuffle=False,
+            num_workers=cfg.jobs,
+        )
+    else:
+        dataloader = None
 
-    # Create DataLoader with the specified batch size and number of workers from cfg
-    dataloader = DataLoader(
-        video_dataset,
-        batch_size=cfg.validation_batch_size,
-        shuffle=False,
-        num_workers=cfg.jobs,
-    )
     return dataloader, recording_ids
 
 
