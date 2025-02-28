@@ -105,6 +105,44 @@ const AudioPlayer: React.FC = () => {
 		}
 		setConfidence('10');
 		setYesDisabled(true);
+		
+		const ws = wavesurfers[index]?.instance;
+		if (!ws) {
+			return;
+		}
+		
+		// Accesses all regions 
+		const regionPlugin = ws.plugins[1];
+		const allRegions = regionPlugin?.wavesurfer?.plugins[2]?.regions;
+
+		if (!allRegions || Object.keys(allRegions).length === 0) {
+			console.log('No regions');
+		} else {
+			const lines = [''];
+			// Text document of start/end times
+			Object.keys(allRegions).forEach((regionId, idx) => {
+				const region = allRegions[regionId];
+				const startSec = region.start.toFixed(3);
+				const endSec = region.end.toFixed(3);
+				lines.push(
+					`Region #${idx + 1}: Start = ${startSec}s, End = ${endSec}s`
+				);
+			});
+
+			// Make text file
+			const content = lines.join('\n');
+			const blob = new Blob([content], { type: 'text/plain' });
+			const url = URL.createObjectURL(blob);
+
+			// Download (test for Windows)
+			const link = document.createElement('a');
+			link.href = url;
+			link.download = 'regionTimes.txt';
+			document.body.appendChild(link);
+			link.click();
+			document.body.removeChild(link);
+			URL.revokeObjectURL(url);
+		}
 
 		if (index == 0) {
 			let currentWaveSurfer = wavesurfers[index].instance;
@@ -299,6 +337,8 @@ const AudioPlayer: React.FC = () => {
 						],
 					});
 
+					window.ws = ws;
+
 					// Allow draw selection with Regions plugin
 					const wsRegions = ws.registerPlugin(
 						(RegionsPlugin as any).create({
@@ -316,7 +356,7 @@ const AudioPlayer: React.FC = () => {
 						{ color: 'rgba(0,255,0,0.3)' },
 						3
 					);
-					
+
 					// Select timeline
 					const timelineContainer = document.getElementById('wave-timeline');
 					if (timelineContainer) {
@@ -324,7 +364,7 @@ const AudioPlayer: React.FC = () => {
 						timelineContainer.style.overflow = 'visible';
 					}
 
-					// Create the dot 
+					// Create the dot
 					const dot = document.createElement('div');
 					dot.style.position = 'absolute';
 					dot.style.width = '8px';
@@ -514,7 +554,7 @@ const AudioPlayer: React.FC = () => {
 				</div>
 			</div>
 			{showSpec && (
-				<div id="wave-timeline" style={{ height: '20px', margin: '20px'}} />
+				<div id="wave-timeline" style={{ height: '20px', margin: '20px' }} />
 			)}
 			{showSpec && (
 				<div className={styles.controls}>
