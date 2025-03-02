@@ -30,7 +30,7 @@ const createSurvey = async (
       end_date,
       latitude,
       longitude,
-      notes,
+      notes
     )
     VALUES (
       @surveyname,
@@ -39,7 +39,7 @@ const createSurvey = async (
       @end_date,
       @latitude,
       @longitude,
-      @notes,
+      @notes
     )
     RETURNING * 
   `);

@@ -81,7 +81,8 @@
 
 // export default AudioVisualizer;
 
-import React, { useState, FormEvent } from "react";
+import React, { useState, FormEvent, useEffect } from "react";
+import { Survey } from "../../main/schema";
 
 function UserForm() {
   const [name, setName] = useState("");
@@ -131,6 +132,67 @@ function UserForm() {
     }
   };
 
+  const [surveyName, setSurveyName] = useState("");
+  const [studySite, setStudySite] = useState("");
+  const [startDate, setStartDate] = useState("2025-01-01");
+  const [endDate, setEndDate] = useState("2025-01-01");
+  const [lat, setLat] = useState(0);
+  const [long, setLong] = useState(0);
+  const [notes, setNotes] = useState("");
+
+  const testCreateSurvey = async (event: FormEvent) => {
+    event.preventDefault();
+    const newSurvey = await window.api.createSurvey(
+      surveyName,
+      studySite,
+      startDate,
+      endDate,
+      lat,
+      long,
+      notes,
+    );
+    console.log(newSurvey);
+    setSurveyName("");
+    setStudySite("");
+    setStartDate("");
+    setEndDate("");
+    setLat(0);
+    setLong(0);
+    setNotes("");
+    await getSurveys();
+  };
+
+  const [siteName, setSiteName] = useState("");
+  const [siteLat, setSiteLat] = useState(0);
+  const [siteLong, setSiteLong] = useState(0);
+  const [elevation, setElevation] = useState(0);
+  const [surveyId, setSurveyId] = useState(-1);
+  const [surveys, setSurveys] = useState<Survey[]>([]);
+
+  const getSurveys = async () => {
+    setSurveys(await window.api.listSurveys());
+  };
+
+  useEffect(() => {
+    getSurveys().catch((e) => console.log(e));
+  }, []);
+  const testCreateSite = async (event: FormEvent) => {
+    event.preventDefault();
+    if (surveyId < 0) return;
+    const newSurvey = await window.api.createSite(
+      surveyId,
+      siteName,
+      siteLat,
+      siteLong,
+      elevation,
+    );
+    console.log(newSurvey);
+    setSiteName("");
+    setSiteLat(0);
+    setSiteLong(0);
+    setElevation(0);
+  };
+
   return (
     <div>
       <h1>User Form</h1>
@@ -161,6 +223,78 @@ function UserForm() {
       </form>
       <button onClick={runPython}>Run Python Script</button>
       <button onClick={getDeploymentById}>Run thing </button>
+      <form className="flex flex-col" onSubmit={testCreateSurvey}>
+        <h1>Test add survey</h1>
+        <label>Survey Name</label>
+        <input
+          value={surveyName}
+          onChange={(e) => setSurveyName(e.target.value)}
+        />
+        <label>Study Site</label>
+        <input
+          value={studySite}
+          onChange={(e) => setStudySite(e.target.value)}
+        />
+        <label>Start Date</label>
+        <input
+          type="date"
+          value={startDate}
+          onChange={(e) => setStartDate(e.target.value)}
+        />
+        <label>End Date</label>
+        <input
+          type="date"
+          value={endDate}
+          onChange={(e) => setEndDate(e.target.value)}
+        />
+        <label>Lat</label>
+        <input
+          type="number"
+          value={lat}
+          onChange={(e) => setLat(+e.target.value)}
+        />
+        <label>Long</label>
+        <input
+          type="number"
+          value={long}
+          onChange={(e) => setLong(+e.target.value)}
+        />
+        <label>Notes</label>
+        <textarea value={notes} onChange={(e) => setNotes(e.target.value)} />
+        <button type="submit">Submit</button>
+      </form>
+      <form className="flex flex-col" onSubmit={testCreateSite}>
+        <h1>Test add site</h1>
+        <label>Survey</label>
+        <select value={surveyId} onChange={(e) => setSurveyId(+e.target.value)}>
+          {surveys.map((s) => (
+            <option key={s.surveyId} value={s.surveyId}>
+              {s.surveyname}
+            </option>
+          ))}
+        </select>
+        <label>Site Name</label>
+        <input value={siteName} onChange={(e) => setSiteName(e.target.value)} />
+        <label>Lat</label>
+        <input
+          type="number"
+          value={siteLat}
+          onChange={(e) => setSiteLat(+e.target.value)}
+        />
+        <label>Long</label>
+        <input
+          type="number"
+          value={siteLong}
+          onChange={(e) => setSiteLong(+e.target.value)}
+        />
+        <label>Elevation</label>
+        <input
+          type="number"
+          value={elevation}
+          onChange={(e) => setElevation(+e.target.value)}
+        />
+        <button type="submit">Submit</button>
+      </form>
     </div>
   );
 }
