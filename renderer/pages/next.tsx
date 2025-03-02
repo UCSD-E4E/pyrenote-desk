@@ -134,8 +134,8 @@ function UserForm() {
 
   const [surveyName, setSurveyName] = useState("");
   const [studySite, setStudySite] = useState("");
-  const [startDate, setStartDate] = useState("2025-01-01");
-  const [endDate, setEndDate] = useState("2025-01-01");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [lat, setLat] = useState(0);
   const [long, setLong] = useState(0);
   const [notes, setNotes] = useState("");
@@ -237,13 +237,13 @@ function UserForm() {
         />
         <label>Start Date</label>
         <input
-          type="date"
+          type="datetime-local"
           value={startDate}
           onChange={(e) => setStartDate(e.target.value)}
         />
         <label>End Date</label>
         <input
-          type="date"
+          type="datetime-local"
           value={endDate}
           onChange={(e) => setEndDate(e.target.value)}
         />
