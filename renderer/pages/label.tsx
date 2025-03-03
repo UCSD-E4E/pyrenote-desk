@@ -21,6 +21,9 @@ const AudioPlayer: React.FC = () => {
 	const [index, setIndex] = useState<number>(0);
 	const [confidence, setConfidence] = useState<string>('10');
 	const [playbackRate, setPlaybackRate] = useState<string>('1');
+	const [sampleRate, setSampleRate] = useState<string>('24000');
+	const [callType, setCallType] = useState('');
+	const [notes, setNotes] = useState('');
 
 	// TODO: Add typing
 	const [wavesurfers, setWavesurfers] = useState([]);
@@ -105,20 +108,21 @@ const AudioPlayer: React.FC = () => {
 		}
 		setConfidence('10');
 		setYesDisabled(true);
-		
+
 		const ws = wavesurfers[index]?.instance;
 		if (!ws) {
 			return;
 		}
-		
-		// Accesses all regions 
+
+		// Accesses all regions
 		const regionPlugin = ws.plugins[1];
 		const allRegions = regionPlugin?.wavesurfer?.plugins[2]?.regions;
+
+		const lines = [];
 
 		if (!allRegions || Object.keys(allRegions).length === 0) {
 			console.log('No regions');
 		} else {
-			const lines = [''];
 			// Text document of start/end times
 			Object.keys(allRegions).forEach((regionId, idx) => {
 				const region = allRegions[regionId];
@@ -128,6 +132,11 @@ const AudioPlayer: React.FC = () => {
 					`Region #${idx + 1}: Start = ${startSec}s, End = ${endSec}s`
 				);
 			});
+
+			lines.push('');
+			lines.push(`Confidence: ${confidence}`);
+			lines.push(`Call Type: ${callType}`);
+			lines.push(`Additional Notes: ${notes}`);
 
 			// Make text file
 			const content = lines.join('\n');
@@ -320,6 +329,7 @@ const AudioPlayer: React.FC = () => {
 						container: `#${wavesurfers[index].id}`,
 						waveColor: 'violet',
 						progressColor: 'purple',
+						sampleRate: parseInt(sampleRate),
 						plugins: [
 							SpectrogramPlugin.create({
 								container: `#${wavesurfers[index].spectrogramId}`,
@@ -386,6 +396,19 @@ const AudioPlayer: React.FC = () => {
 
 						dot.style.left = fraction * timelineWidth + 'px';
 					});
+
+					// Update dot on clicking a waveform
+					const waveformContainer = document.getElementById(waveId);
+					if (waveformContainer && timelineContainer) {
+						waveformContainer.addEventListener('click', (event) => {
+							const rect = timelineContainer.getBoundingClientRect();
+							const clickX = event.clientX - rect.left;
+							dot.style.left = clickX + 'px';
+							// Calculate fraction and seek audio accordingly
+							const fraction = clickX / timelineContainer.offsetWidth;
+							ws.seekTo(fraction);
+						});
+					}
 
 					await ws.load(URL.createObjectURL(wavesurfers[index].file));
 					console.log('loaded ws');
@@ -455,6 +478,30 @@ const AudioPlayer: React.FC = () => {
 
 							region.data = { ...region.data, loop: true };
 						}
+
+						// decide on function of clicking on region while audio playing
+						// select region, move dot, or both?
+						// // change audio dot to region that is clicked
+						// if (event && timelineContainer) {
+						// 	const rect = timelineContainer.getBoundingClientRect();
+						// 	const clickX = event.clientX - rect.left;
+						// 	dot.style.left = clickX + 'px';
+						// }
+						// if (activeRegionRef.current === region) {
+						// 	region.setOptions({ color: 'rgba(0,255,0,0.3)' });
+						// 	region.data = { ...region.data, loop: false };
+						// 	activeRegionRef.current = null;
+						// } else {
+						// 	if (activeRegionRef.current) {
+						// 		activeRegionRef.current.setOptions({
+						// 			color: 'rgba(0,255,0,0.3)',
+						// 		});
+						// 	}
+						// 	console.log('region-clicked fired');
+						// 	region.setOptions({ color: 'rgba(255,0,0,0.3)' });
+						// 	activeRegionRef.current = region;
+						// 	region.data = { ...region.data, loop: true };
+						// }
 					});
 
 					// loops clicked region
@@ -604,7 +651,10 @@ const AudioPlayer: React.FC = () => {
 			)}
 			{showSpec && (
 				<div className={styles.bottomBar}>
-					<div className={styles.confidence}>
+					<div className={styles.confidenceSection}>
+						<label className={styles.confidenceLabel} htmlFor="confidence">
+							Confidence: {confidence}
+						</label>
 						<input
 							type="range"
 							id="confidence"
@@ -614,11 +664,8 @@ const AudioPlayer: React.FC = () => {
 							onChange={(e) => setConfidence(e.target.value)}
 						/>
 						<label className={styles.confidenceLabel} htmlFor="confidence">
-							Confidence: {confidence}
+							Speed: {playbackRate}
 						</label>
-					</div>
-
-					<div className={styles.confidence}>
 						<input
 							type="range"
 							id="speed"
@@ -634,10 +681,47 @@ const AudioPlayer: React.FC = () => {
 								);
 							}}
 						/>
-						<label className={styles.confidenceLabel} htmlFor="confidence">
-							Speed: {playbackRate}
-						</label>
 					</div>
+					{/* <div className={styles.confidence}>
+						<input
+							type="range"
+							id="frequency"
+							min="8000"
+							max="48000"
+							step="1000"
+							value={sampleRate}
+							onChange={(e) => {
+								setSampleRate(e.target.value);
+								if (wavesurfers[index]?.instance) {
+									const currentTime =
+										wavesurfers[index].instance.getCurrentTime();
+									destroyCurrentWaveSurfer().then(() => {
+										const ws = wavesurfers[index];
+										wavesurfers[index].instance = null;
+										setWavesurfers([...wavesurfers]);
+									});
+								}
+							}}
+						/>
+						<label className={styles.confidenceLabel} htmlFor="frequency">
+							Frequency: {sampleRate} Hz
+						</label>
+					</div> */}
+					{showSpec && (
+						<div className={styles.annotationSection}>
+							<label>Call Type:</label>
+							<input
+								type="text"
+								value={callType}
+								onChange={(e) => setCallType(e.target.value)}
+							/>
+							<label>Additional Notes:</label>
+							<textarea
+								value={notes}
+								onChange={(e) => setNotes(e.target.value)}
+							/>
+						</div>
+					)}
 				</div>
 			)}
 		</React.Fragment>

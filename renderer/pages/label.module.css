@@ -51,22 +51,44 @@
 	cursor: pointer;
 }
 
-.confidence {
+.bottomBar {
 	font-family: 'Gill Sans', 'Gill Sans MT', 'Trebuchet MS', sans-serif;
-	margin: 10px;
-	box-sizing: border-box;
-	width: 20%;
-	border-radius: 5%;
-	outline: none;
-	justify-content: center;
+
 	display: flex;
 	align-items: center;
+	justify-content: space-between;
+	gap: 30px;
+	margin-top: 10px;
+	margin: 20px;
+}
+
+.confidenceSection {
+	margin: 10px;
+	box-sizing: border-box;
+	border-radius: 5%;
+	outline: none;
+	display: flex;
 	flex-direction: column;
+	flex: 1;
 }
 
 .confidenceLabel {
 	font-family: 'Gill Sans', 'Gill Sans MT', 'Trebuchet MS', sans-serif;
 	align-items: center;
+}
+
+.annotationSection {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	margin: 10px;
+	flex: 1;
+}
+
+.confSlider {
+	display: flex;
+	align-items: center;
+	gap: 6px;
 }
 
 .prevClip:hover {
@@ -179,14 +201,6 @@
 
 .audioGraph {
 	gap: 1px;
-}
-
-.bottomBar {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	gap: 30px;
-	margin-top: 10px;
 }
 
 .main {
