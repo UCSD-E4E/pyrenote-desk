@@ -25,63 +25,73 @@ export default function SettingsPage() {
             Settings
         </title>
       </Head>
-        <br></br><button type="button" className={styles.collapsible} onClick={collapseGeneral}>General</button>
-            {showGeneral && <div id="content">
-                <br></br>
-                <form>
-                    <label >Labeler Name:</label>
-                    <input type="text" 
-                        id="name" 
-                        name="name" 
-                        onChange={(e) => setUsername(e.target.value)} 
-                        value={username}
-            ></input><br></br>
-                    <label >Labeler Email:</label>
-                    <input type="email" id="email" name="email"></input><br></br>
-                    <label >Dark Mode:</label>
-                    <input type="checkbox" id="dark" name="dark"></input>
-                </form>
-             </div>}
-        {!showGeneral && <br></br>}<br></br><button type="button" className={styles.collapsible} onClick={collapseData}>Database</button>
-            {showData && <div id="content">
-                <br></br>
-                <form>
-                    <label >Labeler Name:</label>
-                    <input type="text" id="fname" name="fname"></input><br></br>
-                    <label >Labeler Email:</label>
-                    <input type="text" id="lname" name="lname"></input>
-                </form>
-             </div>}
-        {!showData && <br></br>}<br></br><button type="button" className={styles.collapsible} onClick={collapseModel}>Model</button>
-            {showModel && <div id="content">
-                <br></br>
-                <form>
-                    <label >Model Version:</label>
-                    <input type="text" id="fname" name="fname"></input><br></br>
-                    <label >Model Parameters:</label>
-                    <input type="text" id="lname" name="lname"></input>
-                </form>
-             </div>}
-        {!showModel && <br></br>}<br></br><button type="button" className={styles.collapsible} onClick={collapseLabel}>Label</button>
-            {showLabel && <div id="content">
-                <br></br>
-                <form>
-                    <label>Number of Spectrograms Per Page:</label>
-                    <input type="text" id="fname" name="fname"></input><br></br>
-                    <label>Color Scheme:</label>
-                    <input type="text" id="lname" name="lname"></input>
-                </form>
-             </div>}
-        {!showLabel && <br></br>}<br></br><button type="button" className={styles.collapsible} onClick={collapseVerify}>Verify</button>
-            {showVerify && <div id="content">
-                <br></br>
-                <form>
-                    <label>Number of Spectrograms Per Page:</label>
-                    <input type="text" id="fname" name="fname"></input><br></br>
-                    <label>Color Scheme:</label>
-                    <input type="text" id="lname" name="lname"></input>
-                </form>
-             </div>}
+        <div className={styles.container}>
+            <div className={styles.settings}>
+            <br></br><button type="button" className={styles.collapsible} onClick={collapseGeneral}>General</button>
+                {showGeneral && <div id="content">
+                    <br></br>
+                    <form>
+                        <label >Labeler Name:</label>
+                        <input type="text" 
+                            id="name" 
+                            name="name" 
+                            onChange={(e) => setUsername(e.target.value)} 
+                            value={username}
+                ></input><br></br>
+                        <label >Labeler Email:</label>
+                        <input type="email" id="email" name="email"></input><br></br>
+                        <label >Dark Mode:</label>
+                        <input type="checkbox" id="dark" name="dark"></input>
+                    </form>
+                </div>}
+            {!showGeneral && <br></br>}<br></br><button type="button" className={styles.collapsible} onClick={collapseData}>Database</button>
+                {showData && <div id="content">
+                    <br></br>
+                    <form>
+                        <label >Input Style:</label>
+                        <input type="text" id="fname" name="fname"></input><br></br>
+                        <label >Input Type:</label>
+                        <input type="text" id="lname" name="lname"></input>
+                    </form>
+                </div>}
+            {!showData && <br></br>}<br></br><button type="button" className={styles.collapsible} onClick={collapseModel}>Model</button>
+                {showModel && <div id="content">
+                    <br></br>
+                    <form>
+                        <label >Model Version:</label>
+                        <input type="text" id="fname" name="fname"></input><br></br>
+                        <label >Model Parameters:</label>
+                        <input type="text" id="lname" name="lname"></input>
+                    </form>
+                </div>}
+            {!showModel && <br></br>}<br></br><button type="button" className={styles.collapsible} onClick={collapseLabel}>Label</button>
+                {showLabel && <div id="content">
+                    <br></br>
+                    <form>
+                        <label>Spectrogram Sample Rate:</label>
+                        <input type="text" id="fname" name="fname"></input><br></br>
+                        <label>Color Scheme:</label>
+                        <input type="text" id="lname" name="lname"></input>
+                    </form>
+                </div>}
+            {!showLabel && <br></br>}<br></br><button type="button" className={styles.collapsible} onClick={collapseVerify}>Verify</button>
+                {showVerify && <div id="content">
+                    <br></br>
+                    <form>
+                        <label>Number of Spectrograms Per Page:</label>
+                        <input type="text" id="fname" name="fname"></input><br></br>
+                        <label>Color Scheme:</label>
+                        <input type="text" id="lname" name="lname"></input>
+                    </form>
+                </div>}
+             </div>
+        <Image
+            src="/images/MagnusDefault.png"
+            alt="Image of Bird"
+            className={styles.magnus}
+            width={610}
+            height={400}
+        /></div>
 
     </React.Fragment>
   );

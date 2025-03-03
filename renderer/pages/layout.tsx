@@ -28,7 +28,7 @@ function Layout({ children }: { children: React.ReactNode }) {
 			<div className="flex gap-5 p-4">
 				<div className={styles.settings} onClick={toSettings}>
 						<Image
-							src="/images/home.png"
+							src="/images/settingsCog.webp"
 							alt="Home image"
 							width={20}
 							height={20}

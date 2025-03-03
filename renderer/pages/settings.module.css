@@ -1,13 +1,7 @@
 .container {
     display: flex;
-    align-items: flex-start;
-    /* Align items at the start of the container */
-    justify-content: space-between;
-    /* Space items evenly */
-    gap: 20px;
-    /* Space between the items */
-    padding: 20px;
-    /* Optional: Add some padding to the container */
+    align-items: center; 
+    justify-content: flex-start; 
 }
 .verify:hover{
     background-color: #b3fad1;
@@ -16,13 +10,16 @@
 .input {
     padding: 5px;
 }
+.settings {
+    width: 50%;
+}
 .collapsible {
     background-color: #eee;
     color: #444;
     outline: #333;
     cursor: pointer;
     padding: 18px;
-    width: 40%;
+    width: 100%;
     border: none;
     text-align: left;
     outline: none;
@@ -30,17 +27,10 @@
   }
   
 .magnus {
-    margin-top: 30px;
-    background-color: rgb(243, 243, 243);
-    border-radius: 10px;
-    padding: 60px;
-    box-sizing: border-box;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: flex-start;
-    flex: 1;
-    /* Allow magnus to grow and take available space */
+    
+    padding: 20px;
+   
+    text-align: center;
 }
 
 .linkStyle {
