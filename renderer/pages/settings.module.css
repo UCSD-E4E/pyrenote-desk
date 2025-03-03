@@ -1,0 +1,62 @@
+.container {
+    display: flex;
+    align-items: flex-start;
+    /* Align items at the start of the container */
+    justify-content: space-between;
+    /* Space items evenly */
+    gap: 20px;
+    /* Space between the items */
+    padding: 20px;
+    /* Optional: Add some padding to the container */
+}
+.verify:hover{
+    background-color: #b3fad1;
+    cursor: pointer;
+}
+.input {
+    padding: 5px;
+}
+.collapsible {
+    background-color: #eee;
+    color: #444;
+    outline: #333;
+    cursor: pointer;
+    padding: 18px;
+    width: 40%;
+    border: none;
+    text-align: left;
+    outline: none;
+    font-size: 15px;
+  }
+  
+.magnus {
+    margin-top: 30px;
+    background-color: rgb(243, 243, 243);
+    border-radius: 10px;
+    padding: 60px;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-start;
+    flex: 1;
+    /* Allow magnus to grow and take available space */
+}
+
+.linkStyle {
+    color: black;
+    font-weight: normal;
+    text-decoration: none;
+}
+
+.intro {
+    background-color: white;
+    border-radius: 10px;
+    padding: 40px;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-start;
+    flex: 1;
+}

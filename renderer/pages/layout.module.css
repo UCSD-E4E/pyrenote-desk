@@ -2,10 +2,15 @@
     display: flex;
     flex-direction: column;
     border-radius: 8px;
-    padding: 4px;
+    padding: 6px;
     align-items: center;
 }
-
+.settings {
+    position: fixed;
+    flex-direction: column;
+    border-radius: 2px;
+    align-items: left;
+}
 .sidebar {
     display: flex;
     align-items: center;
@@ -16,6 +21,10 @@
 }
 
 .icon:hover {
+    background-color: #b3fad1;
+    cursor: pointer;
+}
+.settings:hover {
     background-color: #b3fad1;
     cursor: pointer;
 }

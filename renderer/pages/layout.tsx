@@ -4,6 +4,9 @@ import { useRouter } from 'next/router';
 
 function Layout({ children }: { children: React.ReactNode }) {
 	const router = useRouter();
+	const toSettings = () => {
+		router.push('/settings');
+	};
 	const toHome = () => {
 		router.push('/home');
 	};
@@ -23,7 +26,18 @@ function Layout({ children }: { children: React.ReactNode }) {
 	return (
 		<>
 			<div className="flex gap-5 p-4">
+				<div className={styles.settings} onClick={toSettings}>
+						<Image
+							src="/images/home.png"
+							alt="Home image"
+							width={20}
+							height={20}
+						/>
+						<br />
+						<span className={styles.linkStyle}></span>
+					</div>
 				<div className={styles.sidebar}>
+					
 					<div className={styles.icon} onClick={toHome}>
 						<Image
 							src="/images/home.png"
