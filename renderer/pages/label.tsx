@@ -24,6 +24,7 @@ const AudioPlayer: React.FC = () => {
 	const [sampleRate, setSampleRate] = useState<string>('24000');
 	const [callType, setCallType] = useState('');
 	const [notes, setNotes] = useState('');
+	const regionListRef = useRef<any[]>([]);
 
 	// TODO: Add typing
 	const [wavesurfers, setWavesurfers] = useState([]);
@@ -437,6 +438,7 @@ const AudioPlayer: React.FC = () => {
 
 					wsRegions.on('region-created', (region) => {
 						redraw(region);
+						regionListRef.current.push(region);
 
 						// add to list to redraw on movements
 						regionList.push(region);
@@ -564,6 +566,78 @@ const AudioPlayer: React.FC = () => {
 		}
 	}, [showSpec, index, wavesurfers]);
 
+	// Deletes selected region
+	const deleteActiveRegion = () => {
+		if (!wavesurfers[index]?.instance || !activeRegionRef.current) return;
+		activeRegionRef.current.remove();
+		activeRegionRef.current = null;
+	};
+
+	// Deletes all regions
+	const clearAllRegions = () => {
+		if (!wavesurfers[index]?.instance) return;
+
+		const regionPlugin = wavesurfers[index].instance.plugins[1];
+		const allRegions = regionPlugin?.wavesurfer?.plugins[2]?.regions;
+		if (!allRegions) return;
+
+		Object.keys(allRegions).forEach((r) => {
+			allRegions[r].remove();
+		});
+
+		regionListRef.current = [];
+		activeRegionRef.current = null;
+	};
+
+	// Delete last region
+	const undoLastRegion = () => {
+		if (!wavesurfers[index]?.instance) return;
+		if (regionListRef.current.length === 0) return;
+
+		const lastRegion = regionListRef.current.pop();
+		lastRegion.remove();
+
+		// If the last region was active, reset activeRegionRef
+		if (activeRegionRef.current === lastRegion) {
+			activeRegionRef.current = null;
+		}
+	};
+
+	// Download regions data only (maybe repurpose logic later)
+	const downloadLabels = () => {
+		const ws = wavesurfers[index]?.instance;
+		if (!ws) return;
+
+		const regionPlugin = ws.plugins[1];
+		const allRegions = regionPlugin?.wavesurfer?.plugins[2]?.regions;
+
+		const lines: string[] = [];
+		if (allRegions && Object.keys(allRegions).length > 0) {
+			Object.keys(allRegions).forEach((regionId, idx) => {
+				const region = allRegions[regionId];
+				const startSec = region.start.toFixed(3);
+				const endSec = region.end.toFixed(3);
+				lines.push(
+					`Region #${idx + 1}: Start = ${startSec}s, End = ${endSec}s`
+				);
+			});
+		} else {
+			lines.push('No regions');
+		}
+
+		const content = lines.join('\n');
+		const blob = new Blob([content], { type: 'text/plain' });
+		const url = URL.createObjectURL(blob);
+
+		const link = document.createElement('a');
+		link.href = url;
+		link.download = 'regionTimes.txt';
+		document.body.appendChild(link);
+		link.click();
+		document.body.removeChild(link);
+		URL.revokeObjectURL(url);
+	};
+
 	return (
 		<React.Fragment>
 			<Head>
@@ -613,7 +687,7 @@ const AudioPlayer: React.FC = () => {
 							height={45}
 						/>
 					</button>
-					<button className={styles.modelMatch} onClick={clickYes}>
+					<button className={styles.modelButton} onClick={clickYes}>
 						Save
 					</button>
 					{!playing && (
@@ -636,7 +710,7 @@ const AudioPlayer: React.FC = () => {
 							/>
 						</button>
 					)}
-					<button className={styles.modelFail} onClick={clickNo}>
+					<button className={styles.modelButton} onClick={clickNo}>
 						Delete
 					</button>
 					<button className={styles.nextClip} onClick={clickNext}>
@@ -652,6 +726,25 @@ const AudioPlayer: React.FC = () => {
 			{showSpec && (
 				<div className={styles.bottomBar}>
 					<div className={styles.confidenceSection}>
+						<label>Region Buttons</label>
+						<div className={styles.regionButtons}>
+							<button
+								className={styles.regionButton}
+								onClick={deleteActiveRegion}
+							>
+								Delete
+							</button>
+							<button className={styles.regionButton} onClick={clearAllRegions}>
+								Clear
+							</button>
+							<button className={styles.regionButton} onClick={undoLastRegion}>
+								Undo
+							</button>
+							<button className={styles.regionButton} onClick={downloadLabels}>
+								Download
+							</button>
+						</div>
+
 						<label className={styles.confidenceLabel} htmlFor="confidence">
 							Confidence: {confidence}
 						</label>
