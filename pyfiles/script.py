@@ -13,11 +13,13 @@ from torch.utils.data import DataLoader, Dataset
 class DBHelper:
     _instance = None
 
-    def __new__(cls, db_url="pseudo_db_url"):
+    def __new__(cls, db_url="pyrenoteDeskDatabase.db"):
         if cls._instance is None:
             cls._instance = super(DBHelper, cls).__new__(cls)
             # For the pseudo db url, using in-memory database as a placeholder
-            cls._instance.connection = sqlite3.connect(":memory:")
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            db_path = os.path.join(script_dir, f"../{db_url}")
+            cls._instance.connection = sqlite3.connect(db_path)
             cls._instance.cursor = cls._instance.connection.cursor()
             # Create a pseudo result table if not exists
             cls._instance.cursor.execute(
@@ -52,9 +54,17 @@ class DBHelper:
         # SELECT recordingId, url FROM Recording WHERE recordingId IN (?,?,...)
         # For now, we simulate with dummy data.
         dummy_data = [
-            (rec_id, f"/path/to/recording_{rec_id}.wav") for rec_id in recording_ids
+            (rec_id, self.cursor.execute) for rec_id in recording_ids
         ]
-        return dummy_data
+
+        self.cursor.execute(
+            "SELECT recordingId, url FROM Recording WHERE recordingId = ?",
+            recording_ids,
+        )
+
+        data = self.cursor.fetchall()
+
+        return data
 
 
 class VideoDataset(Dataset):
@@ -276,7 +286,7 @@ if __name__ == "__main__":
     
     # Create a dummy config object with necessary attributes
     class Config:
-        validation_batch_size = 2
+        validation_batch_size = 1
         jobs = 0
 
     cfg = Config()
@@ -285,21 +295,21 @@ if __name__ == "__main__":
     dummy_classes = []
 
     # Test get_dataloader_for_recordings with two recording ids [1, 2]
-    dataloader, rec_ids = get_dataloader_for_recordings([1, 2], dummy_classes, cfg)
+    dataloader, rec_ids = get_dataloader_for_recordings(recording_id, dummy_classes, cfg)
     print("Generated DataLoader for recording IDs:", rec_ids)
     for batch in dataloader:
         print("Batch:")
         print(batch)
 
-    # Create a dummy inference result DataFrame (simulate global inference result)
-    dummy_result_data = {
-        "id": [1, 2, 3],
-        "Amabaw1_x": [0.453, 0.234, 0.895],
-        "Amapyo1_y": [0.873, 0.657, 0.345],
-    }
-    result_df = pd.DataFrame(dummy_result_data)
+    # # Create a dummy inference result DataFrame (simulate global inference result)
+    # dummy_result_data = {
+    #     "id": [1, 2, 3],
+    #     "Amabaw1_x": [0.453, 0.234, 0.895],
+    #     "Amapyo1_y": [0.873, 0.657, 0.345],
+    # }
+    # result_df = pd.DataFrame(dummy_result_data)
 
-    # Process inference results and save them into the pseudo Result table
-    final_predictions = process_result(result_df)
-    print("Final predictions saved:")
-    print(final_predictions)
+    # # Process inference results and save them into the pseudo Result table
+    # final_predictions = process_result(result_df)
+    # print("Final predictions saved:")
+    # print(final_predictions)
