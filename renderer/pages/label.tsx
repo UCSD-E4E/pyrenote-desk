@@ -25,6 +25,9 @@ const AudioPlayer: React.FC = () => {
 	const [callType, setCallType] = useState('');
 	const [notes, setNotes] = useState('');
 	const regionListRef = useRef<any[]>([]);
+	// For label selection
+	const [speciesList, setSpeciesList] = useState<string[]>(['Default', 'Pigeon']);
+	const [selectedSpecies, setSelectedSpecies] = useState('Default');
 
 	// TODO: Add typing
 	const [wavesurfers, setWavesurfers] = useState([]);
@@ -604,38 +607,49 @@ const AudioPlayer: React.FC = () => {
 	};
 
 	// Download regions data only (maybe repurpose logic later)
-	const downloadLabels = () => {
+	const saveLabelsToSpecies = () => {
 		const ws = wavesurfers[index]?.instance;
 		if (!ws) return;
 
 		const regionPlugin = ws.plugins[1];
 		const allRegions = regionPlugin?.wavesurfer?.plugins[2]?.regions;
+		if (!allRegions) return;
 
-		const lines: string[] = [];
-		if (allRegions && Object.keys(allRegions).length > 0) {
-			Object.keys(allRegions).forEach((regionId, idx) => {
-				const region = allRegions[regionId];
-				const startSec = region.start.toFixed(3);
-				const endSec = region.end.toFixed(3);
-				lines.push(
-					`Region #${idx + 1}: Start = ${startSec}s, End = ${endSec}s`
-				);
-			});
-		} else {
-			lines.push('No regions');
+		const newSet = new Set(speciesList);
+
+		// Add non repeated labels to set
+		Object.keys(allRegions).forEach((regionId) => {
+			const region = allRegions[regionId];
+			const label = region.data?.label?.trim();
+			if (label) {
+				newSet.add(label);
+			}
+		});
+
+		setSpeciesList(Array.from(newSet));
+		console.log('Updated speciesList:', Array.from(newSet));
+	};
+
+	// Saves selected category as label
+	const assignSpecies = (species: string) => {
+		if (!activeRegionRef.current) {
+			console.log('No active region selected.');
+			return;
 		}
 
-		const content = lines.join('\n');
-		const blob = new Blob([content], { type: 'text/plain' });
-		const url = URL.createObjectURL(blob);
+		activeRegionRef.current.data = {
+			...activeRegionRef.current.data,
+			label: species,
+		};
 
-		const link = document.createElement('a');
-		link.href = url;
-		link.download = 'regionTimes.txt';
-		document.body.appendChild(link);
-		link.click();
-		document.body.removeChild(link);
-		URL.revokeObjectURL(url);
+		const regionEl = activeRegionRef.current.element;
+		let labelElem = regionEl.querySelector('.region-label');
+		if (!labelElem) {
+			labelElem = document.createElement('span');
+			labelElem.className = 'region-label';
+			regionEl.appendChild(labelElem);
+		}
+		labelElem.textContent = species;
 	};
 
 	return (
@@ -652,11 +666,24 @@ const AudioPlayer: React.FC = () => {
 						onChange={(e) => handleFiles(Array.from(e.target.files))}
 					/>
 					<label>Choose a species:</label>
-					<select name="Species" id="species-names">
-						<option value="x">Select a Species</option>
-						<option value="y">y</option>
-						<option value="z">z</option>
+					{/* Turns category selection back to default on selection */}
+					<select
+						name="Species"
+						id="species-names"
+						value={selectedSpecies}
+						onChange={(e) => {
+							const sp = e.target.value;
+							assignSpecies(sp);
+							setSelectedSpecies('Default');
+						}}
+					>
+						{speciesList.map((sp) => (
+							<option key={sp} value={sp}>
+								{sp}
+							</option>
+						))}
 					</select>
+
 					<div>
 						{showSpec && (
 							// styling for extended regions selection
@@ -726,7 +753,7 @@ const AudioPlayer: React.FC = () => {
 			{showSpec && (
 				<div className={styles.bottomBar}>
 					<div className={styles.confidenceSection}>
-						<label>Region Buttons</label>
+						<label>Region buttons</label>
 						<div className={styles.regionButtons}>
 							<button
 								className={styles.regionButton}
@@ -740,8 +767,11 @@ const AudioPlayer: React.FC = () => {
 							<button className={styles.regionButton} onClick={undoLastRegion}>
 								Undo
 							</button>
-							<button className={styles.regionButton} onClick={downloadLabels}>
-								Download
+							<button
+								className={styles.regionButton}
+								onClick={saveLabelsToSpecies}
+							>
+								Save Labels
 							</button>
 						</div>
 
@@ -802,6 +832,9 @@ const AudioPlayer: React.FC = () => {
 					</div> */}
 					{showSpec && (
 						<div className={styles.annotationSection}>
+							<label>
+								Zoom: <input type="range" min="10" max="1000" value="10" />
+							</label>
 							<label>Call Type:</label>
 							<input
 								type="text"
