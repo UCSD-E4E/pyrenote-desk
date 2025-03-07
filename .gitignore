@@ -11,3 +11,9 @@ next-env.d.ts
 # build
 /app
 dist
+
+# inference scripts
+inference_M_dataset.ipynb
+
+# test audios
+*.flac

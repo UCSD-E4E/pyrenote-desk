@@ -7,6 +7,7 @@ import os
 
 # For dataloader and dataset simulation (assuming torch is used)
 from torch.utils.data import DataLoader, Dataset
+import torch
 
 
 # DbHelper class to handle database operations as a singleton
@@ -37,9 +38,16 @@ class DBHelper:
     def insert_result(self, id, url, species):
         """
         Insert the inference result into the Result table.
+        If a record with the same id already exists, it will be updated.
+        
+        Args:
+            id: The recording ID
+            url: The URL of the recording
+            species: The predicted species
         """
+        # Use INSERT OR REPLACE to handle cases where the record already exists
         self.cursor.execute(
-            "INSERT INTO Result (id, url, species) VALUES (?, ?, ?)",
+            "INSERT OR REPLACE INTO Result (id, url, species) VALUES (?, ?, ?)",
             (id, url, species),
         )
         self.connection.commit()
@@ -48,30 +56,44 @@ class DBHelper:
         """
         Fetch recordings from the Recording table based on recording_ids.
         Returns a list of tuples (recordingId, url).
-        For this pseudo code, a dummy list is returned.
         """
-        # In a real scenario, this would execute a query like:
-        # SELECT recordingId, url FROM Recording WHERE recordingId IN (?,?,...)
-        # For now, we simulate with dummy data.
-        dummy_data = [
-            (rec_id, self.cursor.execute) for rec_id in recording_ids
-        ]
-
-        self.cursor.execute(
-            "SELECT recordingId, url FROM Recording WHERE recordingId = ?",
-            recording_ids,
-        )
-
+        # Convert single id to list if needed
+        if not isinstance(recording_ids, list):
+            recording_ids = [recording_ids]
+        
+        placeholders = ','.join(['?'] * len(recording_ids))
+        query = f"SELECT recordingId, url FROM Recording WHERE recordingId IN ({placeholders})"
+        
+        # Convert to tuple for query execution
+        self.cursor.execute(query, tuple(recording_ids))
         data = self.cursor.fetchall()
-
+        
         return data
 
 
-class VideoDataset(Dataset):
+def download_url(url):
+    """
+    Download content from the given URL.
+    Supports both audio (.wav, .flac, etc) and video files.
+    """
+    # If the file exists locally, read its binary content
+    if os.path.exists(url):
+        with open(url, "rb") as f:
+            return f.read()
+    
+    # For network URLs (not implemented here)
+    # In a real scenario, you'd use requests or another library
+    return f"Dummy content from {os.path.basename(url)}"
+
+
+class AudioDataset(Dataset):
     def __init__(self, samples):
         """
         Initialize the dataset with a list of samples.
-        Each sample is a dictionary containing 'id' and 'video' keys.
+        Each sample is a dictionary containing 'id' and 'audio' keys.
+        
+        Args:
+            samples: List of dictionaries with 'id' and 'audio' keys
         """
         self.samples = samples
 
@@ -82,55 +104,48 @@ class VideoDataset(Dataset):
         return self.samples[index]
 
 
-def download_video(url):
-    """
-    Simulate downloading video content from the given URL.
-    In a real scenario, this function would perform an actual download.
-    Here, we simply return dummy video content.
-    """
-    # If the file exists locally, you could read its binary content.
-    # Otherwise, return a dummy string representing the video content.
-    if os.path.exists(url):
-        with open(url, "rb") as f:
-            return f.read()
-    return f"Dummy video content from {os.path.basename(url)}"
-
-
 def get_dataloader_for_recordings(recording_ids, classes, cfg):
     """
     Given a list of recordingIds, fetch the corresponding recording URLs from the Recording table,
-    download the videos (.wav files) and construct a DataLoader.
-    The dataset contains only the video content (along with recording id).
-    If video content is None for a recording, that recording is skipped.
-    Returns the DataLoader (or None if no video available) and the original list of recording IDs.
+    download the audio/video files and construct a DataLoader.
+    The dataset contains only the audio content (along with recording id).
+    
+    Args:
+        recording_ids: List of recording IDs or a single recording ID
+        classes: List of species classes (not used here but kept for compatibility)
+        cfg: Configuration object with batch_size and other parameters
+        
+    Returns:
+        dataloader: DataLoader object for the audio dataset
+        recording_ids: The original list of recording IDs
     """
     db_helper = DBHelper()
-    # Fetch recording details (simulated based on Recording table schema)
+    # Fetch recording details from Recording table
     recordings = db_helper.fetch_recordings(recording_ids)
 
-    # Download each video from its URL and create a list of samples
+    # Download each audio file from its URL and create a list of samples
     samples = []
     for rec in recordings:
         rec_id, url = rec
-        video = download_video(url)
-        # Do not process if video is None
-        if video is None:
-            continue
-        sample = {"id": rec_id, "video": video}
+        audio = download_url(url)
+        sample = {"id": rec_id, "audio": audio}
         samples.append(sample)
 
-    # Only create a VideoDataset if there are valid samples
-    if samples:
-        video_dataset = VideoDataset(samples)
-        dataloader = DataLoader(
-            video_dataset,
-            batch_size=cfg.validation_batch_size,
-            shuffle=False,
-            num_workers=cfg.jobs,
-        )
-    else:
-        dataloader = None
-
+    # Create an AudioDataset with the samples
+    audio_dataset = AudioDataset(samples)
+    
+    # Create DataLoader with specified batch size and workers
+    dataloader = DataLoader(
+        audio_dataset,
+        batch_size=cfg.validation_batch_size,
+        shuffle=False,
+        num_workers=cfg.jobs,
+    )
+    
+    # Convert single id to list if needed for return
+    if not isinstance(recording_ids, list):
+        recording_ids = [recording_ids]
+        
     return dataloader, recording_ids
 
 
@@ -158,27 +173,6 @@ def process_result(result_df):
             row["species"],
         )
     return final_df
-
-
-# def process_audio_files(file_paths):
-#    """
-#    Process audio files and simulate feature extraction.
-#    Each file path is processed to extract file attributes and a placeholder feature vector.
-#    """
-#    results = []
-#    # Use enumerate to generate unique IDs
-#    for idx, file_path in enumerate(file_paths, start=1):
-#        file_name = os.path.basename(file_path)  # gets just the file name from the path
-#        # Simulate extracting a feature vector from the audio file (placeholder values)
-#        feature_vector = [0.453, 0.873]
-#        result = {
-#            "FILE NAME": file_name,
-#            "id": idx,
-#            "Amabaw1_x": feature_vector[0],
-#            "Amapyo1_y": feature_vector[1],
-#        }
-#        results.append(result)
-#    return pd.DataFrame(results)
 
 
 # Sample DataFrame
@@ -276,40 +270,65 @@ def pseudo_inference(model_input):
 
 # Example usage of new functions (for debugging purposes)
 if __name__ == "__main__":
-
-    # Get the recording ID from the command line argument
+    # Get the recording ID(s) from the command line argument
     if len(sys.argv) > 1:
-        recording_id = sys.argv[1]
-        print(f"Received recording ID: {recording_id}")
+        # Check if the input contains commas (comma-separated list)
+        if ',' in sys.argv[1]:
+            recording_ids = [int(id_str.strip()) for id_str in sys.argv[1].split(',')]
+            print(f"Processing recording IDs: {recording_ids}")
+        # Check if input looks like a Python list (e.g. ["111", "222"])
+        elif '[' in sys.argv[1] and ']' in sys.argv[1]:
+            # Extract numbers from the string representation of a list
+            import re
+            ids_text = sys.argv[1].strip('[]')
+            recording_ids = [int(id_str) for id_str in re.findall(r'\d+', ids_text)]
+            print(f"Processing recording IDs: {recording_ids}")
+        else:
+            # Single ID
+            recording_ids = int(sys.argv[1])  # Convert to integer
+            print(f"Processing recording ID: {recording_ids}")
     else:
-        print("Input was empty\n")
+        print("Error: Please provide recording ID(s)")
+        print("Usage: python script.py <recording_id> OR python script.py <id1,id2,id3> OR python script.py [\"id1\",\"id2\"]")
+        sys.exit(1)
     
     # Create a dummy config object with necessary attributes
     class Config:
-        validation_batch_size = 1
+        validation_batch_size = 2  # Increased to show batch processing
         jobs = 0
-
     cfg = Config()
 
-    # Dummy species classes list (not used here since dataset only carries video data)
+    # Dummy species classes list
     dummy_classes = []
 
-    # Test get_dataloader_for_recordings with two recording ids [1, 2]
-    dataloader, rec_ids = get_dataloader_for_recordings(recording_id, dummy_classes, cfg)
-    print("Generated DataLoader for recording IDs:", rec_ids)
-    for batch in dataloader:
-        print("Batch:")
-        print(batch)
-
-    # # Create a dummy inference result DataFrame (simulate global inference result)
-    # dummy_result_data = {
-    #     "id": [1, 2, 3],
-    #     "Amabaw1_x": [0.453, 0.234, 0.895],
-    #     "Amapyo1_y": [0.873, 0.657, 0.345],
-    # }
-    # result_df = pd.DataFrame(dummy_result_data)
-
-    # # Process inference results and save them into the pseudo Result table
-    # final_predictions = process_result(result_df)
-    # print("Final predictions saved:")
-    # print(final_predictions)
+    # Test get_dataloader_for_recordings with the provided recording ID(s)
+    dataloader, rec_ids = get_dataloader_for_recordings(recording_ids, dummy_classes, cfg)
+    print(f"Generated DataLoader for recording IDs: {rec_ids}")
+    
+    # Print batch information
+    for i, batch in enumerate(dataloader):
+        print(f"Batch {i+1}:")
+        print(f"  Recording ID(s): {batch['id']}")
+        print(f"  Audio data size(s): {[len(audio) for audio in batch['audio']]} bytes")
+    
+    # Create a dummy inference result DataFrame with the recording ID(s)
+    # For a list of IDs, create multiple rows in the result
+    if isinstance(recording_ids, list):
+        dummy_result_data = {
+            "id": recording_ids,
+            "Amabaw1_x": [0.453] * len(recording_ids),
+            "Amapyo1_y": [0.873] * len(recording_ids),  # This will be the prediction since it's higher
+        }
+    else:
+        dummy_result_data = {
+            "id": [recording_ids],
+            "Amabaw1_x": [0.453],
+            "Amapyo1_y": [0.873],
+        }
+    
+    result_df = pd.DataFrame(dummy_result_data)
+    
+    # Process inference results and save them into the Result table
+    final_predictions = process_result(result_df)
+    print("Final predictions saved to database:")
+    print(final_predictions)
