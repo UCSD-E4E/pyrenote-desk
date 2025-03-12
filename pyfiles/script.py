@@ -70,6 +70,21 @@ class DBHelper:
         
         return data
 
+    def insert_annotation(self, region_id, labeler_id, annotation_date, speciesId, speciesProbability, most_recent):
+        """
+        Insert or update an annotation record. If a record with the same unique key exists,
+        it will be replaced.
+        """
+        self.cursor.execute(
+            """
+            INSERT OR REPLACE INTO Annotation 
+            (regionId, labelerId, annotationDate, speciesId, speciesProbability, mostRecent)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (region_id, labeler_id, annotation_date, speciesId, speciesProbability, most_recent),
+        )
+        self.connection.commit()
+
 
 def download_url(url):
     """
@@ -152,26 +167,37 @@ def get_dataloader_for_recordings(recording_ids, classes, cfg):
 def process_result(result_df):
     """
     Process the inference result DataFrame.
-    The DataFrame contains probability columns for different labels (e.g., Amxxx columns).
-    For each row, determine the label with the highest probability (argmax) and return a DataFrame
-    with id and the final predicted species.
-    Then, save the result into the pseudo Result table in the database using DBHelper.
+    For each row (containing an 'id' and probability columns), determine the column with the highest probability
+    (i.e. the predicted species) and its value, then store the result into the Annotation table under speciesId
+    and speciesProbability. If a record exists, it will be updated.
     """
     result_df = result_df.copy()
-    # Assuming the result_df has an 'id' column and the rest probability columns
+    # Exclude the id column to get probability columns
     prob_columns = [col for col in result_df.columns if col != "id"]
-    # Get the prediction as the column name with the maximal probability
+    # Determine predicted species and corresponding max probability
     result_df["prediction"] = result_df[prob_columns].idxmax(axis=1)
-    final_df = result_df[["id", "prediction"]].rename(columns={"prediction": "species"})
-
-    # Insert each result into the Result table using DBHelper
+    result_df["maxProbability"] = result_df[prob_columns].max(axis=1)
+    
+    # Retrieve species mapping from Species table: {species_name: speciesId}
     db_helper = DBHelper()
-    for _, row in final_df.iterrows():
-        db_helper.insert_result(
-            row["id"],  # assuming id corresponds to a result id
-            "",  # URL can be inserted if available
-            row["species"],
-        )
+    db_helper.cursor.execute("SELECT speciesId, species FROM Species")
+    species_records = db_helper.cursor.fetchall()
+    species_mapping = {record[1]: record[0] for record in species_records}
+    
+    # Use global values for region, labeler, and annotation metadata (assumed to be defined)
+    global region_id, labeler_id, annotation_date, most_recent
+    
+    # For each result, insert/update annotation record
+    for _, row in result_df.iterrows():
+        pred_species = row["prediction"]
+        speciesProb = row["maxProbability"]
+        if pred_species not in species_mapping:
+            print(f"Species '{pred_species}' not found in Species table. Skipping record id {row['id']}.")
+            continue
+        speciesId = species_mapping[pred_species]
+        db_helper.insert_annotation(region_id, labeler_id, annotation_date, speciesId, speciesProb, most_recent)
+    
+    final_df = result_df[["id", "prediction", "maxProbability"]].rename(columns={"prediction": "species"})
     return final_df
 
 

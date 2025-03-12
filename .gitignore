@@ -17,3 +17,6 @@ inference_M_dataset.ipynb
 
 # test audios
 *.flac
+
+# test sqls
+insert.sql
