@@ -31,16 +31,16 @@ export default function SettingsPage() {
                 {showGeneral && <div id="content">
                     <br></br>
                     <form>
-                        <label >Labeler Name:</label>
+                        <label >Labeler Name: </label>
                         <input type="text" 
                             id="name" 
                             name="name" 
                             onChange={(e) => setUsername(e.target.value)} 
                             value={username}
                 ></input><br></br>
-                        <label >Labeler Email:</label>
+                        <label >Labeler Email: </label>
                         <input type="email" id="email" name="email"></input><br></br>
-                        <label >Dark Mode:</label>
+                        <label >Dark Mode: </label>
                         <input type="checkbox" id="dark" name="dark"></input>
                     </form>
                 </div>}
@@ -48,9 +48,9 @@ export default function SettingsPage() {
                 {showData && <div id="content">
                     <br></br>
                     <form>
-                        <label >Input Style:</label>
+                        <label >Input Style: </label>
                         <input type="text" id="fname" name="fname"></input><br></br>
-                        <label >Input Type:</label>
+                        <label >Input Type: </label>
                         <input type="text" id="lname" name="lname"></input>
                     </form>
                 </div>}
@@ -58,9 +58,9 @@ export default function SettingsPage() {
                 {showModel && <div id="content">
                     <br></br>
                     <form>
-                        <label >Model Version:</label>
+                        <label >Model Version: </label>
                         <input type="text" id="fname" name="fname"></input><br></br>
-                        <label >Model Parameters:</label>
+                        <label >Model Parameters: </label>
                         <input type="text" id="lname" name="lname"></input>
                     </form>
                 </div>}
@@ -68,20 +68,30 @@ export default function SettingsPage() {
                 {showLabel && <div id="content">
                     <br></br>
                     <form>
-                        <label>Spectrogram Sample Rate:</label>
+                        <label>Spectrogram Sample Rate: </label>
                         <input type="text" id="fname" name="fname"></input><br></br>
-                        <label>Color Scheme:</label>
-                        <input type="text" id="lname" name="lname"></input>
+                        <label>Color Scheme: </label>
+                        <input type="text" id="lname" name="lname"></input><br></br>
+                        <label >Disable Additional: </label>
+                        <input type="checkbox" id="disableAdditional" name="disableAdditional"></input><br></br>
+                        <label >Disable Confidence: </label>
+                        <input type="checkbox" id="disableConfidence" name="disableConfidence"></input><br></br>
+                        <label>Confidence Range: </label>
+                        <input type="number" id="range" name="range"></input><br></br>
                     </form>
                 </div>}
             {!showLabel && <br></br>}<br></br><button type="button" className={styles.collapsible} onClick={collapseVerify}>Verify</button>
                 {showVerify && <div id="content">
                     <br></br>
                     <form>
-                        <label>Number of Spectrograms Per Page:</label>
-                        <input type="text" id="fname" name="fname"></input><br></br>
-                        <label>Color Scheme:</label>
-                        <input type="text" id="lname" name="lname"></input>
+                        <label>Color Scheme: </label>
+                        <input type="text" id="lname" name="lname"></input><br></br>
+                        <label>Default Skip Interval: </label>
+                        <input type="number" id="skip" name="skip"></input><br></br>
+                        <label>Default Playback Rate: </label>
+                        <input type="number" id="speed" name="speed"></input><br></br>
+                        <label>Default Number of Columns: </label>
+                        <input type="number" id="columns" name="columns"></input><br></br>
                     </form>
                 </div>}
              </div>

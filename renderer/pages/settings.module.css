@@ -28,7 +28,10 @@
   
 .magnus {
     padding: 20px;
-    text-align: center;
+    top: 20%;
+    right: 2%;
+    position: fixed;
+
 }
 
 .linkStyle {
