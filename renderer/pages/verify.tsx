@@ -58,150 +58,7 @@ interface SpectroProps {
 	onMouseEnter : ()=>void, 
 	onMouseLeave : ()=>void,
 	linkedSpectro : SpectroRef,
-	isInvalid? : boolean,
 }
-
-const Spectrogram = forwardRef<SpectroRef, SpectroProps>(({ 
-	id, // -1 if modal 
-	filePath, 
-	onMouseEnter, 
-	onMouseLeave,
-	linkedSpectro=null,
-	isInvalid=false,
-}, ref) => {
-	const wavesurferRef = useRef(null);
-	const containerRef = useRef(null);
-	const innerRef = useRef(null);
-	const [isRed, setIsRed] = useState(false);
-	const [isSelected, setIsSelected] = useState(false);
-	const [isLoaded, setIsLoaded] = useState(false);
-
-	const setPlaybackRate = (playSpeed) => {
-		console.log(playSpeed);
-		wavesurferRef.current.setPlaybackRate(playSpeed);
-	}
-	const playPause = (playbackRate=null) => {
-		if (playbackRate != null) {
-			setPlaybackRate(playbackRate);
-		}
-		wavesurferRef.current.playPause();
-		return wavesurferRef.current.isPlaying;
-	}
-	const rightClickPlayPause = (e: MouseEvent) => { e.preventDefault(); playPause(); }
-
-	useImperativeHandle(ref, ()=>{
-		return { // SpectroRef
-			id,
-			wavesurferRef,
-			isRed,
-			isSelected,
-			isLoaded,
-			filePath,
-			toggleRed: () => { setIsRed(prev => !prev); },
-			toggleSelected: (S) => { setIsSelected(S); },
-			setPlaybackRate,
-			playPause,
-			play: () => { wavesurferRef.current.play(); },
-			pause: () => { wavesurferRef.current.pause(); },
-			setTime: (time) => { wavesurferRef.current.setTime(time) },
-			getTime: () => { return wavesurferRef.current.getCurrentTime() },
-			skip: (time) => {wavesurferRef.current.skip(time) },
-		}
-	});
-
-	useEffect(() => {
-		if (!wavesurferRef.current) {;
-			wavesurferRef.current = WaveSurfer.create({
-				container: innerRef.current,
-				height: 0,
-				fillParent: true,
-				progressColor: 'white',
-				cursorColor: 'yellow',
-				cursorWidth: 2,
-				sampleRate: 16000,
-			});
-			wavesurferRef.current.registerPlugin(
-				SpectrogramPlugin.create({
-					colorMap: VIRIDIS_COLORMAP(),
-					scale: "linear",
-					fftSamples: (id==-1) ? 512 : 256, // 2 * height
-					labels: (id==-1),
-				}),
-			)
-
-			wavesurferRef.current.load(filePath);
-			wavesurferRef.current.on('ready', function() {
-				document.getElementById(`loading-spinner-${id}`).style.display = 'none';
-
-				if (linkedSpectro) {
-					wavesurferRef.current.setTime(linkedSpectro.getTime());
-					wavesurferRef.current.on("timeupdate", (progress) => {
-						linkedSpectro.setTime(progress);
-					});
-				}
-				setIsLoaded(true);
-			});
-
-			setIsRed(linkedSpectro?.isRed);
-		}
-		
-		return () => { 
-			wavesurferRef.current.destroy(); 
-		};
-	}, []);
-
-	// left click reposition functionality already handled by wavesurfer
-	
-	return (
-		<div 
-			key={id} 
-			className={`
-				${(id==-1) ? styles.waveContainerModal : styles.waveContainer} 
-				${isLoaded && (isRed ? styles.redOutline : styles.greenOutline)}
-				${isLoaded && (isSelected ? styles.selectOutline : styles.unselectOutline)}
-			`}
-			ref={containerRef}
-			onMouseEnter={onMouseEnter}
-			onMouseLeave={onMouseLeave}
-		>
-			<div id={`loading-spinner-${id}`} className={styles.waveLoadingCircle}></div>
-			<div 
-				id={`waveform-${id}`} 
-				ref={innerRef}
-				style={{ width: "100%", height: "128px"}} 
-				onContextMenu={rightClickPlayPause}
-			></div>
-		</div>	
-	)
-});
-
-const ModalSpectrogram = forwardRef<SpectroRef, SpectroProps&{toggleModal:()=>void}>(({
-	id, // -1 if modal 
-	filePath, 
-	onMouseEnter, 
-	onMouseLeave,
-	linkedSpectro,
-	toggleModal,
-	isInvalid,
-}, ref) => {
-	console.log("portal reloaded");
-	const modalRef = useRef(null);
-	return (
-		<div ref={modalRef} className={styles.modal}>
-			<div>{linkedSpectro?.id}</div>
-			<Spectrogram 
-				id={-1} 
-				filePath={filePath} 
-				onMouseEnter={onMouseEnter}
-				onMouseLeave={onMouseLeave}
-				linkedSpectro={linkedSpectro}
-				ref={ref}
-				isInvalid={isInvalid}
-			/>
-			<button onClick={toggleModal}>Close</button>
-		</div>
-	);
-});
 
 export default function VerifyPage() {	
 
@@ -209,20 +66,20 @@ export default function VerifyPage() {
 
 	const spectrograms = useRef([]);
 	const playingSpectro = useRef(null);
-	const [selectedSpectro, setSelectedSpectro] = useState(null);
 	const [frozen, setFrozen] = useState(false);
 	const [mouseControl, setMouseControl] = useState(true);
 
 	const [skipInterval, setSkipInterval] = useState(DEFAULT_SKIPINTERVAL);
 	const [playSpeed, setPlaySpeed] = useState(DEFAULT_PLAYSPEED);
-
-	const setSelected = useCallback((i) => { // wraps setSelectedSpectrogram
-		console.log(selectedSpectro, i, frozen, mouseControl);
+	
+	const [selected, setSelected] = useState(null);
+	const updateSelected = useCallback((i) => { // wraps setSelectedSpectrogram
+		console.log(selected, i, frozen, mouseControl);
 		if (!(frozen && mouseControl)) {
-			if (selectedSpectro != null) {
-				spectrograms.current[selectedSpectro].toggleSelected(false);
+			if (selected != null) {
+				spectrograms.current[selected].toggleSelected(false);
 			}
-			setSelectedSpectro(i);
+			setSelected(i);
 			
 			//console.log(playSpeed, selectedSpectro);
 			if (i != null && i >= 0) {
@@ -237,21 +94,159 @@ export default function VerifyPage() {
 			
 			return i;
 		}
-	}, [frozen, playSpeed, selectedSpectro]);
+	}, [frozen, playSpeed, selected]);
+
+
+	const Spectrogram = useCallback(forwardRef<SpectroRef, SpectroProps>(({ 
+		id, // -1 if modal 
+		filePath, 
+		onMouseEnter, 
+		onMouseLeave,
+		linkedSpectro=null,
+	}, ref) => {
+		const wavesurferRef = useRef(null);
+		const containerRef = useRef(null);
+		const innerRef = useRef(null);
+		const [isRed, setIsRed] = useState(false);
+		const [isSelected, setIsSelected] = useState(false);
+		const [isLoaded, setIsLoaded] = useState(false);
+	
+		const setPlaybackRate = (playSpeed) => {
+			console.log(playSpeed);
+			wavesurferRef.current.setPlaybackRate(playSpeed);
+		}
+		const playPause = (playbackRate=null) => {
+			if (playbackRate != null) {
+				setPlaybackRate(playbackRate);
+			}
+			wavesurferRef.current.playPause();
+			return wavesurferRef.current.isPlaying;
+		}
+		const rightClickPlayPause = (e: MouseEvent) => { e.preventDefault(); playPause(); }
+	
+		useImperativeHandle(ref, ()=>{ // exposed functions
+			return { // SpectroRef
+				id,
+				wavesurferRef,
+				isRed,
+				isSelected,
+				isLoaded,
+				filePath,
+				toggleRed: () => { setIsRed(prev => !prev); },
+				toggleSelected: (S) => { setIsSelected(S); },
+				setPlaybackRate,
+				playPause,
+				play: () => { wavesurferRef.current.play(); },
+				pause: () => { wavesurferRef.current.pause(); },
+				setTime: (time) => { wavesurferRef.current.setTime(time) },
+				getTime: () => { return wavesurferRef.current.getCurrentTime() },
+				skip: (time) => {wavesurferRef.current.skip(time) },
+			}
+		});
+	
+		useEffect(() => { // initialize
+			if (!wavesurferRef.current) {;
+				wavesurferRef.current = WaveSurfer.create({
+					container: innerRef.current,
+					height: 0,
+					fillParent: true,
+					progressColor: 'white',
+					cursorColor: 'yellow',
+					cursorWidth: 2,
+					sampleRate: 16000,
+				});
+				wavesurferRef.current.registerPlugin(
+					SpectrogramPlugin.create({
+						colorMap: VIRIDIS_COLORMAP(),
+						scale: "linear",
+						fftSamples: (id==-1) ? 512 : 256, // 2 * height
+						labels: (id==-1),
+					}),
+				)
+	
+				wavesurferRef.current.load(filePath);
+				wavesurferRef.current.on('ready', function() {
+					document.getElementById(`loading-spinner-${id}`).style.display = 'none';
+	
+					if (linkedSpectro) {
+						wavesurferRef.current.setTime(linkedSpectro.getTime());
+						wavesurferRef.current.on("timeupdate", (progress) => {
+							linkedSpectro.setTime(progress);
+						});
+					}
+					setIsLoaded(true);
+				});
+	
+				setIsRed(linkedSpectro?.isRed);
+			}
+			
+			return () => { 
+				wavesurferRef.current.destroy(); 
+			};
+		}, []);
+	
+		return (
+			<div 
+				key={id} 
+				className={`
+					${(id==-1) ? styles.waveContainerModal : styles.waveContainer} 
+					${isLoaded && (isRed ? styles.redOutline : styles.greenOutline)}
+					${isLoaded && (isSelected ? styles.selectOutline : styles.unselectOutline)}
+				`}
+				ref={containerRef}
+				onMouseEnter={onMouseEnter}
+				onMouseLeave={onMouseLeave}
+			>
+				<div id={`loading-spinner-${id}`} className={styles.waveLoadingCircle}></div>
+				<div 
+					id={`waveform-${id}`} 
+					ref={innerRef}
+					style={{ width: "100%", height: "128px"}} 
+					onContextMenu={rightClickPlayPause}
+				></div>
+			</div>	
+		)
+	}), []);
+	
+	const ModalSpectrogram = useCallback(forwardRef<SpectroRef, SpectroProps&{toggleModal:()=>void}>(({
+		id, // -1 if modal 
+		filePath, 
+		onMouseEnter, 
+		onMouseLeave,
+		linkedSpectro=spectrograms.current[selected],
+		toggleModal,
+	}, ref) => {
+		console.log("portal reloaded");
+		const modalRef = useRef(null);
+		return (
+			<div ref={modalRef} className={styles.modal}>
+				<div>{linkedSpectro?.id}</div>
+				<Spectrogram 
+					id={-1} 
+					filePath={filePath} 
+					onMouseEnter={onMouseEnter}
+					onMouseLeave={onMouseLeave}
+					linkedSpectro={linkedSpectro}
+					ref={ref}
+				/>
+				<button onClick={toggleModal}>Close</button>
+			</div>
+		);
+	}), [selected]);
 
 
 	// MODAL
 
 	const [showModal, setShowModal] = useState(false);
 	const toggleModal = useCallback(() => {  // wraps setShowModal
-		//console.log("toggle modal: ", selectedSpectrogram, frozen);
-		if (selectedSpectro != null) {
+		if (selected != null) {
 			setShowModal((prev) => {
 				setFrozen(!prev);
 				if (prev) { // EXIT MODAL
 					playingSpectro.current = null;
 					return false;
 				} else { // SHOW MODAL
+					setMouseControl(false);
 					if (playingSpectro.current != null) {
 						spectrograms.current[playingSpectro.current].pause();
 					}
@@ -259,7 +254,7 @@ export default function VerifyPage() {
 				}
 			});
 		}		
-	}, [selectedSpectro, frozen]);
+	}, [selected, frozen]);
 
 	useEffect(() => {
 		if (showModal) {
@@ -376,26 +371,26 @@ export default function VerifyPage() {
 
 	// ACTIONS
 
-	const moveSelectionUp = () => { setMouseControl(false); setSelected(selectedSpectro==null ? 0 : Math.max(selectedSpectro - COLS, selectedSpectro % COLS)); }
-	const moveSelectionDown = () => { setMouseControl(false); setSelected(selectedSpectro==null ? 0 : Math.min(selectedSpectro + COLS, numFiles-1, numSpots-COLS+(selectedSpectro % COLS))); }
-	const moveSelectionLeft = () => { setMouseControl(false); setSelected(selectedSpectro==null ? 0 : Math.max(selectedSpectro - 1, 0)); }
-	const moveSelectionRight = () => { setMouseControl(false); setSelected(selectedSpectro==null ? 0 : Math.min(selectedSpectro + 1, numFiles-1)); }
+	const moveSelectionUp = () => { setMouseControl(false); updateSelected(selected==null ? 0 : Math.max(selected - COLS, selected % COLS)); }
+	const moveSelectionDown = () => { setMouseControl(false); updateSelected(selected==null ? 0 : Math.min(selected + COLS, numFiles-1, numSpots-COLS+(selected % COLS))); }
+	const moveSelectionLeft = () => { setMouseControl(false); updateSelected(selected==null ? 0 : Math.max(selected - 1, 0)); }
+	const moveSelectionRight = () => { setMouseControl(false); updateSelected(selected==null ? 0 : Math.min(selected + 1, numFiles-1)); }
 	const toggleValidity = () => { 
-		if (selectedSpectro != null) {spectrograms.current[selectedSpectro].toggleRed();}; 
+		if (selected != null) {spectrograms.current[selected].toggleRed();}; 
 		if (showModal) {spectrograms.current[-1].toggleRed();}
 	}
 	const playPauseSelection = () => { 
-		if (selectedSpectro == null) { return }; // null
-		if (playingSpectro.current != null && playingSpectro.current != selectedSpectro) { spectrograms.current[playingSpectro.current].pause(); }; // pause existing
+		if (selected == null) { return }; // null
+		if (playingSpectro.current != null && playingSpectro.current != selected) { spectrograms.current[playingSpectro.current].pause(); }; // pause existing
 		
-		const id = showModal ? -1 : selectedSpectro;
+		const id = showModal ? -1 : selected;
 
 		spectrograms.current[id].setPlaybackRate(playSpeed); // set speed of selected
 		const isPlaying = spectrograms.current[id].playPause(); // play/pause selected
-		playingSpectro.current = (isPlaying ? selectedSpectro : null);
+		playingSpectro.current = (isPlaying ? selected : null);
 	}
-	const skipBack = () => { if (selectedSpectro != null) {spectrograms.current[showModal ? -1 : selectedSpectro].skip(-skipInterval);}; }
-	const skipForward = () => { if (selectedSpectro != null) {spectrograms.current[showModal ? -1 : selectedSpectro].skip(skipInterval);}; } 
+	const skipBack = () => { if (selected != null) {spectrograms.current[showModal ? -1 : selected].skip(-skipInterval);}; }
+	const skipForward = () => { if (selected != null) {spectrograms.current[showModal ? -1 : selected].skip(skipInterval);}; } 
 	const doubleSkipInterval = () => { setSkipInterval((prev) => prev*2) } 
 	const halveSkipInterval = () => { setSkipInterval((prev) => prev/2) } 
 	const doublePlaySpeed = () => { 
@@ -451,7 +446,7 @@ export default function VerifyPage() {
 
 		window.addEventListener("keydown", handleKeyDown);
 		return () => window.removeEventListener("keydown", handleKeyDown);
-	}, [selectedSpectro, playingSpectro, playSpeed, skipInterval, frozen]);
+	}, [selected, playingSpectro, playSpeed, skipInterval, frozen]);
 	
 
 	
@@ -516,7 +511,7 @@ export default function VerifyPage() {
 					</div>
 
 					<div>
-						<p>Selected: {selectedSpectro}</p>
+						<p>Selected: {selected}</p>
 					</div>
 				</div>
 
@@ -533,19 +528,18 @@ export default function VerifyPage() {
 									filePath={filePath} 
 									onMouseEnter={() => {
 										if (mouseControl) {
-											setSelected(i);
+											updateSelected(i);
 										}
 									}}
 									onMouseLeave={() => {
 										if (mouseControl) {
-											setSelected(null);
+											updateSelected(null);
 										}
 									}}
 									linkedSpectro={null}
 									ref={(el) => {
 										if (el) spectrograms.current[i] = el; // Populate dynamically
 									}}
-									isInvalid = {isInvalid}
 								/>
 							))}
 						</div>
@@ -556,10 +550,10 @@ export default function VerifyPage() {
 					<ModalSpectrogram
 						key={-1}
 						id={-1} 
-						filePath={spectrograms.current[selectedSpectro].filePath} 
+						filePath={spectrograms.current[selected].filePath} 
 						onMouseEnter={()=>{}}
 						onMouseLeave={()=>{}}
-						linkedSpectro={spectrograms.current[selectedSpectro]}
+						linkedSpectro={spectrograms.current[selected]}
 						ref={(el) => {
 							if (el) spectrograms.current[-1] = el; // Populate dynamically
 						}}
