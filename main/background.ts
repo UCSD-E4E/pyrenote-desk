@@ -2,6 +2,7 @@ import path from 'path'
 import { app, ipcMain } from 'electron'
 import serve from 'electron-serve'
 import { createWindow } from './helpers'
+import * as fs from "fs";
 
 const isProd = process.env.NODE_ENV === 'production'
 
@@ -38,3 +39,14 @@ app.on('window-all-closed', () => {
 ipcMain.on('message', async (event, arg) => {
   event.reply('message', `${arg} World!`)
 })
+
+ipcMain.on('save-file', async (event, { filename, content }) => {
+  try {
+	fs.writeFileSync(filename, content);
+	event.reply("save-file-success", "File saved successfully!");
+  } catch (err) {
+    console.error("Error writing file:", err);
+    event.reply("save-file-error", "Failed to save file.");
+  }
+})
+  
