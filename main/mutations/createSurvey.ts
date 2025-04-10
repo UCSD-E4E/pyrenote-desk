@@ -21,7 +21,6 @@ const createSurvey = async (
   notes: string,
 ): Promise<Survey | undefined> => {
   const db = getDatabase();
-  // TODO: test this mutation
   const statement = db.prepare<CreateParams, Survey>(`
     INSERT INTO survey (
       surveyname,

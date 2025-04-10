@@ -109,14 +109,46 @@ function UserForm() {
 
   const getDeploymentById = async () => {
     try {
-      const result = await window.api.listRecordingsByDeploymentId(1);
-      console.log(result);
-      const result2 = await window.api.listRecordings();
-      console.log(result2);
-      const result3 = await window.api.listRecordingsBySiteId(1);
-      console.log(result3);
-      const surveys = await window.api.listSurveys();
-      console.log(surveys);
+      // const result = await window.api.listRecordingsByDeploymentId(1);
+      // console.log(result);
+      // const result2 = await window.api.listRecordings();
+      // console.log(result2);
+      // const result3 = await window.api.listRecordingsBySiteId(1);
+      // console.log(result3);
+      // const surveys = await window.api.listSurveys();
+      // console.log(surveys);
+      const deployments = await window.api.listDeployments();
+      console.log("deployments", deployments);
+      const roi = await window.api.listRegionOfInterestByRecordingId(1);
+      console.log(roi);
+      const newAnnotation = await window.api.createAnnotation(
+        roi[0].recordingId,
+        2,
+        roi[0].regionId,
+        1,
+        0.2,
+      );
+      console.log(newAnnotation);
+      const annotation = await window.api.listAnnotationsByRegionId(
+        roi[0].regionId,
+      );
+      console.log(annotation);
+      const updatedAnnotation = await window.api.updateAnnotation(
+        newAnnotation.annotationId,
+        1,
+        0.4,
+      );
+      console.log(updatedAnnotation);
+      const newRecording = await window.api.createRecording(
+        0,
+        "thing.mp3",
+        "some url",
+        "2025",
+        20,
+        4,
+        5,
+      );
+      console.log(newRecording);
       if (surveys.length > 0) {
         const site = await window.api.createSite(
           surveys[0].surveyId,

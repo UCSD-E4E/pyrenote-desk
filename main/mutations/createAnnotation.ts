@@ -7,7 +7,7 @@ type CreateParams = {
   regionId: number;
   speciesId: number;
   speciesProbability: number;
-  mostRecent: boolean;
+  mostRecent: number;
 };
 
 const createAnnotation = async (
@@ -18,7 +18,7 @@ const createAnnotation = async (
   speciesProbability: number,
 ): Promise<Annotation | undefined> => {
   const db = getDatabase();
-  // TODO: test this mutation
+  // TODO: Should remove mostRecent?
   const statement = db.prepare<CreateParams, Annotation>(`
     INSERT INTO annotation (regionId, labelerId, annotationDate, speciesId, speciesProbability, mostRecent)
     VALUES (@regionId, @labelerId, CURRENT_TIMESTAMP, @speciesId, @speciesProbability, @mostRecent)
@@ -31,7 +31,7 @@ const createAnnotation = async (
       regionId,
       speciesId,
       speciesProbability,
-      mostRecent: true,
+      mostRecent: 1,
     })!;
     return Promise.resolve(rows);
   } catch (e) {
