@@ -24,6 +24,10 @@ const AudioPlayer: React.FC = () => {
 	const [sampleRate, setSampleRate] = useState<string>('24000');
 	const [callType, setCallType] = useState('');
 	const [notes, setNotes] = useState('');
+	const regionListRef = useRef<any[]>([]);
+	// For label selection
+	const [speciesList, setSpeciesList] = useState<string[]>(['Default', 'Pigeon']);
+	const [selectedSpecies, setSelectedSpecies] = useState('Default');
 
 	// TODO: Add typing
 	const [wavesurfers, setWavesurfers] = useState([]);
@@ -437,6 +441,7 @@ const AudioPlayer: React.FC = () => {
 
 					wsRegions.on('region-created', (region) => {
 						redraw(region);
+						regionListRef.current.push(region);
 
 						// add to list to redraw on movements
 						regionList.push(region);
@@ -564,6 +569,89 @@ const AudioPlayer: React.FC = () => {
 		}
 	}, [showSpec, index, wavesurfers]);
 
+	// Deletes selected region
+	const deleteActiveRegion = () => {
+		if (!wavesurfers[index]?.instance || !activeRegionRef.current) return;
+		activeRegionRef.current.remove();
+		activeRegionRef.current = null;
+	};
+
+	// Deletes all regions
+	const clearAllRegions = () => {
+		if (!wavesurfers[index]?.instance) return;
+
+		const regionPlugin = wavesurfers[index].instance.plugins[1];
+		const allRegions = regionPlugin?.wavesurfer?.plugins[2]?.regions;
+		if (!allRegions) return;
+
+		Object.keys(allRegions).forEach((r) => {
+			allRegions[r].remove();
+		});
+
+		regionListRef.current = [];
+		activeRegionRef.current = null;
+	};
+
+	// Delete last region
+	const undoLastRegion = () => {
+		if (!wavesurfers[index]?.instance) return;
+		if (regionListRef.current.length === 0) return;
+
+		const lastRegion = regionListRef.current.pop();
+		lastRegion.remove();
+
+		// If the last region was active, reset activeRegionRef
+		if (activeRegionRef.current === lastRegion) {
+			activeRegionRef.current = null;
+		}
+	};
+
+	// Download regions data only (maybe repurpose logic later)
+	const saveLabelsToSpecies = () => {
+		const ws = wavesurfers[index]?.instance;
+		if (!ws) return;
+
+		const regionPlugin = ws.plugins[1];
+		const allRegions = regionPlugin?.wavesurfer?.plugins[2]?.regions;
+		if (!allRegions) return;
+
+		const newSet = new Set(speciesList);
+
+		// Add non repeated labels to set
+		Object.keys(allRegions).forEach((regionId) => {
+			const region = allRegions[regionId];
+			const label = region.data?.label?.trim();
+			if (label) {
+				newSet.add(label);
+			}
+		});
+
+		setSpeciesList(Array.from(newSet));
+		console.log('Updated speciesList:', Array.from(newSet));
+	};
+
+	// Saves selected category as label
+	const assignSpecies = (species: string) => {
+		if (!activeRegionRef.current) {
+			console.log('No active region selected.');
+			return;
+		}
+
+		activeRegionRef.current.data = {
+			...activeRegionRef.current.data,
+			label: species,
+		};
+
+		const regionEl = activeRegionRef.current.element;
+		let labelElem = regionEl.querySelector('.region-label');
+		if (!labelElem) {
+			labelElem = document.createElement('span');
+			labelElem.className = 'region-label';
+			regionEl.appendChild(labelElem);
+		}
+		labelElem.textContent = species;
+	};
+
 	return (
 		<React.Fragment>
 			<Head>
@@ -578,11 +666,24 @@ const AudioPlayer: React.FC = () => {
 						onChange={(e) => handleFiles(Array.from(e.target.files))}
 					/>
 					<label>Choose a species:</label>
-					<select name="Species" id="species-names">
-						<option value="x">Select a Species</option>
-						<option value="y">y</option>
-						<option value="z">z</option>
+					{/* Turns category selection back to default on selection */}
+					<select
+						name="Species"
+						id="species-names"
+						value={selectedSpecies}
+						onChange={(e) => {
+							const sp = e.target.value;
+							assignSpecies(sp);
+							setSelectedSpecies('Default');
+						}}
+					>
+						{speciesList.map((sp) => (
+							<option key={sp} value={sp}>
+								{sp}
+							</option>
+						))}
 					</select>
+
 					<div>
 						{showSpec && (
 							// styling for extended regions selection
@@ -613,7 +714,7 @@ const AudioPlayer: React.FC = () => {
 							height={45}
 						/>
 					</button>
-					<button className={styles.modelMatch} onClick={clickYes}>
+					<button className={styles.modelButton} onClick={clickYes}>
 						Save
 					</button>
 					{!playing && (
@@ -636,7 +737,7 @@ const AudioPlayer: React.FC = () => {
 							/>
 						</button>
 					)}
-					<button className={styles.modelFail} onClick={clickNo}>
+					<button className={styles.modelButton} onClick={clickNo}>
 						Delete
 					</button>
 					<button className={styles.nextClip} onClick={clickNext}>
@@ -652,6 +753,28 @@ const AudioPlayer: React.FC = () => {
 			{showSpec && (
 				<div className={styles.bottomBar}>
 					<div className={styles.confidenceSection}>
+						<label>Region buttons</label>
+						<div className={styles.regionButtons}>
+							<button
+								className={styles.regionButton}
+								onClick={deleteActiveRegion}
+							>
+								Delete
+							</button>
+							<button className={styles.regionButton} onClick={clearAllRegions}>
+								Clear
+							</button>
+							<button className={styles.regionButton} onClick={undoLastRegion}>
+								Undo
+							</button>
+							<button
+								className={styles.regionButton}
+								onClick={saveLabelsToSpecies}
+							>
+								Save Labels
+							</button>
+						</div>
+
 						<label className={styles.confidenceLabel} htmlFor="confidence">
 							Confidence: {confidence}
 						</label>
@@ -709,6 +832,9 @@ const AudioPlayer: React.FC = () => {
 					</div> */}
 					{showSpec && (
 						<div className={styles.annotationSection}>
+							<label>
+								Zoom: <input type="range" min="10" max="1000" value="10" />
+							</label>
 							<label>Call Type:</label>
 							<input
 								type="text"

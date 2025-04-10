@@ -63,18 +63,35 @@
 }
 
 .confidenceSection {
-	margin: 10px;
-	box-sizing: border-box;
-	border-radius: 5%;
-	outline: none;
 	display: flex;
 	flex-direction: column;
+	gap: 6px;
+	margin: 10px;
 	flex: 1;
 }
 
 .confidenceLabel {
 	font-family: 'Gill Sans', 'Gill Sans MT', 'Trebuchet MS', sans-serif;
 	align-items: center;
+}
+
+.regionButtons {
+	display: flex;
+	gap: 8px;            
+	margin-top: 8px;
+}
+
+.regionButton {
+	background-color: orange;
+	color: black;
+	font-size: 12px;     
+	font-weight: bold;
+	padding: 4px 6px;  
+	border: none;
+	cursor: pointer;      
+	text-align: center;
+	display: inline-block;
+	flex: 1;
 }
 
 .annotationSection {
@@ -101,12 +118,7 @@
 	cursor: pointer;
 }
 
-.modelMatch:hover {
-	background-color: #b3fad1;
-	cursor: pointer;
-}
-
-.modelFail:hover {
+.modelButton:hover {
 	background-color: #b3fad1;
 	cursor: pointer;
 }
@@ -119,20 +131,8 @@
 	border-radius: 10px;
 	border: none;
 }
-.modelMatch {
-	background-color: orange;
-	color: black;
-	font-size: 16px;
-	font-weight: bold;
-	padding: 10px 20px;
-	margin: 10px 0;
-	border: none;
-	text-align: center;
-	display: inline-block;
-	align-self: center;
-	width: 150px;
-}
-.modelFail {
+
+.modelButton {
 	background-color: orange;
 	color: black;
 	font-size: 16px;
