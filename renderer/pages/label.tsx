@@ -659,31 +659,34 @@ const AudioPlayer: React.FC = () => {
 			</Head>
 			<div className={styles.container}>
 				<div className={styles.main}>
-					<input
-						type="file"
-						multiple
-						accept="audio/*"
-						onChange={(e) => handleFiles(Array.from(e.target.files))}
-					/>
-					<label>Choose a species:</label>
-					{/* Turns category selection back to default on selection */}
-					<select
-						name="Species"
-						id="species-names"
-						value={selectedSpecies}
-						onChange={(e) => {
-							const sp = e.target.value;
-							assignSpecies(sp);
-							setSelectedSpecies('Default');
-						}}
-					>
-						{speciesList.map((sp) => (
-							<option key={sp} value={sp}>
-								{sp}
-							</option>
-						))}
-					</select>
-
+					<div className={styles.header}>
+						<input
+							type="file"
+							multiple
+							accept="audio/*"
+							onChange={(e) => handleFiles(Array.from(e.target.files))}
+						/>
+						<div>
+							<label>Choose a species: </label>
+							{/* Turns category selection back to default on selection */}
+							<select
+								name="Species"
+								id="species-names"
+								value={selectedSpecies}
+								onChange={(e) => {
+									const sp = e.target.value;
+									assignSpecies(sp);
+									setSelectedSpecies('Default');
+								}}
+							>
+								{speciesList.map((sp) => (
+									<option key={sp} value={sp}>
+										{sp}
+									</option>
+								))}
+							</select>
+						</div>
+					</div>
 					<div>
 						{showSpec && (
 							// styling for extended regions selection
