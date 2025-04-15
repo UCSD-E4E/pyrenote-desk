@@ -1,12 +1,35 @@
+.theme {
+    --bg-color: #f8f9fa;
+    --text-color: #222;
+    --hover-color: #b3fad1;
+}
+  
+.theme.dark {
+    --bg-color: #121212;
+    --text-color: #f8f9fa;
+    --hover-color: #2e7d57;
+    height: 100vh;
+    background-color: #374151;
+}
+
 .icon {
     display: flex;
     flex-direction: column;
     border-radius: 8px;
-    padding: 4px;
+    padding: 6px;
     align-items: center;
+    color: var(--text-color);
+}
+.settings {
+    position: fixed;
+    flex-direction: column;
+    border-radius: 2px;
+    align-items: left;
+    z-index: 10;
 }
 
 .sidebar {
+    position: fixed;
     display: flex;
     align-items: center;
     flex-direction: column;
@@ -16,16 +39,23 @@
 }
 
 .icon:hover {
-    background-color: #b3fad1;
+    background-color: var(--hover-color);
+    cursor: pointer;
+}
+.settings:hover {
+    background-color: var(--hover-color);
     cursor: pointer;
 }
 
 .linkStyle {
-    color: black;
+    color: var(--text-color);
     font-weight: normal;
     text-decoration: none;
 }
 
 .children {
     flex-grow: 1;
+    width: 93%;
+    margin-left: 7%;
+    color: var(--text-color);
 }
