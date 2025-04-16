@@ -18,6 +18,7 @@ export type Annotation = {
   annotationDate: string;
   speciesId: number;
   speciesProbability: number;
+  // TODO: Redundant from date?
   mostRecent: boolean;
 };
 

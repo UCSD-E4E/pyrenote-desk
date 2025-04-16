@@ -131,6 +131,8 @@ function UserForm() {
       console.log(newAnnotation);
       const annotation = await window.api.listAnnotationsByRegionId(
         roi[0].regionId,
+        5,
+        4,
       );
       console.log(annotation);
       const updatedAnnotation = await window.api.updateAnnotation(
