@@ -35,8 +35,8 @@ const AudioPlayer: React.FC = () => {
 	const [isPrevDisabled, setPrevDisabled] = useState(false);
 	const [isYesDisabled, setYesDisabled] = useState(false);
 	const [isNoDisabled, setNoDisabled] = useState(false);
-
 	const activeRegionRef = useRef<any>(null);
+	const timelineDotRef = useRef<HTMLDivElement | null>(null);
 
 	//Destroys Current Wavesurfer reference
 	const destroyCurrentWaveSurfer = async () => {
@@ -54,6 +54,7 @@ const AudioPlayer: React.FC = () => {
 		}
 		setConfidence('10');
 		setPrevDisabled(true);
+		setPlaying(false);
 		if (index === 0) return;
 		await destroyCurrentWaveSurfer();
 		setIndex((prevIndex) => prevIndex - 1);
@@ -73,6 +74,7 @@ const AudioPlayer: React.FC = () => {
 		}
 		setConfidence('10');
 		setNextDisabled(true);
+		setPlaying(false);
 		if (index === wavesurfers.length - 1) return;
 		await destroyCurrentWaveSurfer();
 		setIndex((prevIndex) => prevIndex + 1);
@@ -85,7 +87,7 @@ const AudioPlayer: React.FC = () => {
 
 	//Plays the current wavesurfer audio
 	const clickPlay = async () => {
-		const wsInstance = wavesurfers[index].instance;
+		const wsInstance = wavesurfers[index]?.instance;
 
 		// plays the active region
 		if (wsInstance && activeRegionRef.current) {
@@ -265,9 +267,16 @@ const AudioPlayer: React.FC = () => {
 	const handleFiles = (acceptedFiles: File[]) => {
 		console.log('Files dropped:', acceptedFiles);
 
-		const newWaveSurfers = acceptedFiles.map((file, index) => {
-			const containerId = `waveform-${wavesurfers.length + index}`;
-			const spectrogramId = `spectrogram-${wavesurfers.length + index}`;
+		// Clear existing wavesurfers if any
+		if (wavesurfers.length > 0) {
+			if (wavesurfers[index]?.instance) {
+				wavesurfers[index].instance.destroy();
+			}
+		}
+
+		const newWaveSurfers = acceptedFiles.map((file, i) => {
+			const containerId = `waveform-${i}`;
+			const spectrogramId = `spectrogram-${i}`;
 			return {
 				id: containerId,
 				spectrogramId: spectrogramId,
@@ -281,43 +290,44 @@ const AudioPlayer: React.FC = () => {
 		setWavesurfers(newWaveSurfers);
 		setShowSpec(true);
 		setIndex(0);
+		regionListRef.current = [];
+		activeRegionRef.current = null;
 	};
 
-	//TODO: Implement Confidence Scale
-
 	//define keybindings
-	/*const handleKeyDown = async (event: KeyboardEvent) => {
-    switch (event.key) {
-      case 'w': 
-        clickYes();
-        break;
-      case 'p':
-        if (playing){await clickPause();}
-        else {await clickPlay();}
-        break;
-      case 's': 
-        clickNo();
-        break;
-      case 'd': 
-        clickNext();
-        break;
-      case 'a': 
-        clickPrev();
-        break;
-      default:
-        break;
-    }
-  };*/
+	// const handleKeyDown = async (event: KeyboardEvent) => {
+	// 	switch (event.key) {
+	// 		case 'w': 
+	// 			clickYes();
+	// 			break;
+	// 		case 'p':
+	// 			if (playing){await clickPause();}
+	// 			else {await clickPlay();}
+	// 			break;
+	// 		case 's': 
+	// 			clickNo();
+	// 			break;
+	// 		case 'd':
+	// 		case 'ArrowRight': 
+	// 			clickNext();
+	// 			break;
+	// 		case 'a':
+	// 		case 'ArrowLeft': 
+	// 			clickPrev();
+	// 			break;
+	// 		default:
+	// 			break;
+	// 	}
+	// };
 
 	//useEffect when index or wavesurfers updates
 	useEffect(() => {
 		if (showSpec && wavesurfers[index]) {
 			console.log(index);
 
-			//window.addEventListener('keydown', handleKeyDown);
+			// window.addEventListener('keydown', handleKeyDown);
 			if (wavesurfers.length === 0) {
 				//alert user
-
 				setShowSpec(false);
 				setIndex(0);
 				console.log('No more audioclips');
@@ -376,10 +386,15 @@ const AudioPlayer: React.FC = () => {
 					if (timelineContainer) {
 						timelineContainer.style.position = 'relative';
 						timelineContainer.style.overflow = 'visible';
+						
+						// Remove any existing dots before creating a new one
+						const existingDots = timelineContainer.querySelectorAll('div[data-timeline-dot]');
+						existingDots.forEach(dot => timelineContainer.removeChild(dot));
 					}
 
 					// Create the dot
 					const dot = document.createElement('div');
+					dot.setAttribute('data-timeline-dot', 'true');
 					dot.style.position = 'absolute';
 					dot.style.width = '8px';
 					dot.style.height = '8px';
@@ -388,8 +403,9 @@ const AudioPlayer: React.FC = () => {
 					dot.style.top = '50%';
 					dot.style.transform = 'translateY(-50%)';
 					dot.style.left = '0px';
-
+					
 					timelineContainer?.appendChild(dot);
+					timelineDotRef.current = dot;
 
 					// Move dot according to audio time
 					ws.on('audioprocess', (currentTime) => {
@@ -417,6 +433,9 @@ const AudioPlayer: React.FC = () => {
 					await ws.load(URL.createObjectURL(wavesurfers[index].file));
 					console.log('loaded ws');
 					wavesurfers[index].instance = ws;
+					
+					// Apply playback rate from state
+					ws.setPlaybackRate(parseFloat(playbackRate), false);
 
 					// list of all regions for overlay
 					let regionList = [];
@@ -483,30 +502,6 @@ const AudioPlayer: React.FC = () => {
 
 							region.data = { ...region.data, loop: true };
 						}
-
-						// decide on function of clicking on region while audio playing
-						// select region, move dot, or both?
-						// // change audio dot to region that is clicked
-						// if (event && timelineContainer) {
-						// 	const rect = timelineContainer.getBoundingClientRect();
-						// 	const clickX = event.clientX - rect.left;
-						// 	dot.style.left = clickX + 'px';
-						// }
-						// if (activeRegionRef.current === region) {
-						// 	region.setOptions({ color: 'rgba(0,255,0,0.3)' });
-						// 	region.data = { ...region.data, loop: false };
-						// 	activeRegionRef.current = null;
-						// } else {
-						// 	if (activeRegionRef.current) {
-						// 		activeRegionRef.current.setOptions({
-						// 			color: 'rgba(0,255,0,0.3)',
-						// 		});
-						// 	}
-						// 	console.log('region-clicked fired');
-						// 	region.setOptions({ color: 'rgba(255,0,0,0.3)' });
-						// 	activeRegionRef.current = region;
-						// 	region.data = { ...region.data, loop: true };
-						// }
 					});
 
 					// loops clicked region
@@ -557,11 +552,24 @@ const AudioPlayer: React.FC = () => {
 					document
 						.getElementById(wavesurfers[index].spectrogramId)
 						?.classList.add('spectrogramContainer');
+						
+					// Handle audio finish
+					ws.on('finish', () => {
+						setPlaying(false);
+					});
 				};
 
 				createWavesurfer();
 				return () => {
-					//window.removeEventListener('keydown', handleKeyDown);
+					// window.removeEventListener('keydown', handleKeyDown);
+					
+					// Cleanup any existing timeline dot when component unmounts
+					if (timelineDotRef.current) {
+						const timelineContainer = document.getElementById('wave-timeline');
+						if (timelineContainer && timelineDotRef.current.parentNode === timelineContainer) {
+							timelineContainer.removeChild(timelineDotRef.current);
+						}
+					}
 				};
 			} else {
 				console.log('failed initialization');
@@ -688,15 +696,20 @@ const AudioPlayer: React.FC = () => {
 						</div>
 					</div>
 					<div>
+						{showSpec && wavesurfers.length > 0 && (
+							<div className={styles.audioInfo}>
+								<p>File {index + 1} of {wavesurfers.length}: {wavesurfers[index]?.file?.name}</p>
+							</div>
+						)}
 						{showSpec && (
 							// styling for extended regions selection
 							<div className={styles.waveSpectroContainer}>
 								<div
-									id={wavesurfers[index].id}
+									id={wavesurfers[index]?.id}
 									className={styles.waveContainer}
 								></div>
 								<div
-									id={wavesurfers[index].spectrogramId}
+									id={wavesurfers[index]?.spectrogramId}
 									className={styles.spectrogramContainer}
 								></div>
 							</div>
@@ -709,7 +722,7 @@ const AudioPlayer: React.FC = () => {
 			)}
 			{showSpec && (
 				<div className={styles.controls}>
-					<button className={styles.prevClip} onClick={clickPrev}>
+					<button className={styles.prevClip} onClick={clickPrev} disabled={isPrevDisabled || index === 0}>
 						<Image
 							src="/images/LArrow.png"
 							alt="Previous Button"
@@ -743,7 +756,7 @@ const AudioPlayer: React.FC = () => {
 					<button className={styles.modelButton} onClick={clickNo}>
 						Delete
 					</button>
-					<button className={styles.nextClip} onClick={clickNext}>
+					<button className={styles.nextClip} onClick={clickNext} disabled={isNextDisabled || index === wavesurfers.length - 1}>
 						<Image
 							src="/images/RArrow.png"
 							alt="Next Button"
@@ -801,10 +814,12 @@ const AudioPlayer: React.FC = () => {
 							value={playbackRate}
 							onChange={(e) => {
 								setPlaybackRate(e.target.value);
-								wavesurfers[index].instance.setPlaybackRate(
-									parseFloat(e.target.value),
-									false
-								);
+								if (wavesurfers[index]?.instance) {
+									wavesurfers[index].instance.setPlaybackRate(
+										parseFloat(e.target.value),
+										false
+									);
+								}
 							}}
 						/>
 					</div>
