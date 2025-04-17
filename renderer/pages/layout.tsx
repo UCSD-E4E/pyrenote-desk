@@ -1,9 +1,15 @@
 import Image from 'next/image';
 import styles from './layout.module.css';
 import { useRouter } from 'next/router';
+import { useState } from 'react';
 
 function Layout({ children }: { children: React.ReactNode }) {
+	const [darkMode, setDarkMode] = useState(false);
+
 	const router = useRouter();
+	const toSettings = () => {
+		router.push('/settings');
+	};
 	const toHome = () => {
 		router.push('/home');
 	};
@@ -22,8 +28,21 @@ function Layout({ children }: { children: React.ReactNode }) {
 
 	return (
 		<>
+		<div className={`${styles.theme} ${darkMode ? styles.dark : ''}`}>
+		
 			<div className="flex gap-5 p-4">
+				<div className={styles.settings} onClick={toSettings}>
+						<Image
+							src="/images/settingsCog.webp"
+							alt="Home image"
+							width={20}
+							height={20}
+						/>
+						<br />
+						<span className={styles.linkStyle}></span>
+					</div>
 				<div className={styles.sidebar}>
+					
 					<div className={styles.icon} onClick={toHome}>
 						<Image
 							src="/images/home.png"
@@ -77,6 +96,8 @@ function Layout({ children }: { children: React.ReactNode }) {
 				</div>
 				{/* make labelling fill out width wise */}
 				<main className={styles.children}>{children}</main>
+			</div>
+		
 			</div>
 		</>
 	);

@@ -55,6 +55,9 @@ const handler = {
       ipcRenderer.removeListener(channel, subscription);
     };
   },
+  invoke: async (channel: string, value: unknown) => {
+    return await ipcRenderer.invoke(channel, value);
+  },
 };
 
 contextBridge.exposeInMainWorld("ipc", handler);
