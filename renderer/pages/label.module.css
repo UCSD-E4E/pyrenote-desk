@@ -204,10 +204,17 @@
 }
 
 .main {
-	margin-top: 20px;
 	text-align: left;
 	width: 75%;
 	flex-direction: column;
-	align-items: flex-start;
+	align-items: space-between;
 	flex: 1;
+}
+
+.header {
+	margin-bottom: 20px;
+	display: flex;
+	justify-content: space-between;
+	width: 100%;
+	gap: 10px;
 }
