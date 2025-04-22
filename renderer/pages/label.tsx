@@ -1,14 +1,15 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import Head from "next/head";
 import Link from "next/link";
 import Image from "next/image";
 import styles from "./label.module.css";
+
 import WaveSurfer from "wavesurfer.js";
 import SpectrogramPlugin from "wavesurfer.js/dist/plugins/spectrogram";
 import RegionsPlugin from "wavesurfer.js/dist/plugins/regions";
 import TimelinePlugin from "wavesurfer.js/dist/plugins/timeline";
 
-//Generate ColorMap for Spectrogram
+// Generate ColorMap for Spectrogram
 const spectrogramColorMap = [];
 for (let i = 0; i < 256; i++) {
     const val = (255 - i) / 256;
@@ -16,32 +17,36 @@ for (let i = 0; i < 256; i++) {
 }
 
 const AudioPlayer: React.FC = () => {
-    const [showSpec, setShowSpec] = useState<Boolean>(false);
-    const [playing, setPlaying] = useState<Boolean>(false);
-    const [index, setIndex] = useState<number>(0);
-    const [confidence, setConfidence] = useState<string>("10");
-    const [playbackRate, setPlaybackRate] = useState<string>("1");
-    const [sampleRate, setSampleRate] = useState<string>("24000");
+    // UI state
+    const [showSpec, setShowSpec] = useState(false);
+    const [playing, setPlaying] = useState(false);
+    const [index, setIndex] = useState(0);
+
+    // Annotation state
+    const [confidence, setConfidence] = useState("10");
     const [callType, setCallType] = useState("");
     const [notes, setNotes] = useState("");
+
+    // Playback controls
+    const [playbackRate, setPlaybackRate] = useState("1");
+    const [sampleRate, setSampleRate] = useState("24000");
+
+    // Region & species
     const regionListRef = useRef<any[]>([]);
-    // For label selection
-    const [speciesList, setSpeciesList] = useState<string[]>([
-        "Default",
-        "Pigeon",
-    ]);
+    const activeRegionRef = useRef<any>(null);
+    const [speciesList, setSpeciesList] = useState(["Default"]);
     const [selectedSpecies, setSelectedSpecies] = useState("Default");
 
-    // TODO: Add typing
-    const [wavesurfers, setWavesurfers] = useState([]);
-    const [isNextDisabled, setNextDisabled] = useState(false);
+    // Wavesurfers array + button‑disable flags
+    const [wavesurfers, setWavesurfers] = useState<any[]>([]);
     const [isPrevDisabled, setPrevDisabled] = useState(false);
+    const [isNextDisabled, setNextDisabled] = useState(false);
     const [isYesDisabled, setYesDisabled] = useState(false);
     const [isNoDisabled, setNoDisabled] = useState(false);
-    const activeRegionRef = useRef<any>(null);
+
     const timelineDotRef = useRef<HTMLDivElement | null>(null);
 
-    //Destroys Current Wavesurfer reference
+    // Destroys Current Wavesurfer reference
     const destroyCurrentWaveSurfer = async () => {
         if (wavesurfers[index]?.instance) {
             wavesurfers[index].instance.destroy();
@@ -49,8 +54,8 @@ const AudioPlayer: React.FC = () => {
         }
     };
 
-    //Called when moving to previous audio clip
-    //destroys current wavesurfer and changes index
+    // Called when moving to previous audio clip
+    // Destroys current wavesurfer and changes index
     const clickPrev = async () => {
         if (isPrevDisabled) {
             return;
@@ -62,18 +67,17 @@ const AudioPlayer: React.FC = () => {
         await destroyCurrentWaveSurfer();
         setIndex((prevIndex) => prevIndex - 1);
 
-        //buffer time between presses
+        // Buffer time between presses
         setTimeout(() => {
             setPrevDisabled(false);
         }, 500);
     };
 
-    //Called when moving to next audio clip
-    //destroys current wavesurfer and changes index
+    // Called when moving to next audio clip
+    // Destroys current wavesurfer and changes index
     const clickNext = async () => {
         if (isNextDisabled) {
             return;
-            //print message for user
         }
         setConfidence("10");
         setNextDisabled(true);
@@ -81,18 +85,16 @@ const AudioPlayer: React.FC = () => {
         if (index === wavesurfers.length - 1) return;
         await destroyCurrentWaveSurfer();
         setIndex((prevIndex) => prevIndex + 1);
-
         //buffer time between presses
         setTimeout(() => {
             setNextDisabled(false);
         }, 500);
     };
 
-    //Plays the current wavesurfer audio
+    // Plays the current wavesurfer audio
     const clickPlay = async () => {
         const wsInstance = wavesurfers[index]?.instance;
-
-        // plays the active region
+        // Plays the active region
         if (wsInstance && activeRegionRef.current) {
             activeRegionRef.current.play();
         } else if (wsInstance) {
@@ -108,33 +110,27 @@ const AudioPlayer: React.FC = () => {
     };
 
     /* called when confirming audio matches model annotation
-    remove current wavesurfer
-    move rest up
-    save annotation in database */
+     remove current wavesurfer
+     move rest up
+     save annotation in database */
     const clickYes = async () => {
-        if (isYesDisabled) {
-            return;
-        }
+        if (isYesDisabled) return;
         setConfidence("10");
         setYesDisabled(true);
 
         const ws = wavesurfers[index]?.instance;
-        if (!ws) {
-            return;
-        }
+        if (!ws) return;
 
         // Accesses all regions
         const regionPlugin = ws.plugins[1];
         const allRegions = regionPlugin?.wavesurfer?.plugins[2]?.regions;
+        const lines: string[] = [];
 
-        const lines = [];
-
-        if (!allRegions || Object.keys(allRegions).length === 0) {
+        if (!allRegions || !Object.keys(allRegions).length) {
             console.log("No regions");
         } else {
             // Text document of start/end times
-            Object.keys(allRegions).forEach((regionId, idx) => {
-                const region = allRegions[regionId];
+            Object.values(allRegions).forEach((region: any, idx: number) => {
                 const startSec = region.start.toFixed(3);
                 const endSec = region.end.toFixed(3);
                 lines.push(
@@ -142,17 +138,16 @@ const AudioPlayer: React.FC = () => {
                 );
             });
 
-            lines.push("");
-            lines.push(`Confidence: ${confidence}`);
-            lines.push(`Call Type: ${callType}`);
-            lines.push(`Additional Notes: ${notes}`);
+            lines.push(
+                "",
+                `Confidence: ${confidence}`,
+                `Call Type: ${callType}`,
+                `Additional Notes: ${notes}`
+            );
 
             // Make text file
-            const content = lines.join("\n");
-            const blob = new Blob([content], { type: "text/plain" });
+            const blob = new Blob([lines.join("\n")], { type: "text/plain" });
             const url = URL.createObjectURL(blob);
-
-            // Download (test for Windows)
             const link = document.createElement("a");
             link.href = url;
             link.download = "regionTimes.txt";
@@ -162,50 +157,24 @@ const AudioPlayer: React.FC = () => {
             URL.revokeObjectURL(url);
         }
 
-        if (index == 0) {
-            let currentWaveSurfer = wavesurfers[index].instance;
+        // remove or shift current wavesurfer
+        if (index === 0) {
             if (wavesurfers.length === 1) {
                 setShowSpec(false);
                 setWavesurfers([]);
             } else {
-                currentWaveSurfer.destroy();
-                currentWaveSurfer = null;
-                // Remove the first WaveSurfer
-                setWavesurfers((wavesurfers) => wavesurfers.slice(1));
+                ws.destroy();
+                setWavesurfers((arr) => arr.slice(1));
                 setIndex(0);
-
-                //buffer between button presses
-                setTimeout(() => {
-                    setYesDisabled(false);
-                }, 500);
-                return;
             }
-            currentWaveSurfer.destroy();
-            currentWaveSurfer = null;
-
-            //buffer between button presses
-            setTimeout(() => {
-                setYesDisabled(false);
-            }, 500);
-
+            setTimeout(() => setYesDisabled(false), 500);
             return;
         }
+
         await destroyCurrentWaveSurfer();
-        setWavesurfers((wavesurfers) => {
-            // Remove the WaveSurfer from the array
-            return wavesurfers.filter((_, i) => i !== index);
-        });
-        if (wavesurfers.length == 0) {
-            setWavesurfers([]);
-        }
-        //adjust index if array is shorter than index
-        if (wavesurfers.length - 1 >= index) {
-            setIndex(index - 1);
-        }
-        //buffer between button presses
-        setTimeout(() => {
-            setYesDisabled(false);
-        }, 500);
+        setWavesurfers((arr) => arr.filter((_, i) => i !== index));
+        if (wavesurfers.length - 1 >= index) setIndex((i) => i - 1);
+        setTimeout(() => setYesDisabled(false), 500);
     };
 
     /* called when audio doesn't match model annotation
@@ -297,35 +266,35 @@ const AudioPlayer: React.FC = () => {
         activeRegionRef.current = null;
     };
 
-    // define keybindings
-    const handleKeyDown = async (event: KeyboardEvent) => {
-        const activeEl = document.activeElement;
-        const isTyping =
-            activeEl &&
-            (activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA");
-        if (isTyping) return;
-
-        switch (event.key) {
-            case "w":
-                clickYes();
-                break;
-            case "p":
-                playing ? await clickPause() : await clickPlay();
-                break;
-            case "d":
-                clickNo();
-                break;
-            case "ArrowRight":
-                clickNext();
-                break;
-            case "a":
-            case "ArrowLeft":
-                clickPrev();
-                break;
-            default:
-                break;
-        }
-    };
+    const handleKeyDown = useCallback(
+        async (event: KeyboardEvent) => {
+            const el = document.activeElement;
+            if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA")) {
+                return;
+            }
+            switch (event.key) {
+                case "w":
+                    clickYes();
+                    break;
+                case "p":
+                    playing ? await clickPause() : await clickPlay();
+                    break;
+                case "d":
+                    clickNo();
+                    break;
+                case "ArrowRight":
+                    clickNext();
+                    break;
+                case "a":
+                case "ArrowLeft":
+                    clickPrev();
+                    break;
+                default:
+                    break;
+            }
+        },
+        [playing, index, wavesurfers]
+    );
 
     useEffect(() => {
         // Attach once on mount (and re‑attach if handleKeyDown identity changes)
@@ -866,31 +835,6 @@ const AudioPlayer: React.FC = () => {
                             }}
                         />
                     </div>
-                    {/* <div className={styles.confidence}>
-						<input
-							type="range"
-							id="frequency"
-							min="8000"
-							max="48000"
-							step="1000"
-							value={sampleRate}
-							onChange={(e) => {
-								setSampleRate(e.target.value);
-								if (wavesurfers[index]?.instance) {
-									const currentTime =
-										wavesurfers[index].instance.getCurrentTime();
-									destroyCurrentWaveSurfer().then(() => {
-										const ws = wavesurfers[index];
-										wavesurfers[index].instance = null;
-										setWavesurfers([...wavesurfers]);
-									});
-								}
-							}}
-						/>
-						<label className={styles.confidenceLabel} htmlFor="frequency">
-							Frequency: {sampleRate} Hz
-						</label>
-					</div> */}
                     {showSpec && (
                         <div className={styles.annotationSection}>
                             <label>
