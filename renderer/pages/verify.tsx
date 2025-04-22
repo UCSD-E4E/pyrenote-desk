@@ -31,9 +31,17 @@ function VIRIDIS_COLORMAP() {
     return colorMap;
 }
 
+const MAX_SKIPINTERVAL = 8;
 const DEFAULT_SKIPINTERVAL = 2;
-const DEFAULT_PLAYSPEED = 1;
+const MIN_SKIPINTERVAL = 0.5
 
+const MAX_PLAYSPEED = 4;
+const DEFAULT_PLAYSPEED = 1;
+const MIN_PLAYSPEED = 0.25;
+
+const MAX_COLUMNS = 8;
+const DEFAULT_COLUMNS = 2;
+const MIN_COLUMNS = 1;
 
 interface SpectroRef {
 	id: number,
@@ -116,7 +124,7 @@ export default function VerifyPage() {
 
 	
 	const [ROWS, setROWS] = useState(5); // try not to change this (spectrogram height is not very flexible)
-	const [COLS, setCOLS] = useState(2);
+	const [COLS, setCOLS] = useState(DEFAULT_COLUMNS);
 	const FILES_PER_PAGE = ROWS*COLS;
 	
 	const [[audioFiles, setAudioFiles], flagAudioFile] = [useState<ProcessedAudioFile[]>([]), (i, v) => {
@@ -302,13 +310,13 @@ export default function VerifyPage() {
 				onMouseEnter={onMouseEnter}
 				onMouseLeave={onMouseLeave}
 				style={{ position: "relative" }}
-			>
-				<div className={styles.indexOverlay}>{fullIndex+1}</div>
+			> 
+				{id!=-1 && (<div className={styles.indexOverlay}>{fullIndex+1}</div>)} 
 				<div id={`loading-spinner-${id}`} className={styles.waveLoadingCircle}></div>
 				<div 
 					id={`waveform-${id}`} 
 					ref={innerRef}
-					style={{ width: "100%", height: "128px"}} 
+					style={{ width: "100%", height: "256px"}} // the height doesnt matter, it's predetermined by FFT
 					onContextMenu={rightClickPlayPause}
 				></div>
 			</div>	
@@ -327,7 +335,7 @@ export default function VerifyPage() {
 		const modalRef = useRef(null);
 		return (
 			<div ref={modalRef} className={styles.modal}>
-				<div>{linkedSpectro?.id}</div>
+				<div className={styles.indexOverlay}>{linkedSpectro.fullIndex+1}</div>
 				<Spectrogram 
 					id={-1} 
 					fullIndex={fullIndex}
@@ -429,18 +437,18 @@ export default function VerifyPage() {
 	}
 	const skipBack = () => { if (selected != null) {spectrograms.current[showModal ? -1 : selected].skip(-skipInterval);}; }
 	const skipForward = () => { if (selected != null) {spectrograms.current[showModal ? -1 : selected].skip(skipInterval);}; } 
-	const doubleSkipInterval = () => { setSkipInterval((prev) => prev*2) } 
-	const halveSkipInterval = () => { setSkipInterval((prev) => prev/2) } 
+	const doubleSkipInterval = () => { setSkipInterval((prev) => Math.min(prev*2, MAX_SKIPINTERVAL)) } 
+	const halveSkipInterval = () => { setSkipInterval((prev) => Math.max(prev/2, MIN_SKIPINTERVAL)) } 
 	const doublePlaySpeed = () => { 
 		setPlaySpeed((prev) => {
-			let p = Math.min(2, prev*2); 
+			let p = Math.min(MAX_PLAYSPEED, prev*2); 
 			if (playingSpectro.current != null) {spectrograms.current[playingSpectro.current].setPlaybackRate(p)}; 
 			return p;
 		}); 
 	}
 	const halvePlaySpeed = () => { 
 		setPlaySpeed((prev) => {
-			let p = Math.max(0.25, prev/2); 
+			let p = Math.max(MIN_PLAYSPEED, prev/2); 
 			if (playingSpectro.current != null) {spectrograms.current[playingSpectro.current].setPlaybackRate(p)}; 
 			return p;
 		}); 
@@ -449,6 +457,12 @@ export default function VerifyPage() {
 		setSkipInterval(DEFAULT_SKIPINTERVAL); 
 		setPlaySpeed(DEFAULT_PLAYSPEED); 
 		if (playingSpectro.current != null) {spectrograms.current[playingSpectro.current].setPlaybackRate(DEFAULT_PLAYSPEED)}; 
+	}
+	const moreColumns = () => {
+		setCOLS((prev) => {return Math.min(prev+1, MAX_COLUMNS)});
+	}
+	const lessColumns = () => {
+		setCOLS((prev) => {return Math.max(prev-1, MIN_COLUMNS)});
 	}
 
 	const keybinds = {
@@ -464,6 +478,8 @@ export default function VerifyPage() {
 		"k": halveSkipInterval,
 		"m": doublePlaySpeed,
 		"n": halvePlaySpeed,
+		";": lessColumns,
+		"'": moreColumns,
 		"r": resetIncrements,
 		"o": toggleModal,
 		"Enter": nextPage,
@@ -501,54 +517,75 @@ export default function VerifyPage() {
 					</label> 
 					{audioFiles.length > 0 && (
 						<>
-							<div className={currentPage>1 ? styles.prevFiles : styles.disabled} onClick={prevPage}>
-								<Image
-								src="/images/LArrow.png"
-								alt="Previous files"
-								width={45}
-								height={45}
-								/>
-							</div>	
-							<div className={currentPage<totalPages ? styles.nextFiles : styles.disabled} onClick={nextPage}>
-								<Image
-								src="/images/RArrow.png"
-								alt="Next files"
-								width={45}
-								height={45}
-								/>
+							<div className={styles.smallContainer}>
+								<p style={{ margin: '5px 0px' }}>Save</p>
+
+								<div className={styles.save} onClick={saveToJSON}>
+									<Image
+									src="/images/database.png"
+									alt="Save to JSON"
+									width={30}
+									height={30}
+									/>
+								</div>
 							</div>
-							<div className={styles.save} onClick={saveToJSON}>
-								<Image
-								src="/images/database.png"
-								alt="Save to JSON"
-								width={45}
-								height={45}
-								/>
+
+							<div className={styles.smallContainer}>
+								<p>Page: {`${currentPage} / ${totalPages}`}</p>
+
+								<div 
+								style={{ overflow: 'hidden', display: 'flex', alignItems: 'center' }} 
+								className={styles.smallContainerRow}
+								>
+									<div className={currentPage>1 ? styles.prevFiles : styles.disabled} onClick={prevPage}>
+										<Image
+										src="/images/LArrow.png"
+										alt="Previous files"
+										width={20}
+										height={20}
+										style={{ display: 'block' }}
+										/>
+									</div>	
+									<div className={currentPage<totalPages ? styles.nextFiles : styles.disabled} onClick={nextPage}>
+										<Image
+										src="/images/RArrow.png"
+										alt="Next files"
+										width={20}
+										height={20}
+										style={{ display: 'block' }}
+										/>
+									</div>
+								</div>
 							</div>
 						</>
 					)}
 					
-					<div>
+					<div className={styles.smallContainer}>
 						<p>Skip Interval: {skipInterval}</p>
-						<button onClick={doubleSkipInterval}>+</button>
-						<button onClick={halveSkipInterval}>-</button>
+						<div className={styles.smallContainerRow}>
+							<button onClick={halveSkipInterval}>-</button>
+							<button onClick={doubleSkipInterval}>+</button>
+						</div>
 					</div>
 					
-					<div>
+					<div className={styles.smallContainer}>
 						<p>Playback Speed: {playSpeed}</p>
-						<button onClick={doublePlaySpeed}>+</button>
-						<button onClick={halvePlaySpeed}>-</button>
+						<div className={styles.smallContainerRow}>
+							<button onClick={halvePlaySpeed}>-</button>
+							<button onClick={doublePlaySpeed}>+</button>
+						</div>
 					</div>
 
-					<div>
+					<div className={styles.smallContainer}>
 						<p>COLUMNS: {COLS}</p>
-						<button onClick={() => setCOLS((prev) => {return prev+1})}>+</button>
-						<button onClick={() => setCOLS((prev) => {return prev-1})}>-</button>
+						<div className={styles.smallContainerRow}>
+							<button onClick={lessColumns}>-</button>
+							<button onClick={moreColumns}>+</button>
+						</div>
 					</div>
 
 					<div>
 						<p>Selected: {spectrograms.current[selected]?.fullIndex+1 || "none"}</p>
-						<p>Page: {`${currentPage} / ${totalPages}`}</p>
 					</div>
 				</div>
 
@@ -588,8 +625,8 @@ export default function VerifyPage() {
 					</>
 				)}
 
-				{showModal && 
-					<>
+				<>
+					{showModal && 	
 						createPortal(
 							<ModalSpectrogram
 								key={-1}
@@ -607,8 +644,8 @@ export default function VerifyPage() {
 							/>,
 							document.body
 						)
-					</>
-				}
+					}
+				</>
 			</div>
 		</React.Fragment>
 	)
