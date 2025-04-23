@@ -1,0 +1,113 @@
+.home,.model,.label,.database {
+    align-items: center;
+    margin-top:50px;
+    padding: 10px; /* Add some padding for better spacing */
+    border-radius: 8px;
+  }
+.database:hover{
+    background-color: #b3fad1;
+    cursor: pointer;
+}
+.model:hover{
+    background-color: #b3fad1;
+    cursor: pointer;
+}
+.label:hover{
+    background-color: #b3fad1;
+    cursor: pointer;
+}
+.home:hover{
+    background-color: #b3fad1;
+    cursor: pointer;
+}
+
+.home img {
+    border-radius: 8px; /* Rounded corners for the image */
+  }
+
+.container {
+    margin-top: 50px;
+    background-color: rgb(243, 243, 243);
+    border-radius: 15px;
+    display: flex;
+    gap: 20px; /* Space between container and magnus */
+    width: 80%;
+    padding: 20px;
+    align-items: flex-start;
+    flex-direction: column;
+}
+
+.magnus {
+    padding: 60px;
+    flex-direction: column;
+    box-sizing: border-box;
+    display: flex;
+    align-items: flex-start;
+    flex: 1; /* Allow magnus to grow and take available space */
+    width: 100%;
+}
+
+.magnus h1 {
+    margin-bottom: 60px;
+}
+
+.magnus button {
+    background-color: rgb(255, 255, 255);
+    padding: 10px;
+    margin-top: 10px;
+    margin-bottom: 10px;
+    margin-right: 20px;
+    font-size: 20px;
+    border-radius: 10px;
+    border: none;
+    cursor: pointer;
+    width: 250px;
+    border: 2px;
+    border-style: solid;
+    border-color: gray;
+}
+
+.magnus button:hover {
+    border-color: black;
+}
+
+.magnus label {
+    font-size: 20px;
+    margin-top:10px;
+}
+
+.magnus input, .magnus textarea, .magnus select {
+    padding: 5px;
+    font-size: 20px;
+    margin-top: 10px;
+    margin-bottom: 10px;
+    border: 1px;
+    border-style: solid;
+    border-color: black;
+    border-radius: 10px;
+    background: white;
+}
+
+.magnus input, .magnus select{
+    width: 60%;
+}
+
+.magnus form {
+    display: flex;
+    flex-direction: column;
+}
+
+.formRow {
+    display: flex;
+    flex-direction: row;
+    width: 60%;
+}
+
+.labelInput {
+    display: flex;
+    flex-direction: column;
+}
+
+.labelInput input {
+    width: 80%;
+}
