@@ -92,7 +92,7 @@ const AudioPlayer: React.FC = () => {
     };
 
     // Plays the current wavesurfer audio
-    const clickPlay = async () => {
+    const clickPlay = useCallback(async () => {
         const wsInstance = wavesurfers[index]?.instance;
         // Plays the active region
         if (wsInstance && activeRegionRef.current) {
@@ -101,19 +101,22 @@ const AudioPlayer: React.FC = () => {
             wsInstance.playPause();
         }
         setPlaying(true);
-    };
+    }, [wavesurfers, index]);
 
     //Pauses the current wavesurfer audio
-    const clickPause = async () => {
-        wavesurfers[index].instance.playPause();
+    const clickPause = useCallback(async () => {
+        const wsInstance = wavesurfers[index]?.instance;
+        if (wsInstance) {
+            wsInstance.playPause();
+        }
         setPlaying(false);
-    };
+    }, [wavesurfers, index]);
 
     /* called when confirming audio matches model annotation
      remove current wavesurfer
      move rest up
      save annotation in database */
-    const clickYes = async () => {
+    const clickYes = useCallback(async () => {
         if (isYesDisabled) return;
         setConfidence("10");
         setYesDisabled(true);
@@ -175,13 +178,13 @@ const AudioPlayer: React.FC = () => {
         setWavesurfers((arr) => arr.filter((_, i) => i !== index));
         if (wavesurfers.length - 1 >= index) setIndex((i) => i - 1);
         setTimeout(() => setYesDisabled(false), 500);
-    };
+    }, [wavesurfers, index, isYesDisabled, confidence, callType, notes]);
 
     /* called when audio doesn't match model annotation
     remove current wavesurfer
     move rest up
     save annotation in database */
-    const clickNo = async () => {
+    const clickNo = useCallback(async () => {
         if (isNoDisabled) {
             return;
         }
@@ -233,7 +236,7 @@ const AudioPlayer: React.FC = () => {
         setTimeout(() => {
             setNoDisabled(false);
         }, 500);
-    };
+    }, [wavesurfers, index, isNoDisabled]);
 
     //Handle audio files upload/import and map new wavesurfers
     const handleFiles = (acceptedFiles: File[]) => {
@@ -266,18 +269,20 @@ const AudioPlayer: React.FC = () => {
         activeRegionRef.current = null;
     };
 
+    // Keydown handler with useCallback to properly track dependencies
     const handleKeyDown = useCallback(
-        async (event: KeyboardEvent) => {
+        (event: KeyboardEvent) => {
             const el = document.activeElement;
             if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA")) {
                 return;
             }
+            
             switch (event.key) {
                 case "w":
                     clickYes();
                     break;
                 case "p":
-                    playing ? await clickPause() : await clickPlay();
+                    playing ? clickPause() : clickPlay();
                     break;
                 case "d":
                     clickNo();
@@ -293,7 +298,7 @@ const AudioPlayer: React.FC = () => {
                     break;
             }
         },
-        [playing, index, wavesurfers]
+        [playing, clickYes, clickPlay, clickPause, clickNo, clickNext, clickPrev]
     );
 
     useEffect(() => {
@@ -557,7 +562,7 @@ const AudioPlayer: React.FC = () => {
                 createWavesurfer();
             }
         }
-    }, [showSpec, index, wavesurfers]);
+    }, [showSpec, index, wavesurfers, playbackRate, sampleRate]);
 
     // Deletes selected region
     const deleteActiveRegion = () => {
