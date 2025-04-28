@@ -31,6 +31,7 @@ const exposedQueries: QueriesApi = {
 const exposedMutations: MutationsApi = {
   createSite: (...args) => invokeMutation("createSite", ...args),
   createAnnotation: (...args) => invokeMutation("createAnnotation", ...args),
+  deleteAnnotation: (...args) => invokeMutation("deleteAnnotation", ...args),
   updateAnnotation: (...args) => invokeMutation("updateAnnotation", ...args),
   createRecording: (...args) => invokeMutation("createRecording", ...args),
   createSurvey: (...args) => invokeMutation("createSurvey", ...args),
