@@ -43,17 +43,23 @@ const MAX_COLUMNS = 8;
 const DEFAULT_COLUMNS = 2;
 const MIN_COLUMNS = 1;
 
+enum SpectroStatus {
+	Unverified,
+	Valid,
+	Invalid,
+}
+
 interface SpectroRef {
 	id: number,
 	fullIndex: number,
 	wavesurferRef: React.RefObject<WaveSurfer>;
-	isFlagged: boolean;
+	status: number;
 	isSelected: boolean;
 	isLoaded: boolean;
 	filePath: string;
 	url: string;
-	toggleFlagged: () => void;
-	toggleSelected: (selected) => void;
+	setStatus: (status) => void;
+	setIsSelected: (selected) => void;
 	playPause: () => boolean;
 	setPlaybackRate: (number) => void;
 	play: () => void;
@@ -66,7 +72,7 @@ interface SpectroProps {
 	id : number,
 	fullIndex : number,
 	url : string,
-	isFlagged: boolean,
+	status: number,
 	onMouseEnter : ()=>void, 
 	onMouseLeave : ()=>void,
 	linkedSpectro : SpectroRef,
@@ -75,14 +81,14 @@ interface SpectroProps {
 interface SaveData {
 	table: {
 		filePath: string;
-		isFlagged: boolean;
+		status: SpectroStatus;
 	}[]
 }
 interface ProcessedAudioFile {
 	index: number;
 	url: string;
 	filePath: string;
-	isFlagged: boolean;
+	status: SpectroStatus;
 }
 
 
@@ -100,19 +106,16 @@ export default function VerifyPage() {
 	
 	const [selected, setSelected] = useState(null);
 	const updateSelected = useCallback((i) => { // wraps setSelectedSpectrogram
-		console.log(selected, i, frozen, mouseControl);
 		if (!(frozen && mouseControl)) {
 			if (selected != null) {
-				spectrograms.current[selected].toggleSelected(false);
+				spectrograms.current[selected].setIsSelected(false);
 			}
 			setSelected(i);
-			
-			//console.log(playSpeed, selectedSpectro);
+
 			if (i != null && i >= 0) {
-				spectrograms.current[i].toggleSelected(true);
+				spectrograms.current[i].setIsSelected(true);
 
 				if (frozen) {
-					console.log("reload");
 					toggleModal();
 					toggleModal();
 				}
@@ -127,13 +130,14 @@ export default function VerifyPage() {
 	const [COLS, setCOLS] = useState(DEFAULT_COLUMNS);
 	const FILES_PER_PAGE = ROWS*COLS;
 	
-	const [[audioFiles, setAudioFiles], flagAudioFile] = [useState<ProcessedAudioFile[]>([]), (i, v) => {
+	// persistent storage of spectrogram data
+	const [[audioFiles, setAudioFiles], updateAudioFile] = [useState<ProcessedAudioFile[]>([]), (i, status) => {
 		setAudioFiles(prevItems => {
 			const newItems = [...prevItems]; // make a copy
-			newItems[i].isFlagged = v;      // update the element
+			newItems[i].status = status;      // update the element
 			return newItems;                 // set new array
 		});
-	}];
+	}]; 
 
 	const [currentPage, setCurrentPage] = useState(1);
 	const [forceReloadKey, setForceReloadKey] = useState(0); // crucial for switching pages	
@@ -152,14 +156,14 @@ export default function VerifyPage() {
 	async function handleFileSelectionNew() {
 		let processed : ProcessedAudioFile[] = []
 
-		async function handleAudioFile(file, isFlagged=false) {
+		async function handleAudioFile(file, status=SpectroStatus.Unverified) {
 			if (file.extension == ".wav") { // audio file
 				const blob = new Blob([file.data], {type: 'audio/wav'})
 				processed.push({
 					index: processed.length, 
 					url: URL.createObjectURL(blob), 
 					filePath: file.filePath, 
-					isFlagged: isFlagged
+					status: status
 				});
 
 			} else if (file.extension == ".mp3") {
@@ -168,7 +172,7 @@ export default function VerifyPage() {
 					index: processed.length, 
 					url: URL.createObjectURL(blob), 
 					filePath: file.filePath, 
-					isFlagged: isFlagged
+					status: status
 				});
 
 			}
@@ -180,12 +184,10 @@ export default function VerifyPage() {
 					const jsonString = new TextDecoder("utf-8").decode(file.data);
 					const jsonData : SaveData = JSON.parse(jsonString);
 
-					console.log(jsonData);
-
 					for (let j = 0; j < jsonData.table.length; j++) {
 						const entry = jsonData.table[j];
 						const audioFile = await window.ipc.invoke('read-file-for-verification', entry.filePath);
-						await handleAudioFile(audioFile, entry.isFlagged);
+						await handleAudioFile(audioFile, entry.status);
 					}
 				} else {
 					await handleAudioFile(file);
@@ -198,8 +200,6 @@ export default function VerifyPage() {
 		const files = await window.ipc.invoke('pick-files-for-verification', null);
 		
 		processed = await processInput(files);
-		console.log(processed);
-
 		setAudioFiles(processed);
 		setCurrentPage(1); // Reset to first page
 	};
@@ -208,7 +208,7 @@ export default function VerifyPage() {
 		id, // -1 if modal 
 		fullIndex,
 		url: url, 
-		isFlagged: _isFlagged,
+		status: _status,
 		onMouseEnter, 
 		onMouseLeave,
 		linkedSpectro=null,
@@ -217,7 +217,7 @@ export default function VerifyPage() {
 		const wavesurferRef = useRef(null);
 		const containerRef = useRef(null);
 		const innerRef = useRef(null);
-		const [isFlagged, setIsFlagged] = useState(_isFlagged);
+		const [status, setStatus] = useState(_status);
 		const [isSelected, setIsSelected] = useState(false);
 		const [isLoaded, setIsLoaded] = useState(false);
 
@@ -239,13 +239,13 @@ export default function VerifyPage() {
 				id,
 				fullIndex,
 				wavesurferRef,
-				isFlagged,
+				status,
 				isSelected,
 				isLoaded,
 				filePath,
 				url,
-				toggleFlagged: () => { setIsFlagged((prev) => { flagAudioFile(fullIndex, !prev); return !prev }); },
-				toggleSelected: (S) => { setIsSelected(S); },
+				setStatus,
+				setIsSelected,
 				setPlaybackRate,
 				playPause,
 				play: () => { wavesurferRef.current.play(); },
@@ -256,8 +256,9 @@ export default function VerifyPage() {
 			}
 		});
 		
+		//console.log(status)
 		useEffect(() => { // initialize
-			setIsFlagged(_isFlagged);
+			setStatus(_status);
 
 			//if (!wavesurferRef.current) {
 			wavesurferRef.current = WaveSurfer.create({	
@@ -271,7 +272,7 @@ export default function VerifyPage() {
 			});
 			wavesurferRef.current.registerPlugin(
 				SpectrogramPlugin.create({
-					colorMap: VIRIDIS_COLORMAP(),
+					colorMap: 'gray',
 					scale: "linear",
 					fftSamples: (id==-1) ? 512 : 64, // 2 * height
 					labels: (id==-1),
@@ -304,7 +305,10 @@ export default function VerifyPage() {
 				key={id} 
 				className={`
 					${(id==-1) ? styles.waveContainerModal : styles.waveContainer} 
-					${isLoaded && (isFlagged ? styles.redOutline : styles.greenOutline)}
+					${isLoaded && (
+						(status==SpectroStatus.Valid && styles.greenOutline) || 
+						(status==SpectroStatus.Invalid && styles.redOutline)
+					)}
 					${isLoaded && (isSelected ? styles.selectOutline : styles.unselectOutline)}
 				`}
 				ref={containerRef}
@@ -341,7 +345,7 @@ export default function VerifyPage() {
 					id={-1} 
 					fullIndex={fullIndex}
 					url={url} 
-					isFlagged={linkedSpectro.isFlagged}
+					status={linkedSpectro.status}
 					onMouseEnter={onMouseEnter}
 					onMouseLeave={onMouseLeave}
 					linkedSpectro={linkedSpectro}
@@ -401,7 +405,7 @@ export default function VerifyPage() {
 		var obj : SaveData = { table: [] };
 		for (let i = 0; i < audioFiles.length; i++) {
 			const save = audioFiles[i];
-			obj.table.push({filePath: save.filePath, isFlagged: save.isFlagged});
+			obj.table.push({filePath: save.filePath, status: save.status});
 		}
 		var json = JSON.stringify(obj);
 
@@ -422,9 +426,10 @@ export default function VerifyPage() {
 	const moveSelectionDown = () => { setMouseControl(false); updateSelected(selected==null ? 0 : Math.min(selected + COLS, numFiles-1, numSpots-COLS+(selected % COLS))); }
 	const moveSelectionLeft = () => { setMouseControl(false); updateSelected(selected==null ? 0 : Math.max(selected - 1, 0)); }
 	const moveSelectionRight = () => { setMouseControl(false); updateSelected(selected==null ? 0 : Math.min(selected + 1, numFiles-1)); }
-	const toggleValidity = () => { 
-		if (selected != null) {spectrograms.current[selected].toggleFlagged();}; 
-		if (showModal) {spectrograms.current[-1].toggleFlagged();}
+	const setSpectroStatus = (status) => { 
+		updateAudioFile(spectrograms.current[selected].fullIndex, status)
+		if (selected != null) {spectrograms.current[selected].setStatus(status);}; 
+		if (showModal) {spectrograms.current[-1].setStatus(status);}
 	}
 	const playPauseSelection = () => { 
 		if (selected == null) { return }; // null
@@ -471,7 +476,9 @@ export default function VerifyPage() {
 		"a": moveSelectionLeft,
 		"s": moveSelectionDown,
 		"d": moveSelectionRight,
-		"/": toggleValidity,
+		"z": () => {setSpectroStatus(SpectroStatus.Unverified)},
+		"x": () => {setSpectroStatus(SpectroStatus.Valid)},
+		"c": () => {setSpectroStatus(SpectroStatus.Invalid)},
 		" ": playPauseSelection,
 		",": skipBack,
 		".": skipForward,
@@ -596,7 +603,7 @@ export default function VerifyPage() {
 							gridTemplateColumns: `repeat(${COLS}, 1fr)`,
 							gridTemplateRows: `repeat(${ROWS}, auto)`,
 						}}>
-							{currentFiles.map(({index, filePath, url, isFlagged}, i) => {
+							{currentFiles.map(({index, filePath, url, status}, i) => {
 								return (
 									<Spectrogram 
 										key={i}
@@ -604,7 +611,7 @@ export default function VerifyPage() {
 										fullIndex={index}
 										url={url} 
 										filePath={filePath}
-										isFlagged={isFlagged}
+										status={status}
 										onMouseEnter={() => {
 											if (mouseControl) {
 												updateSelected(i);
@@ -634,7 +641,7 @@ export default function VerifyPage() {
 								id={-1} 
 								fullIndex={-1}
 								url={spectrograms.current[selected].url} 
-								isFlagged={spectrograms.current[selected].isFlagged} 
+								status={spectrograms.current[selected].status} 
 								onMouseEnter={()=>{}}
 								onMouseLeave={()=>{}}
 								linkedSpectro={spectrograms.current[selected]}
