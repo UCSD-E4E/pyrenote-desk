@@ -273,8 +273,9 @@ export default function VerifyPage() {
 				SpectrogramPlugin.create({
 					colorMap: VIRIDIS_COLORMAP(),
 					scale: "linear",
-					fftSamples: (id==-1) ? 512 : 256, // 2 * height
+					fftSamples: (id==-1) ? 512 : 64, // 2 * height
 					labels: (id==-1),
+					height: (id==-1) ? 256 : 128,
 				}),
 			)
 			
