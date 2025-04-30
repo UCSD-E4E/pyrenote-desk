@@ -1,10 +1,7 @@
-import createAnnotation from "./createAnnotation";
-import updateAnnotation from "./updateAnnotation";
-import deleteAnnotation from "./deleteAnnotation";
+import { deleteAnnotation, updateAnnotation, createAnnotation} from "./annotation";
 import createSite from "./createSite";
-import createRecording from "./createRecording";
+import {createRecording, deleteRecording, updateRecording} from "./recording";
 import createSurvey from "./createSurvey";
-import { ApiWithoutEvent } from "../helpers/util-types";
 import {
   deleteRegionOfInterest,
   createRegionOfInterest,
@@ -17,10 +14,12 @@ export const setupMutations = {
   deleteAnnotation,
   createSite,
   createRecording,
+  updateRecording,
+  deleteRecording,
   createSurvey,
   deleteRegionOfInterest,
   createRegionOfInterest,
   updateRegionOfInterest,
 };
 
-export type MutationsApi = ApiWithoutEvent<typeof setupMutations>;
+export type MutationsApi = typeof setupMutations;
