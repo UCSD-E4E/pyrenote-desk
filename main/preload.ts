@@ -35,6 +35,12 @@ const exposedMutations: MutationsApi = {
   updateAnnotation: (...args) => invokeMutation("updateAnnotation", ...args),
   createRecording: (...args) => invokeMutation("createRecording", ...args),
   createSurvey: (...args) => invokeMutation("createSurvey", ...args),
+  deleteRegionOfInterest: (...args) =>
+    invokeMutation("deleteRegionOfInterest", ...args),
+  createRegionOfInterest: (...args) =>
+    invokeMutation("createRegionOfInterest", ...args),
+  updateRegionOfInterest: (...args) =>
+    invokeMutation("updateRegionOfInterest", ...args),
 };
 
 contextBridge.exposeInMainWorld("api", {
