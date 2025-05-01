@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import Head from "next/head";
-import Link from "next/link";
 import Image from "next/image";
 import styles from "./label.module.css";
 
@@ -30,7 +29,7 @@ const AudioPlayer: React.FC = () => {
 
     // Playback controls
     const [playbackRate, setPlaybackRate] = useState("1");
-    const [sampleRate, setSampleRate] = useState("24000");
+    const [sampleRate, _setSampleRate] = useState("24000");
 
     // Region & species
     const regionListRef = useRef<any[]>([]);
@@ -240,6 +239,7 @@ const AudioPlayer: React.FC = () => {
     }, [wavesurfers, index, isNoDisabled]);
 
     //Handle audio files upload/import and map new wavesurfers
+    // TODO: Select from database recordings?
     const handleFiles = (acceptedFiles: File[]) => {
         console.log("Files dropped:", acceptedFiles);
 
@@ -456,6 +456,7 @@ const AudioPlayer: React.FC = () => {
                     }
 
                     wsRegions.on("region-created", (region: Region) => {
+                        // TODO: createRegionOfInterest
                         redraw(region);
                         regionListRef.current.push(region);
 
@@ -475,6 +476,7 @@ const AudioPlayer: React.FC = () => {
                     });
 
                     wsRegions.on("region-updated", (region: Region) => {
+                        // TODO: updateRegionOfInterest
                         redraw(region);
                     });
 
@@ -567,6 +569,7 @@ const AudioPlayer: React.FC = () => {
 
     // Deletes selected region
     const deleteActiveRegion = () => {
+        // TODO: deleteRegionOfInterest
         if (!wavesurfers[index]?.instance || !activeRegionRef.current) return;
         activeRegionRef.current.remove();
         activeRegionRef.current = null;
