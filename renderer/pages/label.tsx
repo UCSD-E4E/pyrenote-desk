@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import Head from "next/head";
-import Link from "next/link";
 import Image from "next/image";
 import styles from "./label.module.css";
 
@@ -8,6 +7,7 @@ import WaveSurfer from "wavesurfer.js";
 import SpectrogramPlugin from "wavesurfer.js/dist/plugins/spectrogram";
 import RegionsPlugin from "wavesurfer.js/dist/plugins/regions";
 import TimelinePlugin from "wavesurfer.js/dist/plugins/timeline";
+import { Region } from "wavesurfer.js/src/plugin/regions";
 
 // Generate ColorMap for Spectrogram
 const spectrogramColorMap = [];
@@ -29,7 +29,7 @@ const AudioPlayer: React.FC = () => {
 
     // Playback controls
     const [playbackRate, setPlaybackRate] = useState("1");
-    const [sampleRate, setSampleRate] = useState("24000");
+    const [sampleRate, _setSampleRate] = useState("24000");
 
     // Region & species
     const regionListRef = useRef<any[]>([]);
@@ -133,7 +133,7 @@ const AudioPlayer: React.FC = () => {
             console.log("No regions");
         } else {
             // Text document of start/end times
-            Object.values(allRegions).forEach((region: any, idx: number) => {
+            Object.values(allRegions).forEach((region: Region, idx: number) => {
                 const startSec = region.start.toFixed(3);
                 const endSec = region.end.toFixed(3);
                 lines.push(
@@ -239,6 +239,7 @@ const AudioPlayer: React.FC = () => {
     }, [wavesurfers, index, isNoDisabled]);
 
     //Handle audio files upload/import and map new wavesurfers
+    // TODO: Select from database recordings?
     const handleFiles = (acceptedFiles: File[]) => {
         console.log("Files dropped:", acceptedFiles);
 
@@ -325,7 +326,7 @@ const AudioPlayer: React.FC = () => {
                     const waveId = wavesurfers[index].id;
                     const spectroId = wavesurfers[index].spectrogramId;
 
-                    const ws = await WaveSurfer.create({
+                    const ws = WaveSurfer.create({
                         container: `#${wavesurfers[index].id}`,
                         waveColor: "violet",
                         progressColor: "purple",
@@ -431,10 +432,10 @@ const AudioPlayer: React.FC = () => {
                     ws.setPlaybackRate(parseFloat(playbackRate), false);
 
                     // list of all regions for overlay
-                    let regionList = [];
+                    const regionList = [];
 
                     // helper function to reapply spectrogram overlay
-                    function redraw(region) {
+                    function redraw(region: Region) {
                         const waveEl = document.getElementById(waveId);
                         const spectroEl = document.getElementById(spectroId);
                         const waveSpectroContainer = waveEl?.parentElement;
@@ -454,7 +455,8 @@ const AudioPlayer: React.FC = () => {
                         region.element.style.zIndex = "9999";
                     }
 
-                    wsRegions.on("region-created", (region) => {
+                    wsRegions.on("region-created", (region: Region) => {
+                        // TODO: createRegionOfInterest
                         redraw(region);
                         regionListRef.current.push(region);
 
@@ -473,7 +475,8 @@ const AudioPlayer: React.FC = () => {
                         });
                     });
 
-                    wsRegions.on("region-updated", (region) => {
+                    wsRegions.on("region-updated", (region: Region) => {
+                        // TODO: updateRegionOfInterest
                         redraw(region);
                     });
 
@@ -501,7 +504,7 @@ const AudioPlayer: React.FC = () => {
                     });
 
                     // loops clicked region
-                    wsRegions.on("region-out", (region: any) => {
+                    wsRegions.on("region-out", (region: Region) => {
                         if (region.data?.loop) {
                             region.play();
                         }
@@ -566,6 +569,7 @@ const AudioPlayer: React.FC = () => {
 
     // Deletes selected region
     const deleteActiveRegion = () => {
+        // TODO: deleteRegionOfInterest
         if (!wavesurfers[index]?.instance || !activeRegionRef.current) return;
         activeRegionRef.current.remove();
         activeRegionRef.current = null;
