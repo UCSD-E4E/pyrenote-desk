@@ -4,6 +4,7 @@ import sqlite3
 import sys
 from datetime import datetime
 import os
+import filecmp
 
 # For dataloader and dataset simulation (assuming torch is used)
 from torch.utils.data import DataLoader, Dataset
@@ -22,35 +23,7 @@ class DBHelper:
             db_path = os.path.join(script_dir, f"../{db_url}")
             cls._instance.connection = sqlite3.connect(db_path)
             cls._instance.cursor = cls._instance.connection.cursor()
-            # Create a pseudo result table if not exists
-            cls._instance.cursor.execute(
-                """
-                CREATE TABLE IF NOT EXISTS Result (
-                    id INTEGER PRIMARY KEY,
-                    url TEXT,
-                    species TEXT
-                )
-                """
-            )
-            cls._instance.connection.commit()
         return cls._instance
-
-    def insert_result(self, id, url, species):
-        """
-        Insert the inference result into the Result table.
-        If a record with the same id already exists, it will be updated.
-        
-        Args:
-            id: The recording ID
-            url: The URL of the recording
-            species: The predicted species
-        """
-        # Use INSERT OR REPLACE to handle cases where the record already exists
-        self.cursor.execute(
-            "INSERT OR REPLACE INTO Result (id, url, species) VALUES (?, ?, ?)",
-            (id, url, species),
-        )
-        self.connection.commit()
 
     def fetch_recordings(self, recording_ids):
         """
@@ -84,6 +57,114 @@ class DBHelper:
             (region_id, labeler_id, annotation_date, speciesId, speciesProbability, most_recent),
         )
         self.connection.commit()
+
+    def save_recording_file(self, flac_file_path):
+        """
+        Save a recording file (.flac) to the hidden .recordings directory in the current working directory.
+        If the directory doesn't exist, it will be created.
+        
+        Args:
+            flac_file_path: Path to the flac file to save
+        
+        Returns:
+            str: Path to the saved file in the .recordings directory
+        """
+        # Check if the file exists
+        if not os.path.exists(flac_file_path):
+            raise FileNotFoundError(f"Recording file not found: {flac_file_path}")
+        
+        # Ensure the file is a .flac file
+        if not flac_file_path.lower().endswith('.flac'):
+            raise ValueError(f"File must be a .flac file: {flac_file_path}")
+        
+        # Check if .recordings directory exists, create if not
+        recordings_dir = os.path.join(os.getcwd(), '.recordings')
+        if not os.path.exists(recordings_dir):
+            os.makedirs(recordings_dir)
+            print(f"Created hidden directory: {recordings_dir}")
+        
+        # Copy the file to .recordings directory
+        filename = os.path.basename(flac_file_path)
+        destination_path = os.path.join(recordings_dir, filename)
+        
+        # Copy the file if it doesn't exist or is different
+        if not os.path.exists(destination_path) or not filecmp.cmp(flac_file_path, destination_path):
+            import shutil
+            shutil.copy2(flac_file_path, destination_path)
+            print(f"Saved recording to: {destination_path}")
+        else:
+            print(f"Recording already exists at: {destination_path}")
+        
+        return destination_path
+
+    def insert_recording(self, recording_id, deployment_id, filename, url):
+        """
+        Insert a new recording into the Recording table.
+        Get datetime and duration from the flac file at the given URL.
+        
+        Args:
+            recording_id: The ID for the new recording
+            deployment_id: The deployment ID this recording belongs to
+            filename: Name of the recording file
+            url: URL to the recording file (should be in .recordings directory)
+            
+        Returns:
+            bool: True if insertion was successful
+        """
+        # Check if the file exists at the given URL
+        if not os.path.exists(url):
+            raise FileNotFoundError(f"Recording file not found at URL: {url}")
+        
+        try:
+            # Get datetime and duration from the flac file
+            # In a real implementation, you would use a library like mutagen to get these values
+            # Here we're using dummy values for demonstration
+            import datetime as dt
+            from mutagen.flac import FLAC
+            
+            try:
+                # Try to get actual metadata from the FLAC file
+                audio = FLAC(url)
+                # Get duration in seconds
+                duration = audio.info.length
+                
+                # Try to get date from metadata (if available)
+                # This is just an example - actual metadata may vary
+                if 'date' in audio:
+                    # Parse date with datetime if it's in a standard format
+                    date_str = audio['date'][0]
+                    recorded_datetime = dt.datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S")
+                else:
+                    # Use file modification time if no date metadata
+                    recorded_datetime = dt.datetime.fromtimestamp(os.path.getmtime(url))
+                    
+            except Exception as e:
+                # If parsing fails, use current time and default duration
+                print(f"Could not read metadata from file, using defaults: {e}")
+                recorded_datetime = dt.datetime.now()
+                duration = 30.0  # Default 30 seconds duration
+                
+            # Format datetime as string for SQLite
+            datetime_str = recorded_datetime.strftime("%Y-%m-%d %H:%M:%S")
+            
+            # Execute the insert query
+            self.cursor.execute(
+                """
+                INSERT OR REPLACE INTO Recording 
+                (recordingId, deploymentId, filename, url, datetime, duration)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (recording_id, deployment_id, filename, url, datetime_str, duration)
+            )
+            
+            self.connection.commit()
+            print(f"Recording inserted successfully with ID: {recording_id}")
+            return True
+            
+        except Exception as e:
+            print(f"Error inserting recording: {e}")
+            self.connection.rollback()
+            return False
 
 
 def download_url(url):
