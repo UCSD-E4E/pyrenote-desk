@@ -61,6 +61,7 @@ interface SpectroRef {
 	url: string;
 	setStatus: (status) => void;
 	setIsSelected: (selected) => void;
+	setIsHovered: (hovered) => void;
 	playPause: () => boolean;
 	setPlaybackRate: (number) => void;
 	play: () => void;
@@ -76,6 +77,7 @@ interface SpectroProps {
 	status: number,
 	onMouseEnter : ()=>void, 
 	onMouseLeave : ()=>void,
+	onClick : (e)=>void,
 	linkedSpectro : SpectroRef,
 	filePath? : string,
 }
@@ -107,9 +109,24 @@ export default function VerifyPage() {
 	const [skipInterval, setSkipInterval] = useState(DEFAULT_SKIPINTERVAL);
 	const [playSpeed, setPlaySpeed] = useState(DEFAULT_PLAYSPEED);
 	
-	const [selected, setSelected] = useState(null);
-	const updateSelected = useCallback((i) => { // wraps setSelectedSpectrogram
+	const [hovered, setHovered] = useState(null); // hovered spectrogram
+	const updateHovered = useCallback((i) => { // wraps setHovered
+		if (!frozen) {
+			console.log("hovered " + hovered);
+
+			if (hovered != null) { spectrograms.current[hovered].setIsHovered(false); }
+			setHovered(i);
+			if (i != null && i >= 0) { spectrograms.current[i].setIsHovered(true); }
+			
+			return i;
+		}
+	}, [frozen, playSpeed, hovered]);
+
+	const [selected, setSelected] = useState(null); // selected spectrogram(s)
+	const updateSelected = useCallback((i) => { // wraps setSelected
 		if (!(frozen && mouseControl)) {
+			console.log("selected " + selected);
+
 			if (selected != null) {
 				spectrograms.current[selected].setIsSelected(false);
 			}
@@ -128,7 +145,6 @@ export default function VerifyPage() {
 		}
 	}, [frozen, playSpeed, selected]);
 
-	
 	const [ROWS, setROWS] = useState(5); // try not to change this (spectrogram height is not very flexible)
 	const [COLS, setCOLS] = useState(DEFAULT_COLUMNS);
 	const FILES_PER_PAGE = ROWS*COLS;
@@ -150,11 +166,6 @@ export default function VerifyPage() {
 	const numFiles = currentFiles.length;
 	const numRows = Math.ceil(numFiles / COLS);
 	const numSpots = numRows * COLS;
-
-	const ALLOWED_FILE_TYPES = [
-		"audio/mp3", "audio/wav", 
-		"text/plain", "application/json"
-	];
 
 	async function handleFileSelectionNew() {
 		let processed : ProcessedAudioFile[] = []
@@ -218,6 +229,7 @@ export default function VerifyPage() {
 		status: _status,
 		onMouseEnter, 
 		onMouseLeave,
+		onClick,
 		linkedSpectro=null,
 		filePath: filePath=null,
 	}, ref) => {
@@ -226,6 +238,7 @@ export default function VerifyPage() {
 		const innerRef = useRef(null);
 		const [status, setStatus] = useState(_status);
 		const [isSelected, setIsSelected] = useState(false);
+		const [isHovered, setIsHovered] = useState(false);
 		const [isLoaded, setIsLoaded] = useState(false);
 
 		const setPlaybackRate = (playSpeed) => {
@@ -253,6 +266,7 @@ export default function VerifyPage() {
 				url,
 				setStatus,
 				setIsSelected,
+				setIsHovered,
 				setPlaybackRate,
 				playPause,
 				play: () => { wavesurferRef.current.play(); },
@@ -263,11 +277,9 @@ export default function VerifyPage() {
 			}
 		});
 		
-		//console.log(status)
 		useEffect(() => { // initialize
 			setStatus(_status);
 
-			//if (!wavesurferRef.current) {
 			wavesurferRef.current = WaveSurfer.create({	
 				container: innerRef.current,
 				height: 0,
@@ -281,9 +293,9 @@ export default function VerifyPage() {
 				SpectrogramPlugin.create({
 					colorMap: 'gray',
 					scale: "linear",
-					fftSamples: (id==-1) ? 512 : 64, // 2 * height
+					fftSamples: (id==-1) ? 512 : 32, // <<< (SPECTROGRAM QUALITY)  zoomed : unzoomed
 					labels: (id==-1),
-					height: (id==-1) ? 256 : 128,
+					height: (id==-1) ? 256 : 128, 
 				}),
 			)
 			
@@ -299,7 +311,6 @@ export default function VerifyPage() {
 				}
 				setIsLoaded(true);
 			});
-			//}
 			
 			return () => { 
 				wavesurferRef.current.unAll();
@@ -321,6 +332,7 @@ export default function VerifyPage() {
 				ref={containerRef}
 				onMouseEnter={onMouseEnter}
 				onMouseLeave={onMouseLeave}
+				onClick={onClick}
 				style={{ position: "relative" }}
 			> 
 				{id!=-1 && (<div className={styles.indexOverlay}>{fullIndex+1}</div>)} 
@@ -341,6 +353,7 @@ export default function VerifyPage() {
 		url, 
 		onMouseEnter, 
 		onMouseLeave,
+		onClick,
 		linkedSpectro=spectrograms.current[selected],
 		toggleModal,
 	}, ref) => {
@@ -355,10 +368,14 @@ export default function VerifyPage() {
 					status={linkedSpectro.status}
 					onMouseEnter={onMouseEnter}
 					onMouseLeave={onMouseLeave}
+					onClick={onClick}
 					linkedSpectro={linkedSpectro}
 					ref={ref}
 				/>
-				<button onClick={toggleModal}>Close</button>
+				<button onClick={(e)=>{
+					toggleModal();
+					e.stopPropagation();
+				}}>Close</button>
 			</div>
 		);
 	}), [selected]);
@@ -421,11 +438,6 @@ export default function VerifyPage() {
 			await window.ipc.send("save-file", {filename: filePath, content: json});
 		}
 	}
-	useEffect(() => {
-        window.ipc.on("save-file-success", (_event, msg) => console.log("success: ", msg));
-        window.ipc.on("save-file-error", (_event, msg) => console.log("error: ", msg));
-    }, []);
-
 
 	// ACTIONS
 
@@ -471,18 +483,18 @@ export default function VerifyPage() {
 		setPlaySpeed(DEFAULT_PLAYSPEED); 
 		if (playingSpectro.current != null) {spectrograms.current[playingSpectro.current].setPlaybackRate(DEFAULT_PLAYSPEED)}; 
 	}
-	const moreColumns = () => {
-		setCOLS((prev) => {return Math.min(prev+1, MAX_COLUMNS)});
-	}
-	const lessColumns = () => {
-		setCOLS((prev) => {return Math.max(prev-1, MIN_COLUMNS)});
-	}
+	const moreColumns = () => { setCOLS((prev) => {return Math.min(prev+1, MAX_COLUMNS)}); }
+	const lessColumns = () => { setCOLS((prev) => {return Math.max(prev-1, MIN_COLUMNS)}); }
 
 	const keybinds = {
 		"w": moveSelectionUp,
 		"a": moveSelectionLeft,
 		"s": moveSelectionDown,
 		"d": moveSelectionRight,
+		"ArrowUp": moveSelectionUp,
+		"ArrowLeft": moveSelectionLeft,
+		"ArrowDown": moveSelectionDown,
+		"ArrowRight": moveSelectionRight,
 		"z": () => {setSpectroStatus(SpectroStatus.Unverified)},
 		"x": () => {setSpectroStatus(SpectroStatus.Valid)},
 		"c": () => {setSpectroStatus(SpectroStatus.Invalid)},
@@ -503,7 +515,7 @@ export default function VerifyPage() {
 
 	useEffect(() => { // handle keyboard input
 		const handleKeyDown = (event) => {
-			if (event.key == " ") {
+			if (event.key == " " || event.key.includes("Arrow")) {
 				event.preventDefault(); 
 			}
 			//console.log(event.key);
@@ -524,10 +536,16 @@ export default function VerifyPage() {
 			<Head>
 				<title>Verify Page</title>
 			</Head>
-			<div id="container" className={styles.container} onMouseMove={() => {if (!frozen) setMouseControl(true)}}>
+			<div id="container" className={styles.container} 
+				onMouseMove={() => {if (!frozen) setMouseControl(true)}}
+				onClick={() => {if (!frozen) updateSelected(null)}}
+			>
 				<div className = {styles.verifyButtonMenu}>
 
-					<label className={styles.pickFiles} onClick={handleFileSelectionNew}>
+					<label className={styles.pickFiles} onClick={(e) => {
+						e.stopPropagation()
+						handleFileSelectionNew()
+					}}>
 						<p>Select files</p>
 					</label> 
 					{audioFiles.length > 0 && (
@@ -535,7 +553,10 @@ export default function VerifyPage() {
 							<div className={styles.smallContainer}>
 								<p style={{ margin: '5px 0px' }}>Save</p>
 
-								<div className={styles.save} onClick={saveToJSON}>
+								<div className={styles.save} onClick={(e) => {
+									e.stopPropagation()
+									saveToJSON()
+								}}>
 									<Image
 									src="/images/database.png"
 									alt="Save to JSON"
@@ -594,24 +615,24 @@ export default function VerifyPage() {
 					<div className={styles.smallContainer}>
 						<p>Skip Interval: {skipInterval}</p>
 						<div className={styles.smallContainerRow}>
-							<button onClick={halveSkipInterval}>-</button>
-							<button onClick={doubleSkipInterval}>+</button>
+							<button onClick={(e) => {halveSkipInterval(); e.stopPropagation()}}>-</button>
+							<button onClick={(e) => {doubleSkipInterval(); e.stopPropagation()}}>+</button>
 						</div>
 					</div>
 					
 					<div className={styles.smallContainer}>
 						<p>Playback Speed: {playSpeed}</p>
 						<div className={styles.smallContainerRow}>
-							<button onClick={halvePlaySpeed}>-</button>
-							<button onClick={doublePlaySpeed}>+</button>
+							<button onClick={(e) => {halvePlaySpeed(); e.stopPropagation()}}>-</button>
+							<button onClick={(e) => {doublePlaySpeed(); e.stopPropagation()}}>+</button>
 						</div>
 					</div>
 
 					<div className={styles.smallContainer}>
 						<p>COLUMNS: {COLS}</p>
 						<div className={styles.smallContainerRow}>
-							<button onClick={lessColumns}>-</button>
-							<button onClick={moreColumns}>+</button>
+							<button onClick={(e) => {lessColumns(); e.stopPropagation()}}>-</button>
+							<button onClick={(e) => {moreColumns(); e.stopPropagation()}}>+</button>
 						</div>
 					</div>
 
@@ -637,13 +658,18 @@ export default function VerifyPage() {
 										status={status}
 										onMouseEnter={() => {
 											if (mouseControl) {
-												updateSelected(i);
+												updateHovered(i);
 											}
 										}}
 										onMouseLeave={() => {
 											if (mouseControl) {
-												updateSelected(null);
+												updateHovered(null);
 											}
+										}}
+										onClick={(e) => {
+											console.log("Clicked!!")
+											e.stopPropagation();
+											updateSelected(i);
 										}}
 										linkedSpectro={null}
 										ref={(el) => {
@@ -667,6 +693,7 @@ export default function VerifyPage() {
 								status={spectrograms.current[selected].status} 
 								onMouseEnter={()=>{}}
 								onMouseLeave={()=>{}}
+								onClick={(e)=>{e.stopPropagation()}}
 								linkedSpectro={spectrograms.current[selected]}
 								ref={(el) => {
 									if (el) spectrograms.current[-1] = el; // Populate dynamically
