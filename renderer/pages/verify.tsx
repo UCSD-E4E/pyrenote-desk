@@ -122,26 +122,25 @@ export default function VerifyPage() {
 		}
 	}, [frozen, playSpeed, hovered]);
 
-	const [selected, setSelected] = useState(null); // selected spectrogram(s)
-	const updateSelected = useCallback((i) => { // wraps setSelected
+	const [selected, setSelected] = useState([]); // selected spectrogram(s)
+	const updateSelected = useCallback((arr) => { // wraps setSelected
 		if (!(frozen && mouseControl)) {
-			console.log("selected " + selected);
-
-			if (selected != null) {
-				spectrograms.current[selected].setIsSelected(false);
+			for (let i = 0; i < selected.length; i++) { // deselect current
+				spectrograms.current[selected[i]].setIsSelected(false);
+				spectrograms.current[selected[i]].pause();
 			}
-			setSelected(i);
 
-			if (i != null && i >= 0) {
-				spectrograms.current[i].setIsSelected(true);
+			setSelected(arr);
 
-				if (frozen) {
-					toggleModal();
-					toggleModal();
-				}
+			for (let i = 0; i < arr.length; i++) {
+				spectrograms.current[arr[i]].setIsSelected(true);
+			}
+			if (arr.length == 1 && frozen) { // reselect using arrow keys during modal
+				toggleModal();
+				toggleModal();
 			}
 			
-			return i;
+			return arr;
 		}
 	}, [frozen, playSpeed, selected]);
 
@@ -252,7 +251,7 @@ export default function VerifyPage() {
 			wavesurferRef.current.playPause();
 			return wavesurferRef.current.isPlaying;
 		}
-		const rightClickPlayPause = (e: MouseEvent) => { e.preventDefault(); playPause(); }
+		const rightClickPlayPause = (e: MouseEvent) => { e.preventDefault(); if (isSelected) {playPause();} }
 		
 		useImperativeHandle(ref, ()=>{ // exposed functions
 			return { // SpectroRef
@@ -354,7 +353,7 @@ export default function VerifyPage() {
 		onMouseEnter, 
 		onMouseLeave,
 		onClick,
-		linkedSpectro=spectrograms.current[selected],
+		linkedSpectro=spectrograms.current[selected[0]],
 		toggleModal,
 	}, ref) => {
 		const modalRef = useRef(null);
@@ -441,27 +440,29 @@ export default function VerifyPage() {
 
 	// ACTIONS
 
-	const moveSelectionUp = () => { setMouseControl(false); updateSelected(selected==null ? 0 : Math.max(selected - COLS, selected % COLS)); }
-	const moveSelectionDown = () => { setMouseControl(false); updateSelected(selected==null ? 0 : Math.min(selected + COLS, numFiles-1, numSpots-COLS+(selected % COLS))); }
-	const moveSelectionLeft = () => { setMouseControl(false); updateSelected(selected==null ? 0 : Math.max(selected - 1, 0)); }
-	const moveSelectionRight = () => { setMouseControl(false); updateSelected(selected==null ? 0 : Math.min(selected + 1, numFiles-1)); }
+	const moveSelectionUp = () => { setMouseControl(false); updateSelected([selected==null ? 0 : Math.max(selected[0] - COLS, selected[0] % COLS)]); }
+	const moveSelectionDown = () => { setMouseControl(false); updateSelected([selected==null ? 0 : Math.min(selected[0] + COLS, numFiles-1, numSpots-COLS+(selected[0] % COLS))]); }
+	const moveSelectionLeft = () => { setMouseControl(false); updateSelected([selected==null ? 0 : Math.max(selected[0] - 1, 0)]); }
+	const moveSelectionRight = () => { setMouseControl(false); updateSelected([selected==null ? 0 : Math.min(selected[0] + 1, numFiles-1)]); }
 	const setSpectroStatus = (status) => { 
-		updateAudioFile(spectrograms.current[selected].fullIndex, status)
-		if (selected != null) {spectrograms.current[selected].setStatus(status);}; 
+		for (let i = 0; i < selected.length; i++) {
+			updateAudioFile(spectrograms.current[selected[i]].fullIndex, status)
+			spectrograms.current[selected[i]].setStatus(status);
+		}
 		if (showModal) {spectrograms.current[-1].setStatus(status);}
 	}
 	const playPauseSelection = () => { 
-		if (selected == null) { return }; // null
+		if (selected.length == 0) { return }; // null
 		if (playingSpectro.current != null && playingSpectro.current != selected) { spectrograms.current[playingSpectro.current].pause(); }; // pause existing
 		
-		const id = showModal ? -1 : selected;
+		const id = showModal ? -1 : selected[0];
 
 		spectrograms.current[id].setPlaybackRate(playSpeed); // set speed of selected
 		const isPlaying = spectrograms.current[id].playPause(); // play/pause selected
 		playingSpectro.current = (isPlaying ? selected : null);
 	}
-	const skipBack = () => { if (selected != null) {spectrograms.current[showModal ? -1 : selected].skip(-skipInterval);}; }
-	const skipForward = () => { if (selected != null) {spectrograms.current[showModal ? -1 : selected].skip(skipInterval);}; } 
+	const skipBack = () => { if (selected.length != 0) {spectrograms.current[showModal ? -1 : selected[0]].skip(-skipInterval);}; }
+	const skipForward = () => { if (selected.length != 0) {spectrograms.current[showModal ? -1 : selected[0]].skip(skipInterval);}; } 
 	const doubleSkipInterval = () => { setSkipInterval((prev) => Math.min(prev*2, MAX_SKIPINTERVAL)) } 
 	const halveSkipInterval = () => { setSkipInterval((prev) => Math.max(prev/2, MIN_SKIPINTERVAL)) } 
 	const doublePlaySpeed = () => { 
@@ -538,7 +539,7 @@ export default function VerifyPage() {
 			</Head>
 			<div id="container" className={styles.container} 
 				onMouseMove={() => {if (!frozen) setMouseControl(true)}}
-				onClick={() => {if (!frozen) updateSelected(null)}}
+				onClick={() => {if (!frozen) updateSelected([])}}
 			>
 				<div className = {styles.verifyButtonMenu}>
 
@@ -637,7 +638,15 @@ export default function VerifyPage() {
 					</div>
 
 					<div>
-						<p>Selected: {spectrograms.current[selected]?.fullIndex+1 || "none"}</p>
+						<p>Selected: 
+							{	
+								" " + (
+									selected.length==0 ? "none" : 
+									selected.length==1 ? spectrograms.current[selected[0]]?.fullIndex+1 :
+									selected[selected.length-1] + "-" + selected[0]
+								)
+							}
+						</p>
 					</div>
 				</div>
 
@@ -669,7 +678,7 @@ export default function VerifyPage() {
 										onClick={(e) => {
 											console.log("Clicked!!")
 											e.stopPropagation();
-											updateSelected(i);
+											updateSelected([i]);
 										}}
 										linkedSpectro={null}
 										ref={(el) => {
@@ -689,12 +698,12 @@ export default function VerifyPage() {
 								key={-1}
 								id={-1} 
 								fullIndex={-1}
-								url={spectrograms.current[selected].url} 
-								status={spectrograms.current[selected].status} 
+								url={spectrograms.current[selected[0]].url} 
+								status={spectrograms.current[selected[0]].status} 
 								onMouseEnter={()=>{}}
 								onMouseLeave={()=>{}}
 								onClick={(e)=>{e.stopPropagation()}}
-								linkedSpectro={spectrograms.current[selected]}
+								linkedSpectro={spectrograms.current[selected[0]]}
 								ref={(el) => {
 									if (el) spectrograms.current[-1] = el; // Populate dynamically
 								}}
