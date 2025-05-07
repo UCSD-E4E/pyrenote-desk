@@ -1,9 +1,35 @@
-import React from "react";
-import Head from "next/head";
-import Image from "next/image";
 import styles from "./home.module.css";
+import React, { useState, useRef, useEffect } from 'react';
+import Head from 'next/head';
+import Link from 'next/link';
+import Image from 'next/image';
+
 
 export default function HomePage() {
+  //Initialize Local Storage Variables to Prevent Null Values
+  useEffect(() => {
+    if (localStorage.getItem('username') == null) localStorage.setItem('username', '');
+    if (localStorage.getItem('email') == null) localStorage.setItem('email', '');
+    if (localStorage.getItem('darkMode') == null) localStorage.setItem('darkMode', 'false');
+    
+    if (localStorage.getItem('inputStyle') == null) localStorage.setItem('inputStyle', 'default');
+    if (localStorage.getItem('inputType') == null) localStorage.setItem('inputType', 'default');
+    
+    if (localStorage.getItem('modelVersion') == null) localStorage.setItem('modelVersion', '1.0.0');
+    if (localStorage.getItem('modelParameters') == null) localStorage.setItem('modelParameters', 'default');
+    
+    if (localStorage.getItem('sampleRate') == null) localStorage.setItem('sampleRate', '44100');
+    if (localStorage.getItem('colorScheme') == null) localStorage.setItem('colorScheme', 'black and white');
+    if (localStorage.getItem('disableAdditional') == null) localStorage.setItem('disableAdditional', 'false');
+    if (localStorage.getItem('disableConfidence') == null) localStorage.setItem('disableConfidence', 'false');
+    if (localStorage.getItem('confidenceRange') == null) localStorage.setItem('confidenceRange', '10');
+    
+    if (localStorage.getItem('verifyColorScheme') == null) localStorage.setItem('verifyColorScheme', 'black and white');
+    if (localStorage.getItem('skipInterval') == null) localStorage.setItem('skipInterval', '1')
+    if (localStorage.getItem('playbackRate') == null) localStorage.setItem('playbackRate', '1');
+    if (localStorage.getItem('defaultColumns') == null) localStorage.setItem('defaultColumns', '4');
+    console.log('Local storage initialized');
+  }, []);
   return (
     <React.Fragment>
       <Head>

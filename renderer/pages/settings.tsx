@@ -5,25 +5,6 @@ import Link from 'next/link';
 import Image from 'next/image';
 
 export default function SettingsPage() {
-    //Initialize Local Storage Variables to Prevent Null Values TODO: move this to start page
-    if (localStorage.getItem('username') == null) localStorage.setItem('username', '');
-    if (localStorage.getItem('email') == null) localStorage.setItem('email', '');
-    if (localStorage.getItem('skipInterval') == null) localStorage.setItem('skipInterval', '1')
-    if (localStorage.getItem('playbackRate') == null) localStorage.setItem('playbackRate', '1');
-    if (localStorage.getItem('darkMode') == null) localStorage.setItem('darkMode', 'false');
-    if (localStorage.getItem('inputStyle') == null) localStorage.setItem('inputStyle', 'default');
-    if (localStorage.getItem('inputType') == null) localStorage.setItem('inputType', 'default');
-    if (localStorage.getItem('modelVersion') == null) localStorage.setItem('modelVersion', 'default');
-    if (localStorage.getItem('modelParameters') == null) localStorage.setItem('modelParameters', 'default');
-    if (localStorage.getItem('sampleRate') == null) localStorage.setItem('sampleRate', 'default');
-    if (localStorage.getItem('colorScheme') == null) localStorage.setItem('colorScheme', 'default');
-    if (localStorage.getItem('disableAdditional') == null) localStorage.setItem('disableAdditional', 'false');
-    if (localStorage.getItem('disableConfidence') == null) localStorage.setItem('disableConfidence', 'false');
-    if (localStorage.getItem('confidenceRange') == null) localStorage.setItem('confidenceRange', 'default');
-    if (localStorage.getItem('defaultSkipInterval') == null) localStorage.setItem('defaultSkipInterval', '1');
-    if (localStorage.getItem('defaultPlaybackRate') == null) localStorage.setItem('defaultPlaybackRate', '1');
-    if (localStorage.getItem('defaultColumns') == null) localStorage.setItem('defaultColumns', '1');
-
     const [showGeneral, setShowGeneral] = useState(false);
     const [showData, setShowData] = useState(false);
     const [showModel, setShowModel] = useState(false);
@@ -42,9 +23,8 @@ export default function SettingsPage() {
     const [colorScheme, setColorScheme] = useState(localStorage.getItem('colorScheme'));
     const [disableAdditional, setDisableAdditional] = useState(localStorage.getItem('disableAdditional'));
     const [disableConfidence, setDisableConfidence] = useState(localStorage.getItem('disableConfidence'));
+    const [verifyColorScheme, setVerifyColorScheme] = useState(localStorage.getItem('verifyColorScheme'));
     const [confidenceRange, setConfidenceRange] = useState(localStorage.getItem('confidenceRange'));
-    const [defaultSkipInterval, setDefaultSkipInterval] = useState(localStorage.getItem('defaultSkipInterval'));
-    const [defaultPlaybackRate, setDefaultPlaybackRate] = useState(localStorage.getItem('defaultPlaybackRate'));
     const [defaultColumns, setDefaultColumns] = useState(localStorage.getItem('defaultColumns'));
 
     function collapseGeneral () { setShowGeneral(!showGeneral); }
@@ -105,17 +85,13 @@ export default function SettingsPage() {
         localStorage.setItem('disableConfidence', disable);
         setDisableConfidence(localStorage.getItem('disableConfidence'));
     }
+    function newVerifyColorScheme (scheme) {
+        localStorage.setItem('verifyColorScheme', scheme);
+        setVerifyColorScheme(localStorage.getItem('verifyColorScheme'));
+    }
     function newConfidenceRange (range) {
         localStorage.setItem('confidenceRange', range);
         setConfidenceRange(localStorage.getItem('confidenceRange'));
-    }
-    function newDefaultSkipInterval (interval) {
-        localStorage.setItem('defaultSkipInterval', interval);
-        setDefaultSkipInterval(localStorage.getItem('defaultSkipInterval'));
-    }
-    function newDefaultPlaybackRate (rate) {
-        localStorage.setItem('defaultPlaybackRate', rate);
-        setDefaultPlaybackRate(localStorage.getItem('defaultPlaybackRate'));
     }
     function newDefaultColumns (columns) {
         localStorage.setItem('defaultColumns', columns);
@@ -124,7 +100,125 @@ export default function SettingsPage() {
 
     //TODO: Implement Local Storage for existing settings
     //      Create export/import settings button
-    
+    function restoreDefaults () {
+        localStorage.setItem('username', '');
+        localStorage.setItem('email', '');
+        localStorage.setItem('skipInterval', '1');
+        localStorage.setItem('playbackRate', '1');
+        localStorage.setItem('darkMode', 'false');
+        localStorage.setItem('inputStyle', 'default');
+        localStorage.setItem('inputType', 'default');
+        localStorage.setItem('modelVersion', '1.0.0');
+        localStorage.setItem('modelParameters', 'default');
+        localStorage.setItem('sampleRate', '44100');
+        localStorage.setItem('colorScheme', 'black and white');
+        localStorage.setItem('disableAdditional', 'false');
+        localStorage.setItem('disableConfidence', 'false');
+        localStorage.setItem('verifyColorScheme', 'black and white');
+        localStorage.setItem('confidenceRange', '10');
+        localStorage.setItem('defaultColumns', '4');
+
+        setUsername('');
+        setEmail('');
+        setSkipInterval('1');
+        setPlaybackRate('1');
+        setDarkMode('false');
+        setInputStyle('default');
+        setInputType('default');
+        setModelVersion('1.0.0');
+        setModelParameters('default');
+        setSampleRate('44100');
+        setColorScheme('black and white');
+        setDisableAdditional('false');
+        setDisableConfidence('false');
+        setVerifyColorScheme('black and white');
+        setConfidenceRange('10');
+        setDefaultColumns('4');
+    }
+    function exportSettings() {
+        const settings = {
+            username,
+            email,
+            skipInterval,
+            playbackRate,
+            darkMode,
+            inputStyle,
+            inputType,
+            modelVersion,
+            modelParameters,
+            sampleRate,
+            colorScheme,
+            disableAdditional,
+            disableConfidence,
+            verifyColorScheme,
+            confidenceRange,
+            defaultColumns
+        };
+
+        const blob = new Blob([JSON.stringify(settings, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = "pyrenoteDeskSettings.json";
+        link.click();
+        URL.revokeObjectURL(url);
+    }
+    function importSettings() {
+        const input = document.createElement("input");
+        input.type = "file";
+        input.accept = "application/json";
+        input.onchange = (event) => {
+            const file = (event.target as HTMLInputElement).files?.[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const importedSettings = JSON.parse(e.target?.result as string);
+                    setUsername(importedSettings.username || "");
+                    setEmail(importedSettings.email || "");
+                    setSkipInterval(importedSettings.skipInterval || "1");
+                    setPlaybackRate(importedSettings.playbackRate || "1");
+                    setDarkMode(importedSettings.darkMode || "false");
+                    setInputStyle(importedSettings.inputStyle || "default");
+                    setInputType(importedSettings.inputType || "default");
+                    setModelVersion(importedSettings.modelVersion || "1.0.0");
+                    setModelParameters(importedSettings.modelParameters || "default");
+                    setSampleRate(importedSettings.sampleRate || "44100");
+                    setColorScheme(importedSettings.colorScheme || "black and white");
+                    setDisableAdditional(importedSettings.disableAdditional || "false");
+                    setDisableConfidence(importedSettings.disableConfidence || "false");
+                    setVerifyColorScheme(importedSettings.verifyColorScheme || "black and white");
+                    setConfidenceRange(importedSettings.confidenceRange || "10");
+                    setDefaultColumns(importedSettings.defaultColumns || "4");
+
+                    localStorage.setItem("username", importedSettings.username || "");
+                    localStorage.setItem("email", importedSettings.email || "");
+                    localStorage.setItem("skipInterval", importedSettings.skipInterval || "1");
+                    localStorage.setItem("playbackRate", importedSettings.playbackRate || "1");
+                    localStorage.setItem("darkMode", importedSettings.darkMode || "false");
+                    localStorage.setItem("inputStyle", importedSettings.inputStyle || "default");
+                    localStorage.setItem("inputType", importedSettings.inputType || "default");
+                    localStorage.setItem("modelVersion", importedSettings.modelVersion || "1.0.0");
+                    localStorage.setItem("modelParameters", importedSettings.modelParameters || "default");
+                    localStorage.setItem("sampleRate", importedSettings.sampleRate || "44100");
+                    localStorage.setItem("colorScheme", importedSettings.colorScheme || "black and white");
+                    localStorage.setItem("disableAdditional", importedSettings.disableAdditional || "false");
+                    localStorage.setItem("disableConfidence", importedSettings.disableConfidence || "false");
+                    localStorage.setItem("verifyColorScheme", importedSettings.verifyColorScheme || "black and white");
+                    localStorage.setItem("confidenceRange", importedSettings.confidenceRange || "10");
+                    localStorage.setItem("defaultColumns", importedSettings.defaultColumns || "4");
+                } catch (error) {
+                    console.error("Error importing settings:", error);
+                    alert("Failed to import settings. Please ensure the file is a valid JSON.");
+                }
+            };
+            reader.readAsText(file);
+        };
+        input.click();
+    }
+
+
   return (
     <React.Fragment>
       <Head>
@@ -228,7 +322,10 @@ export default function SettingsPage() {
                     <br></br>
                     <form>
                         <label>Color Scheme: </label>
-                        <input type="text" id="lname" name="lname"></input><br></br>
+                        <input type="text" id="lname" name="lname"
+                            onChange={(e) => newVerifyColorScheme(e.target.value)}
+                            value = {verifyColorScheme}>
+                        </input><br></br>
                         <label>Default Skip Interval: </label>
                         <input type="number" id="skip" name="skip"
                             onChange={(e) => newSkipInterval(e.target.value)}
@@ -248,9 +345,9 @@ export default function SettingsPage() {
                 </div>}
             <br></br>
             <div className={styles.controls}>
-                <button className={styles.controls}>Reset Defaults</button>
-                <button className={styles.controls}>Export Settings</button>
-                <button className={styles.controls}>Import Settings</button>
+                <button className={styles.controls} onClick={restoreDefaults}>Reset Defaults</button>
+                <button className={styles.controls} onClick={exportSettings}>Export Settings</button>
+                <button className={styles.controls} onClick={importSettings}>Import Settings</button>
             </div>
              </div>
         <Image
