@@ -55,6 +55,10 @@ interface SpectroRef {
 	isLoaded: boolean;
 	filePath: string;
 	url: string;
+	species: string;
+	toggleFlagged: () => void;
+	toggleSelected: (selected) => void;
+	setSpecies: (species: string) => void;
 	setStatus: (status) => void;
 	setIsSelected: (selected) => void;
 	setIsHovered: (hovered) => void;
@@ -71,6 +75,8 @@ interface SpectroProps {
 	fullIndex : number,
 	url : string,
 	status: number,
+	species: string,
+	isFlagged: boolean,
 	onMouseEnter : ()=>void, 
 	onMouseLeave : ()=>void,
 	onClick : (e)=>void,
@@ -83,6 +89,8 @@ interface SaveData {
 	spectrograms: {
 		filePath: string;
 		status: SpectroStatus;
+		species: string;
+		isFlagged: boolean;
 	}[]
 }
 interface ProcessedAudioFile {
@@ -90,6 +98,8 @@ interface ProcessedAudioFile {
 	url: string;
 	filePath: string;
 	status: SpectroStatus;
+	species: string;
+	isFlagged: boolean;
 }
 
 
@@ -138,15 +148,21 @@ export default function VerifyPage() {
 		}
 	};
 
+	// Species management
+	const [speciesList, setSpeciesList] = useState<string[]>(["Default"]);
+	const [inputSpecies, setInputSpecies] = useState("");
+	const [showSpeciesInput, setShowSpeciesInput] = useState(false);
+
 	const [ROWS, setROWS] = useState(5); // try not to change this (spectrogram height is not very flexible)
 	const [COLS, setCOLS] = useState(DEFAULT_COLUMNS);
 	const FILES_PER_PAGE = ROWS*COLS;
 	
-	// persistent storage of spectrogram data
-	const [[audioFiles, setAudioFiles], updateAudioFile] = [useState<ProcessedAudioFile[]>([]), (i, status) => {
+	const [[audioFiles, setAudioFiles], updateAudioFile] = [useState<ProcessedAudioFile[]>([]), (i, status, field) => {
 		setAudioFiles(prevItems => {
 			const newItems = [...prevItems]; // make a copy
-			newItems[i].status = status;      // update the element
+			newItems[i].isFlagged = field;      // update the element
+			newItems[i][field] = field; 
+			newItems[i].status = status;  
 			return newItems;                 // set new array
 		});
 	}]; 
@@ -164,14 +180,16 @@ export default function VerifyPage() {
 		let processed : ProcessedAudioFile[] = []
 		let spawnPage = 1;
 
-		async function handleAudioFile(file, status=SpectroStatus.Unverified) {
+		async function handleAudioFile(file, isFlagged=false, species="Default", status=SpectroStatus.Unverified) {
 			if (file.extension == ".wav") { // audio file
 				const blob = new Blob([file.data], {type: 'audio/wav'})
 				processed.push({
 					index: processed.length, 
 					url: URL.createObjectURL(blob), 
 					filePath: file.filePath, 
-					status: status
+					isFlagged: isFlagged,
+					status: status,
+					species: species
 				});
 
 			} else if (file.extension == ".mp3") {
@@ -180,7 +198,9 @@ export default function VerifyPage() {
 					index: processed.length, 
 					url: URL.createObjectURL(blob), 
 					filePath: file.filePath, 
-					status: status
+					isFlagged: isFlagged,
+					status: status,
+					species: species
 				});
 
 			}
@@ -195,7 +215,7 @@ export default function VerifyPage() {
 					for (let j = 0; j < jsonData.spectrograms.length; j++) {
 						const entry = jsonData.spectrograms[j];
 						const audioFile = await window.ipc.invoke('read-file-for-verification', entry.filePath);
-						await handleAudioFile(audioFile, entry.status);
+						await handleAudioFile(audioFile, entry.isFlagged, entry.species || "Default", entry.status); //consider adding entry.status
 					}
 					setCOLS(jsonData.columns);
 					spawnPage = jsonData.page
@@ -212,6 +232,15 @@ export default function VerifyPage() {
 		processed = await processInput(files);
 		setAudioFiles(processed);
 		setCurrentPage(spawnPage); // Reset to first page
+		
+		// Extract unique species from processed files
+		const uniqueSpecies = new Set(["Default"]);
+		processed.forEach(file => {
+			if (file.species && file.species.trim() !== "") {
+				uniqueSpecies.add(file.species);
+			}
+		});
+		setSpeciesList(Array.from(uniqueSpecies));
 	};
 
 	const Spectrogram = useCallback(forwardRef<SpectroRef, SpectroProps>(({ 
@@ -219,6 +248,8 @@ export default function VerifyPage() {
 		fullIndex,
 		url: url, 
 		status: _status,
+		isFlagged: _isFlagged,
+		species: _species,
 		onMouseEnter, 
 		onMouseLeave,
 		onClick,
@@ -228,10 +259,25 @@ export default function VerifyPage() {
 		const wavesurferRef = useRef(null);
 		const containerRef = useRef(null);
 		const innerRef = useRef(null);
+		const [isFlagged, setIsFlagged] = useState(_isFlagged);
+		const [species, setSpecies] = useState(_species || "Default");
 		const [status, setStatus] = useState(_status);
 		const [isSelected, setIsSelected] = useState(false);
 		const [isHovered, setIsHovered] = useState(false);
 		const [isLoaded, setIsLoaded] = useState(false);
+
+		useEffect(() => {
+			if (species !== _species) {
+				setSpecies(_species || "Default");
+			}
+		}, [_species]);
+
+		const updateSpecies = (newSpecies) => {
+			setSpecies(newSpecies);
+			if (fullIndex !== -1) {
+				updateAudioFile(fullIndex, 'species', newSpecies);
+			}
+		};
 
 		const setPlaybackRate = (playSpeed) => {
 			wavesurferRef.current.setPlaybackRate(playSpeed);
@@ -257,9 +303,13 @@ export default function VerifyPage() {
 				filePath,
 				url,
 				containerRef,
-				setStatus,
 				setIsSelected,
 				setIsHovered,
+				species,
+				setStatus,
+				toggleFlagged: () => { setIsFlagged((prev) => { updateAudioFile(fullIndex, 'isFlagged', !prev); return !prev }); },
+				toggleSelected: (S) => { setIsSelected(S); },
+				setSpecies: updateSpecies,
 				setPlaybackRate,
 				playPause,
 				play: () => { wavesurferRef.current.play(); },
@@ -327,8 +377,11 @@ export default function VerifyPage() {
 				onMouseLeave={onMouseLeave}
 				onClick={onClick}
 				style={{ position: "relative" }}
-			> 
-				{id!=-1 && (<div className={styles.indexOverlay}>{fullIndex+1}</div>)} 
+			>
+				{id!=-1 && <div className={styles.indexOverlay}>{fullIndex+1}</div>}
+				{species && species !== "Default" && (
+					<div className={styles.speciesOverlay}>{species}</div>
+				)}
 				<div id={`loading-spinner-${id}`} className={styles.waveLoadingCircle}></div>
 				<div 
 					id={`waveform-${id}`} 
@@ -353,22 +406,30 @@ export default function VerifyPage() {
 		const modalRef = useRef(null);
 		return (
 			<div ref={modalRef} className={styles.modal}>
-				<div className={styles.indexOverlay}>{linkedSpectro.fullIndex+1}</div>
+				<div className={styles.modalHeader}>
+					<div>ID: {linkedSpectro?.fullIndex + 1}</div>
+					<div>Species: {linkedSpectro?.species || "Default"}</div>
+				</div>
 				<Spectrogram 
 					id={-1} 
 					fullIndex={fullIndex}
 					url={url} 
+					isFlagged={linkedSpectro.isFlagged}
 					status={linkedSpectro.status}
+					species={linkedSpectro.species}
 					onMouseEnter={onMouseEnter}
 					onMouseLeave={onMouseLeave}
 					onClick={onClick}
 					linkedSpectro={linkedSpectro}
 					ref={ref}
 				/>
-				<button onClick={(e)=>{
-					toggleModal();
-					e.stopPropagation();
-				}}>Close</button>
+				<div className={styles.modalControls}>
+					<button onClick={(e)=>{
+					  toggleModal();
+					  e.stopPropagation();
+				  }}>Close</button>
+					<button onClick={() => openSpeciesInput()}>Update Species</button>
+				</div>
 			</div>
 		);
 	}), [selected]);
@@ -403,6 +464,37 @@ export default function VerifyPage() {
 		}
 	}, [showModal]);
 
+	// SPECIES
+	const openSpeciesInput = () => {
+		if (selected !== null) {
+			setInputSpecies(spectrograms.current[selected].species || "");
+			setShowSpeciesInput(true);
+		}
+	};
+
+	const closeSpeciesInput = () => {
+		setShowSpeciesInput(false);
+		setInputSpecies("");
+	};
+
+	const updateSpeciesForSelected = () => {
+		if (selected !== null && inputSpecies.trim() !== "") {
+			const newSpecies = inputSpecies.trim();
+			spectrograms.current[selected].setSpecies(newSpecies);
+			
+			if (showModal && spectrograms.current[-1]) {
+				spectrograms.current[-1].setSpecies(newSpecies);
+			}
+			
+			// Add to species list
+			if (!speciesList.includes(newSpecies)) {
+				setSpeciesList([...speciesList, newSpecies]);
+			}
+			
+			closeSpeciesInput();
+		}
+	};
+
 
 	// MENU
 
@@ -422,7 +514,12 @@ export default function VerifyPage() {
 		var obj : SaveData = { page: currentPage, columns: COLS, spectrograms: [] };
 		for (let i = 0; i < audioFiles.length; i++) {
 			const save = audioFiles[i];
-			obj.spectrograms.push({filePath: save.filePath, status: save.status});
+			obj.spectrograms.push({
+                filePath: save.filePath, 
+                isFlagged: save.isFlagged,
+                species: save.species || "Default",
+				status: save.status,
+            });
 		}
 		var json = JSON.stringify(obj);
 
@@ -440,10 +537,10 @@ export default function VerifyPage() {
 	const moveSelectionRight = () => 	{ setMouseControl(false); updateSelected([selected.length==0 ? 0 : Math.min(selected[0] + 1, numFiles-1)]); }
 	const setSpectroStatus = (status) => { 
 		for (let i = 0; i < selected.length; i++) {
-			updateAudioFile(spectrograms.current[selected[i]].fullIndex, status)
+			updateAudioFile(spectrograms.current[selected[i]].fullIndex, status, true)
 			spectrograms.current[selected[i]].setStatus(status);
-		}
-		if (showModal) {spectrograms.current[-1].setStatus(status);}
+		}	
+		if (showModal) {spectrograms.current[-1].setStatus(status);} //TODO determine if this is important
 	}
 	const playPauseSelection = () => { 
 		if (selected.length == 0) { return }; // null
@@ -504,6 +601,7 @@ export default function VerifyPage() {
 		"'": moreColumns,
 		"r": resetIncrements,
 		"o": toggleModal,
+		"Shift": openSpeciesInput, // currently set to prevent keybind from adding on to "Default" text, fix as necessary 
 		"Enter": nextPage,
 		"Backspace": prevPage,
 	}
@@ -511,6 +609,17 @@ export default function VerifyPage() {
 	useEffect(() => { // handle keyboard input
 		const handleKeyDown = (event) => {
 			if (event.key == " " || event.key.includes("Arrow")) {
+			// If species input is open, don't handle keyboard shortcuts
+            if (showSpeciesInput) {
+                if (event.key === "Escape") {
+                    closeSpeciesInput();
+                } else if (event.key === "Enter") {
+                    updateSpeciesForSelected();
+                }
+                return;
+            }
+            
+			if (event.key == " ") {
 				event.preventDefault(); 
 			}
 
@@ -522,7 +631,7 @@ export default function VerifyPage() {
 
 		window.addEventListener("keydown", handleKeyDown);
 		return () => window.removeEventListener("keydown", handleKeyDown);
-	}, [selected, playingSpectro, playSpeed, skipInterval, frozen]);
+	}, [selected, playingSpectro, playSpeed, skipInterval, frozen, showSpeciesInput, inputSpecies]);
 	
 
 	const [isSelecting, setIsSelecting] = useState(false);
@@ -709,7 +818,13 @@ export default function VerifyPage() {
 								)
 							}
 						</p>
+						<p>Page: {`${currentPage} / ${totalPages}`}</p>
+
 					</div>
+                    <div>
+                        <p>Species: {spectrograms.current[selected]?.species || "Default"}</p>
+                        <button onClick={openSpeciesInput}>Edit</button>
+                    </div>
 				</div>
 
 				{audioFiles.length > 0 && (
@@ -718,7 +833,7 @@ export default function VerifyPage() {
 							gridTemplateColumns: `repeat(${COLS}, 1fr)`,
 							gridTemplateRows: `repeat(${ROWS}, auto)`,
 						}}>
-							{currentFiles.map(({index, filePath, url, status}, i) => {
+							{currentFiles.map(({index, filePath, url, isFlagged, status,species}, i) => {
 								return (
 									<Spectrogram 
 										key={i}
@@ -726,6 +841,8 @@ export default function VerifyPage() {
 										fullIndex={index}
 										url={url} 
 										filePath={filePath}
+										isFlagged={isFlagged}
+										species={species}
 										status={status}
 										onMouseEnter={() => {
 											if (mouseControl) {
@@ -760,6 +877,8 @@ export default function VerifyPage() {
 								fullIndex={-1}
 								url={spectrograms.current[selected[0]].url} 
 								status={spectrograms.current[selected[0]].status} 
+								species={spectrograms.current[selected[0]].species}
+								isFlagged={spectrograms.current[selected[0]].isFlagged}
 								onMouseEnter={()=>{}}
 								onMouseLeave={()=>{}}
 								onClick={(e)=>{e.stopPropagation()}}
@@ -770,10 +889,9 @@ export default function VerifyPage() {
 								toggleModal={toggleModal}
 							/>,
 							document.body
-						)
-					}
+						)}
+					
 				</>
-
 				{isSelecting && rect && (
 					<div
 						style={{
@@ -789,6 +907,40 @@ export default function VerifyPage() {
 						}}
 					/>
 				)}
+
+                
+                {showSpeciesInput && (
+                    <div className={styles.speciesModal}>
+                        <div className={styles.speciesModalContent}>
+                            <h3>Update Species</h3>
+                            <input
+                                type="text"
+                                value={inputSpecies}
+                                onChange={(e) => setInputSpecies(e.target.value)}
+                            />
+                            {speciesList.length > 0 && (
+                                <div className={styles.speciesList}>
+                                    <p>Quick Select:</p>
+                                    <div className={styles.speciesButtons}>
+                                        {speciesList.map((species, idx) => (
+                                            <button 
+                                                key={idx} 
+                                                onClick={() => setInputSpecies(species)}
+                                                className={inputSpecies === species ? styles.activeSpecies : ''}
+                                            >
+                                                {species}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                            <div className={styles.speciesModalButtons}>
+                                <button onClick={updateSpeciesForSelected}>Save</button>
+                                <button onClick={closeSpeciesInput}>Cancel</button>
+                            </div>
+                        </div>
+                    </div>
+                )}
 			</div>
 		</React.Fragment>
 	)
