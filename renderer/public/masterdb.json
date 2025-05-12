@@ -1,0 +1,14 @@
+{
+    "databases": [
+        {
+            "ID": 1,
+            "Country": "Peru",
+            "filepath": "databases/peru.db"
+        },
+        {
+            "ID": 2,
+            "Country": "Brazil",
+            "filepath": "databases/brazil.db"
+        }   
+    ]
+}

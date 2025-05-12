@@ -18,18 +18,20 @@ if (isProd) {
 }
 
 let dbInstance: BetterSqlite3.Database;
+let selectedDbPath: string | null = null;
 
 export const getDatabase = () => {
   return dbInstance;
 };
 
 function createDatabase() {
-  const dbPath = "./pyrenoteDeskDatabase.db";
+  const dbPath = selectedDbPath || "./pyrenoteDeskDatabase.db";
   let db: BetterSqlite3.Database;
 
   if (fs.existsSync(dbPath)) {
     db = new BetterSqlite3(dbPath);
   } else {
+    console.log("Database does not exist, creating new one");
     //Creates new database if it did not exist already
     db = new BetterSqlite3(dbPath);
     const sqlFilePath = "./magnus.sqlite.sql";
@@ -181,4 +183,8 @@ ipcMain.handle("pick-files-for-verification", async (_event) => {
     }),
   );
   return filesWithData;
+});
+
+ipcMain.handle('set-db-path', (_event, dbPath: string) => {
+  selectedDbPath = dbPath;
 });

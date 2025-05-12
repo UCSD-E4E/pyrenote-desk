@@ -27,6 +27,28 @@ export default function SettingsPage() {
     const [confidenceRange, setConfidenceRange] = useState(localStorage.getItem('confidenceRange'));
     const [defaultColumns, setDefaultColumns] = useState(localStorage.getItem('defaultColumns'));
 
+    //TODO: change it from pyrenoteDeskDatabase.db to something else
+    
+    const [databasePath, setDatabasePath] = useState(localStorage.getItem('databasePath') || './pyrenoteDeskDatabase.db');
+    const [availableDatabases, setAvailableDatabases] = useState([
+        { Country: 'Default', filepath: './pyrenoteDeskDatabase.db' }
+    ]);
+
+    useEffect(() => {
+        fetch('/masterdb.json')
+            .then(response => response.json())
+            .then(data => {
+                const dbs = [
+                    { Country: 'Default', filepath: './pyrenoteDeskDatabase.db' },
+                    ...data.databases
+                ];
+                setAvailableDatabases(dbs);
+            })
+            .catch(error => {
+                console.error('Error loading database paths:', error);
+            });
+    }, []);
+
     function collapseGeneral () { setShowGeneral(!showGeneral); }
     function collapseData () { setShowData(!showData); }
     function collapseModel () { setShowModel(!showModel); }
@@ -97,6 +119,10 @@ export default function SettingsPage() {
         localStorage.setItem('defaultColumns', columns);
         setDefaultColumns(localStorage.getItem('defaultColumns'));
     }
+    function newDatabasePath(path) {
+        localStorage.setItem('databasePath', path);
+        setDatabasePath(localStorage.getItem('databasePath'));
+    }
 
     //TODO: Implement Local Storage for existing settings
     //      Create export/import settings button
@@ -117,6 +143,7 @@ export default function SettingsPage() {
         localStorage.setItem('verifyColorScheme', 'black and white');
         localStorage.setItem('confidenceRange', '10');
         localStorage.setItem('defaultColumns', '4');
+        localStorage.setItem('databasePath', './pyrenoteDeskDatabase.db');
 
         setUsername('');
         setEmail('');
@@ -134,6 +161,7 @@ export default function SettingsPage() {
         setVerifyColorScheme('black and white');
         setConfidenceRange('10');
         setDefaultColumns('4');
+        setDatabasePath('./pyrenoteDeskDatabase.db');
     }
     function exportSettings() {
         const settings = {
@@ -152,7 +180,8 @@ export default function SettingsPage() {
             disableConfidence,
             verifyColorScheme,
             confidenceRange,
-            defaultColumns
+            defaultColumns,
+            databasePath
         };
 
         const blob = new Blob([JSON.stringify(settings, null, 2)], { type: "application/json" });
@@ -258,6 +287,21 @@ export default function SettingsPage() {
                 {showData && <div id="content">
                     <br></br>
                     <form>
+                        <label>Database Path: </label>
+                        <select 
+                            id="dbPath" 
+                            name="dbPath"
+                            onChange={(e) => newDatabasePath(e.target.value)}
+                            value={databasePath}
+                            style={{ width: '300px' }}
+                        >
+                            {availableDatabases.map((db) => (
+                                <option key={db.filepath} value={db.filepath}>
+                                    {db.Country}
+                                </option>
+                            ))}
+                        </select>
+                        <br></br>
                         <label >Input Style: </label>
                         <input type="text" id="fname" name="fname"
                             onChange={(e) => newInputStyle(e.target.value)}
