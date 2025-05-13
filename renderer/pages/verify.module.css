@@ -125,6 +125,7 @@
 
 .modal {
 	display: flex;
+	flex-direction: column;
 	align-items: center;
 	justify-content: center;  /* Centers horizontally */
 	box-shadow: 0 0 100px rgba(0, 0, 0, 1);
@@ -155,6 +156,20 @@
 	font-weight: bold;
 	z-index: 10;
 	background-color: rgba(0, 0, 0, 0.5); /* optional for better contrast */
+	padding: 2px 6px;
+	border-radius: 4px;
+	pointer-events: none; /* don't interfere with clicks */
+}
+
+.filePathOverlay {
+	position: absolute;
+	bottom: 4px;
+	left: 6px;
+	color: lightgoldenrodyellow;
+	text-shadow: 1px 1px 1px black;
+	mix-blend-mode: hard-light;
+	font-size: 14px;
+	z-index: 10;
 	padding: 2px 6px;
 	border-radius: 4px;
 	pointer-events: none; /* don't interfere with clicks */

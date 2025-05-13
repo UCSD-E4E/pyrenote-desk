@@ -98,7 +98,8 @@ export default function VerifyPage() {
 	// SPECTROGRAMS and PAGE SETUP
 
 	const spectrograms = useRef([]);
-	const playingSpectro = useRef(null);
+
+	const playingSpectro = useRef(null); // spectrogram that is currently playing sound
 	const [frozen, setFrozen] = useState(false);
 	const [mouseControl, setMouseControl] = useState(true);
 
@@ -137,6 +138,8 @@ export default function VerifyPage() {
 			return arr;
 		}
 	};
+	const firstSelected = useCallback(() => {return selected[0]}, [selected])
+	const lastSelected = useCallback(() => {return selected[selected.length-1]}, [selected])
 
 	const [ROWS, setROWS] = useState(5); // try not to change this (spectrogram height is not very flexible)
 	const [COLS, setCOLS] = useState(DEFAULT_COLUMNS);
@@ -160,10 +163,11 @@ export default function VerifyPage() {
 	const numRows = Math.ceil(numFiles / COLS);
 	const numSpots = numRows * COLS;
 
-	async function handleFileSelectionNew() {
-		let processed : ProcessedAudioFile[] = []
+	async function handleFileSelection() {
+		let processed : ProcessedAudioFile[] = [...audioFiles];
 		let spawnPage = 1;
 
+		// NEW AUDIO FILES ARE ADDED WITHOUT CHECKING IF THEY ARE ALREADY ON SCREEN (CHANGE THIS IN THE FUTURE)
 		async function handleAudioFile(file, status=SpectroStatus.Unverified) {
 			if (file.extension == ".wav") { // audio file
 				const blob = new Blob([file.data], {type: 'audio/wav'})
@@ -200,7 +204,9 @@ export default function VerifyPage() {
 					setCOLS(jsonData.columns);
 					spawnPage = jsonData.page
 				} else {
-					await handleAudioFile(file);
+					if (file.extension == ".wav" || file.extension == ".mp3") {
+						await handleAudioFile(file);
+					}
 				}
 			})
 			await Promise.all(tasks);
@@ -236,7 +242,7 @@ export default function VerifyPage() {
 		const setPlaybackRate = (playSpeed) => {
 			wavesurferRef.current.setPlaybackRate(playSpeed);
 		}
-
+		
 		const playPause = useCallback((playbackRate=null) => {
 			if (playbackRate != null) {
 				setPlaybackRate(playbackRate);
@@ -244,7 +250,7 @@ export default function VerifyPage() {
 			console.log(wavesurferRef.current.isPlaying(), isSelected, selected);
 			wavesurferRef.current.playPause();
 			return wavesurferRef.current.isPlaying();
-		}, [selected])
+		}, [isSelected])
 
 		useImperativeHandle(ref, ()=>{ // exposed functions
 			return { // SpectroRef
@@ -329,6 +335,7 @@ export default function VerifyPage() {
 				style={{ position: "relative" }}
 			> 
 				{id!=-1 && (<div className={styles.indexOverlay}>{fullIndex+1}</div>)} 
+				{id!=-1 && (<div className={styles.filePathOverlay}>{filePath}</div>)} 
 				<div id={`loading-spinner-${id}`} className={styles.waveLoadingCircle}></div>
 				<div 
 					id={`waveform-${id}`} 
@@ -353,7 +360,9 @@ export default function VerifyPage() {
 		const modalRef = useRef(null);
 		return (
 			<div ref={modalRef} className={styles.modal}>
-				<div className={styles.indexOverlay}>{linkedSpectro.fullIndex+1}</div>
+				<div style={{ display: 'inline-block', width: 'auto' }} className={styles.indexOverlay}> {linkedSpectro.fullIndex+1} </div>
+				<p style={{ display: 'inline', padding: 0, margin: 0 }}>{linkedSpectro.filePath}</p>
+
 				<Spectrogram 
 					id={-1} 
 					fullIndex={fullIndex}
@@ -434,10 +443,10 @@ export default function VerifyPage() {
 
 	// ACTIONS
 
-	const moveSelectionUp = () => 		{ setMouseControl(false); updateSelected([selected.length==0 ? 0 : Math.max(selected[0] - COLS, selected[0] % COLS)]); }
-	const moveSelectionDown = () => 	{ setMouseControl(false); updateSelected([selected.length==0 ? 0 : Math.min(selected[0] + COLS, numFiles-1, numSpots-COLS+(selected[0] % COLS))]); }
-	const moveSelectionLeft = () => 	{ setMouseControl(false); updateSelected([selected.length==0 ? 0 : Math.max(selected[0] - 1, 0)]); }
-	const moveSelectionRight = () => 	{ setMouseControl(false); updateSelected([selected.length==0 ? 0 : Math.min(selected[0] + 1, numFiles-1)]); }
+	const moveSelectionUp = () => 		{ setMouseControl(false); updateSelected([selected.length==0 ? 0 : Math.max(lastSelected() - COLS, lastSelected() % COLS)]); }
+	const moveSelectionDown = () => 	{ setMouseControl(false); updateSelected([selected.length==0 ? 0 : Math.min(lastSelected() + COLS, numFiles-1, numSpots-COLS+(lastSelected() % COLS))]); }
+	const moveSelectionLeft = () => 	{ setMouseControl(false); updateSelected([selected.length==0 ? 0 : Math.max(lastSelected() - 1, 0)]); }
+	const moveSelectionRight = () => 	{ setMouseControl(false); updateSelected([selected.length==0 ? 0 : Math.min(lastSelected() + 1, numFiles-1)]); }
 	const setSpectroStatus = (status) => { 
 		for (let i = 0; i < selected.length; i++) {
 			updateAudioFile(spectrograms.current[selected[i]].fullIndex, status)
@@ -490,6 +499,7 @@ export default function VerifyPage() {
 		"ArrowLeft": moveSelectionLeft,
 		"ArrowDown": moveSelectionDown,
 		"ArrowRight": moveSelectionRight,
+		"Tab": moveSelectionRight,
 		"z": () => {setSpectroStatus(SpectroStatus.Unverified)},
 		"x": () => {setSpectroStatus(SpectroStatus.Valid)},
 		"c": () => {setSpectroStatus(SpectroStatus.Invalid)},
@@ -529,6 +539,8 @@ export default function VerifyPage() {
 	const [rectStart, setRectStart] = useState(null);
 	const [rect, setRect] = useState(null);
 	const containerRef = useRef(null)
+
+	// BOX SELECT
 
 	const handleMouseDown = (e) => {
 		const x = e.clientX;
@@ -607,7 +619,7 @@ export default function VerifyPage() {
 
 					<label className={styles.pickFiles} onClick={(e) => {
 						e.stopPropagation()
-						handleFileSelectionNew()
+						handleFileSelection()
 					}}>
 						<p>Select files</p>
 					</label> 
@@ -705,7 +717,7 @@ export default function VerifyPage() {
 								" " + (
 									selected.length==0 ? "none" : 
 									selected.length==1 ? spectrograms.current[selected[0]]?.fullIndex+1 :
-									selected[selected.length-1] + "-" + selected[0]
+									(firstSelected()+1) + "-" + (lastSelected()+1)
 								)
 							}
 						</p>
@@ -758,12 +770,12 @@ export default function VerifyPage() {
 								key={-1}
 								id={-1} 
 								fullIndex={-1}
-								url={spectrograms.current[selected[0]].url} 
-								status={spectrograms.current[selected[0]].status} 
+								url={spectrograms.current[firstSelected()].url} 
+								status={spectrograms.current[firstSelected()].status} 
 								onMouseEnter={()=>{}}
 								onMouseLeave={()=>{}}
 								onClick={(e)=>{e.stopPropagation()}}
-								linkedSpectro={spectrograms.current[selected[0]]}
+								linkedSpectro={spectrograms.current[firstSelected()]}
 								ref={(el) => {
 									if (el) spectrograms.current[-1] = el; // Populate dynamically
 								}}
