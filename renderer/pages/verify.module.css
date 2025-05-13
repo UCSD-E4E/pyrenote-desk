@@ -1,25 +1,38 @@
 .container {
-    margin-top: 10px;
     display: flex;
 	flex-direction: column;
-    gap: 20px; 
-    padding: 20px;
+    padding: 10px;
     align-items: flex-start;
 	width: fit-content;
 }
-
 
 .verifyButtonMenu {
 	display: flex;
     flex-direction: row;
 	width: 100%;
 	gap: 20px;
+	height: 100px;
+}
+
+.smallContainer {
+	display: flex; 
+	flex-direction: column; 
+	align-items: center;
+	justify-content: center;
+	margin-bottom: 0px 20px; 
+}
+
+.smallContainerRow {
+	flex: 1; 
+	display: flex; 
+	flex-direction: row; 
+	justify-content: space-between;
+	padding-bottom: 20px; 
 }
 
 .nextFiles,.prevFiles,.save {
 	align-items: center;
     padding: 10px; /* Add some padding for better spacing */
-    border-radius: 8px;
 }
 .nextFiles:hover,.prevFiles:hover,.save:hover,.pickFiles:hover {
 	background-color: #b3fad1;
@@ -28,7 +41,6 @@
 .disabled {
 	align-items: center;
     padding: 10px; /* Add some padding for better spacing */
-    border-radius: 8px;
 	background-color: #7f7f7f;
 }
 
@@ -101,7 +113,7 @@
 	outline: 8px solid rgba(255, 0, 0, 0.7);
 }
 .greenOutline {
-	outline: 8px solid rgba(0, 128, 0, 0.7); /* Default GREEN */
+	outline: 8px solid rgba(0, 177, 0, 0.7); /* Default GREEN */
 }
 .selectOutline {
 	box-shadow: 0 0 0 12px black;
@@ -115,13 +127,14 @@
 	display: flex;
 	align-items: center;
 	justify-content: center;  /* Centers horizontally */
-	box-shadow: rgba(100, 100, 111, 0.3) 0px 7px 29px 0px;
+	box-shadow: 0 0 100px rgba(0, 0, 0, 1);
 	background-color: white;
 	border: 2px solid rgb(240, 240, 240);
 	border-radius: 12px;
+	gap: 20px;
 
-	width: 1400px;
-	height: 400px;
+	width: 1200px;
+	height: 350px;
 	position: absolute;
 	top: 50%;
 	left: 50%;
