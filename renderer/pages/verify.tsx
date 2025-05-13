@@ -467,7 +467,7 @@ export default function VerifyPage() {
 	// SPECIES
 	const openSpeciesInput = () => {
 		if (selected !== null) {
-			setInputSpecies(spectrograms.current[selected].species || "");
+			setInputSpecies(spectrograms.current[selected[0]].species || "");
 			setShowSpeciesInput(true);
 		}
 	};
@@ -480,7 +480,7 @@ export default function VerifyPage() {
 	const updateSpeciesForSelected = () => {
 		if (selected !== null && inputSpecies.trim() !== "") {
 			const newSpecies = inputSpecies.trim();
-			spectrograms.current[selected].setSpecies(newSpecies);
+			spectrograms.current[selected[0]].setSpecies(newSpecies);
 			
 			if (showModal && spectrograms.current[-1]) {
 				spectrograms.current[-1].setSpecies(newSpecies);
@@ -609,15 +609,16 @@ export default function VerifyPage() {
 	useEffect(() => { // handle keyboard input
 		const handleKeyDown = (event) => {
 			if (event.key == " " || event.key.includes("Arrow")) {
-			// If species input is open, don't handle keyboard shortcuts
-            if (showSpeciesInput) {
-                if (event.key === "Escape") {
-                    closeSpeciesInput();
-                } else if (event.key === "Enter") {
-                    updateSpeciesForSelected();
-                }
-                return;
-            }
+				// If species input is open, don't handle keyboard shortcuts
+				if (showSpeciesInput) {
+					if (event.key === "Escape") {
+						closeSpeciesInput();
+					} else if (event.key === "Enter") {
+						updateSpeciesForSelected();
+					}
+					return;
+				}
+			}
             
 			if (event.key == " ") {
 				event.preventDefault(); 
@@ -631,8 +632,8 @@ export default function VerifyPage() {
 
 		window.addEventListener("keydown", handleKeyDown);
 		return () => window.removeEventListener("keydown", handleKeyDown);
+	//}, [selected, playingSpectro, playSpeed, skipInterval, frozen, showSpeciesInput, inputSpecies]});
 	}, [selected, playingSpectro, playSpeed, skipInterval, frozen, showSpeciesInput, inputSpecies]);
-	
 
 	const [isSelecting, setIsSelecting] = useState(false);
 	const [rectStart, setRectStart] = useState(null);
@@ -822,7 +823,7 @@ export default function VerifyPage() {
 
 					</div>
                     <div>
-                        <p>Species: {spectrograms.current[selected]?.species || "Default"}</p>
+                        <p>Species: {spectrograms.current[selected[0]]?.species || "Default"}</p>
                         <button onClick={openSpeciesInput}>Edit</button>
                     </div>
 				</div>
