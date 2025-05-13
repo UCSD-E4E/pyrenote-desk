@@ -27,6 +27,11 @@ function VIRIDIS_COLORMAP() {
     return colorMap;
 }
 
+function arraysEqual<T>(a: T[], b: T[]): boolean { // can be moved to a utilities file in the future
+	if (a.length !== b.length) return false;
+	return a.every((value, index) => value === b[index]);
+}
+
 const MAX_SKIPINTERVAL = 8;
 const DEFAULT_SKIPINTERVAL = 2;
 const MIN_SKIPINTERVAL = 0.5
@@ -120,6 +125,10 @@ export default function VerifyPage() {
 	const [selected, setSelected] = useState([]); // selected spectrogram(s)
 	const updateSelected = (arr) => { // wraps setSelected
 		if (!(frozen && mouseControl)) {
+			if (arraysEqual(arr, selected)) {
+				return;
+			}
+
 			for (let i = 0; i < selected.length; i++) { // deselect current
 				spectrograms.current[selected[i]].setIsSelected(false);
 				spectrograms.current[selected[i]].pause();
@@ -238,19 +247,39 @@ export default function VerifyPage() {
 		const [isSelected, setIsSelected] = useState(false);
 		const [isHovered, setIsHovered] = useState(false);
 		const [isLoaded, setIsLoaded] = useState(false);
+		const [isPlaying, setIsPlaying] = useState(false);
 
 		const setPlaybackRate = (playSpeed) => {
 			wavesurferRef.current.setPlaybackRate(playSpeed);
 		}
 		
+		const play = useCallback((playbackRate=null) => {
+			if (playbackRate != null) {
+				setPlaybackRate(playbackRate);
+			}
+			console.log(isPlaying);
+			wavesurferRef.current.play();
+			setIsPlaying(true);
+			return wavesurferRef.current.isPlaying();
+		}, [isPlaying])
+		const pause = useCallback((playbackRate=null) => {
+			if (playbackRate != null) {
+				setPlaybackRate(playbackRate);
+			}
+			console.log(isPlaying);
+			wavesurferRef.current.pause();
+			setIsPlaying(false);
+			return wavesurferRef.current.isPlaying();
+		}, [isPlaying])
 		const playPause = useCallback((playbackRate=null) => {
 			if (playbackRate != null) {
 				setPlaybackRate(playbackRate);
 			}
-			console.log(wavesurferRef.current.isPlaying(), isSelected, selected);
+			console.log(isPlaying);
+			setIsPlaying(!wavesurferRef.current.isPlaying());
 			wavesurferRef.current.playPause();
 			return wavesurferRef.current.isPlaying();
-		}, [isSelected])
+		}, [isPlaying])
 
 		useImperativeHandle(ref, ()=>{ // exposed functions
 			return { // SpectroRef
@@ -268,8 +297,8 @@ export default function VerifyPage() {
 				setIsHovered,
 				setPlaybackRate,
 				playPause,
-				play: () => { wavesurferRef.current.play(); },
-				pause: () => { wavesurferRef.current.pause(); },
+				play, // : () => { wavesurferRef.current.play(); },
+				pause, // : () => { wavesurferRef.current.pause(); },
 				setTime: (time) => { wavesurferRef.current.setTime(time) },
 				getTime: () => { return wavesurferRef.current.getCurrentTime() },
 				skip: (time) => {wavesurferRef.current.skip(time) },
@@ -341,7 +370,7 @@ export default function VerifyPage() {
 					id={`waveform-${id}`} 
 					ref={innerRef}
 					style={{ width: "100%", height: "256px"}} // the height doesnt matter, it's predetermined by FFT
-					onContextMenu={(e) => { e.preventDefault(); if (selected) playPause(); }}
+					onContextMenu={(e) => { e.preventDefault(); if (isSelected) playPause(); }}
 				></div>
 			</div>	
 		)
@@ -456,8 +485,7 @@ export default function VerifyPage() {
 	}
 	const playPauseSelection = () => { 
 		if (selected.length == 0) { return }; // null
-		if (playingSpectro.current != null && playingSpectro.current != selected) { spectrograms.current[playingSpectro.current].pause(); }; // pause existing
-		
+		if (playingSpectro.current != null && playingSpectro.current != selected[0]) { spectrograms.current[playingSpectro.current].pause(); }; // pause existing
 		const id = showModal ? -1 : selected[0];
 
 		spectrograms.current[id].setPlaybackRate(playSpeed); // set speed of selected
