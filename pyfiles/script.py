@@ -7,6 +7,7 @@ from datetime import datetime
 import os
 import filecmp
 from mutagen import File as MutagenFile
+import argparse
 
 # For dataloader and dataset simulation (assuming torch is used)
 from torch.utils.data import DataLoader, Dataset
@@ -83,8 +84,9 @@ class DBHelper:
         
         # Determine destination path
         if dest_path:
-            # if dest_path is a directory or ends with path separator, treat as directory
-            if os.path.isdir(dest_path) or dest_path.endswith(os.sep):
+            # treat dest_path as directory if it already exists or has no file-extension
+            ext = os.path.splitext(dest_path)[1]
+            if os.path.isdir(dest_path) or ext == "":
                 os.makedirs(dest_path, exist_ok=True)
                 destination_path = os.path.join(dest_path, os.path.basename(audio_file_path))
             else:
@@ -107,19 +109,23 @@ class DBHelper:
         
         return destination_path
 
-    def insert_recording(self, recording_id, deployment_id, filename, url):
+    def insert_deployment(self, site_id=1, recorder_id=1, start_date=None, end_date=None, deployed_by='script', note=''):
+        """Insert a new deployment record with defaults and return its ID."""
+        if start_date is None:
+            start_date = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        if end_date is None:
+            end_date = start_date
+        self.cursor.execute(
+            "INSERT INTO Deployment (siteId, recorderId, start_date, end_date, deployed_by, note) VALUES (?, ?, ?, ?, ?, ?)",
+            (site_id, recorder_id, start_date, end_date, deployed_by, note),
+        )
+        self.connection.commit()
+        return self.cursor.lastrowid
+
+    def insert_recording(self, recording_id=None, deployment_id=None, filename=None, url=None):
         """
-        Insert a new recording into the Recording table.
-        Get datetime and duration from the audio file at the given URL.
-        
-        Args:
-            recording_id: The ID for the new recording
-            deployment_id: The deployment ID this recording belongs to
-            filename: Name of the recording file
-            url: URL to the recording file (should be in .recordings directory)
-            
-        Returns:
-            bool: True if insertion was successful
+        Insert a new recording; if recording_id is None, let SQLite auto-generate it.
+        Returns the recordingId used.
         """
         # Check if the file exists at the given URL
         if not os.path.exists(url):
@@ -154,19 +160,26 @@ class DBHelper:
             # Format datetime as string for SQLite
             datetime_str = recorded_datetime.strftime("%Y-%m-%d %H:%M:%S")
             
-            # Execute the insert query
-            self.cursor.execute(
-                """
-                INSERT OR REPLACE INTO Recording 
-                (recordingId, deploymentId, filename, url, datetime, duration)
-                VALUES (?, ?, ?, ?, ?, ?)
-                """,
-                (recording_id, deployment_id, filename, url, datetime_str, duration)
-            )
+            if recording_id is None:
+                self.cursor.execute(
+                    "INSERT INTO Recording (deploymentId, filename, url, datetime, duration) VALUES (?, ?, ?, ?, ?)",
+                    (deployment_id, filename, url, datetime_str, duration),
+                )
+                rec_id = self.cursor.lastrowid
+            else:
+                self.cursor.execute(
+                    """
+                    INSERT OR REPLACE INTO Recording 
+                    (recordingId, deploymentId, filename, url, datetime, duration)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                    (recording_id, deployment_id, filename, url, datetime_str, duration),
+                )
+                rec_id = recording_id
             
             self.connection.commit()
-            print(f"Recording inserted successfully with ID: {recording_id}")
-            return True
+            print(f"Recording inserted with ID: {rec_id}")
+            return rec_id
             
         except Exception as e:
             print(f"Error inserting recording: {e}")
@@ -384,22 +397,44 @@ def pseudo_inference(model_input):
 
 # Example usage of new functions (for debugging purposes)
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Process or save audio recordings.")
+    parser.add_argument("--save", action="store_true", help="Save a new recording")
+    parser.add_argument("inputs", nargs="*", help="For save: <audio_file>; otherwise recording IDs")
+    parser.add_argument("--dest", help="Destination path for saving file")
+    parser.add_argument("--deployment", type=int, help="Deployment ID for new recording")
+    args = parser.parse_args()
+
+    db = DBHelper()
+    if args.save:
+        # Save workflow: inputs[0] is audio file path
+        audio_file = args.inputs[0]
+        dest_path = args.dest
+        # use provided deployment or auto-create one
+        dep_id = args.deployment or db.insert_deployment()
+        # save file to destination
+        saved_path = db.save_recording_file(audio_file, dest_path)
+        filename = os.path.basename(saved_path)
+        # insert recording and get new ID
+        new_rec_id = db.insert_recording(None, dep_id, filename, saved_path)
+        print(f"New recording saved and inserted with ID {new_rec_id}")
+        sys.exit(0)
+
     # Get the recording ID(s) from the command line argument
-    if len(sys.argv) > 1:
+    if len(args.inputs) > 0:
         # Check if the input contains commas (comma-separated list)
-        if ',' in sys.argv[1]:
-            recording_ids = [int(id_str.strip()) for id_str in sys.argv[1].split(',')]
+        if ',' in args.inputs[0]:
+            recording_ids = [int(id_str.strip()) for id_str in args.inputs[0].split(',')]
             print(f"Processing recording IDs: {recording_ids}")
         # Check if input looks like a Python list (e.g. ["111", "222"])
-        elif '[' in sys.argv[1] and ']' in sys.argv[1]:
+        elif '[' in args.inputs[0] and ']' in args.inputs[0]:
             # Extract numbers from the string representation of a list
             import re
-            ids_text = sys.argv[1].strip('[]')
+            ids_text = args.inputs[0].strip('[]')
             recording_ids = [int(id_str) for id_str in re.findall(r'\d+', ids_text)]
             print(f"Processing recording IDs: {recording_ids}")
         else:
             # Single ID
-            recording_ids = int(sys.argv[1])  # Convert to integer
+            recording_ids = int(args.inputs[0])  # Convert to integer
             print(f"Processing recording ID: {recording_ids}")
     else:
         print("Error: Please provide recording ID(s)")
