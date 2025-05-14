@@ -247,7 +247,6 @@ export default function VerifyPage() {
 		const [isSelected, setIsSelected] = useState(false);
 		const [isHovered, setIsHovered] = useState(false);
 		const [isLoaded, setIsLoaded] = useState(false);
-		const [isPlaying, setIsPlaying] = useState(false);
 
 		const setPlaybackRate = (playSpeed) => {
 			wavesurferRef.current.setPlaybackRate(playSpeed);
@@ -257,7 +256,6 @@ export default function VerifyPage() {
 			if (playbackRate != null) {
 				setPlaybackRate(playbackRate);
 			}
-			setIsPlaying(!wavesurferRef.current.isPlaying());
 			wavesurferRef.current.playPause();
 			return wavesurferRef.current.isPlaying();
 		}
@@ -529,7 +527,7 @@ export default function VerifyPage() {
 
 	useEffect(() => { // handle keyboard input
 		const handleKeyDown = (event) => {
-			if (event.key == " " || event.key.includes("Arrow")) {
+			if (event.key == " " || event.key.includes("Arrow") || event.key == "Tab") {
 				event.preventDefault(); 
 			}
 
@@ -551,12 +549,12 @@ export default function VerifyPage() {
 
 	// BOX SELECT
 
-	const handleMouseDown = (e) => {
+	const handleMouseDown = (e, canSelect=true) => {
 		const x = e.clientX;
 		const y = e.clientY;
 		setRectStart({ x, y });
 		setRect({ x, y, width: 0, height: 0 });
-		setIsSelecting(true);
+		setIsSelecting(canSelect);
 	};
 
 	const handleMouseMove = (e) => {
@@ -624,7 +622,10 @@ export default function VerifyPage() {
 				onMouseUp={(e) => {if (!frozen) {setMouseControl(true); handleMouseUp()}}}
 				style={{ userSelect: 'none' }}
 			>
-				<div className = {styles.verifyButtonMenu}>
+				<div 
+					className = {styles.verifyButtonMenu}
+					onMouseDown={(e) => {if (!frozen) {e.stopPropagation(); setMouseControl(true); handleMouseDown(e, false)}}}
+				>
 
 					<label className={styles.pickFiles} onClick={(e) => {
 						e.stopPropagation()
