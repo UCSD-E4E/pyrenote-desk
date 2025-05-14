@@ -7,6 +7,7 @@ import {
   createRegionOfInterest,
   updateRegionOfInterest,
 } from "./regionOfInterest";
+import createSpecies from "./createSpecies";
 
 export const setupMutations = {
   createAnnotation,
@@ -20,6 +21,7 @@ export const setupMutations = {
   deleteRegionOfInterest,
   createRegionOfInterest,
   updateRegionOfInterest,
+  createSpecies,
 };
 
 export type MutationsApi = typeof setupMutations;

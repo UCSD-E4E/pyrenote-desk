@@ -13,6 +13,7 @@ export default function databasePage() {
   const [site, setSite] = useState(false);
   const [deployment, setDeployment] = useState(false);
   const [recording, setRecording] = useState(false);
+  const [test, setTest] = useState(false);
 
   function toEntryForm() {
     setEntry(true);
@@ -21,6 +22,12 @@ export default function databasePage() {
     setSite(false);
     setDeployment(false);
     setRecording(false);
+    setTest(false);
+  }
+
+  function toTestForm() {
+    setEntry(false);
+    setTest(true);
   }
 
   function toRecorderForm() {
@@ -61,6 +68,52 @@ export default function databasePage() {
         <button onClick={toSiteForm}>Add Site</button>
         <button onClick={toDeploymentForm}>Add Deployment</button>
         <button onClick={toRecordingForm}>Add Recordings</button>
+        <button onClick={toTestForm}>Test</button>
+      </div>
+    );
+  }
+
+  function TestPage() {
+    const [species, setSpecies] = useState('');
+    const [common, setCommon] = useState('');
+    const [loading, setLoading] = useState(false);
+    // submit button won't be there while loading is true
+
+    if (!test) return null;
+
+    const handleSubmit = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!species || !common) {
+        alert('Please fill in both fields.');
+        return;
+      }
+      setLoading(true);
+      try {
+        await window.ipc.invoke('createSpecies', { species, common });
+        alert('Species inserted!');
+        setSpecies('');
+        setCommon('');
+        toEntryForm();
+      } catch (err) {
+        alert('Failed to insert species: ' + (err?.message || err));
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    return (
+      <div className={styles.magnus}>
+        <h1>Test Page insert species</h1>
+        <form onSubmit={handleSubmit}>
+          <label>Species:</label>
+          <input value={species} onChange={e => setSpecies(e.target.value)} />
+          <label>Common Name:</label>
+          <input value={common} onChange={e => setCommon(e.target.value)} />
+          <div>
+            <button type="submit" disabled={loading}>Enter</button>
+            <button type="button" onClick={toEntryForm}>Cancel</button>
+          </div>
+        </form>
       </div>
     );
   }
@@ -229,6 +282,7 @@ export default function databasePage() {
           <SiteEntryPage />
           <DeploymentEntryPage />
           <RecordingEntryPage />
+          <TestPage />
         </div>
       </div>
 

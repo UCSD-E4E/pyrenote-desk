@@ -27,8 +27,7 @@ export default function SettingsPage() {
     const [confidenceRange, setConfidenceRange] = useState(localStorage.getItem('confidenceRange'));
     const [defaultColumns, setDefaultColumns] = useState(localStorage.getItem('defaultColumns'));
 
-    //TODO: change it from pyrenoteDeskDatabase.db to something else
-    
+    //TODO: change default database path to something else, or force user to select database
     const [databasePath, setDatabasePath] = useState(localStorage.getItem('databasePath') || './pyrenoteDeskDatabase.db');
     const [availableDatabases, setAvailableDatabases] = useState([
         { Country: 'Default', filepath: './pyrenoteDeskDatabase.db' }
@@ -122,6 +121,8 @@ export default function SettingsPage() {
     function newDatabasePath(path) {
         localStorage.setItem('databasePath', path);
         setDatabasePath(localStorage.getItem('databasePath'));
+        window.ipc.invoke('set-db-path', path);
+        console.log("path set to ", path);
     }
 
     //TODO: Implement Local Storage for existing settings

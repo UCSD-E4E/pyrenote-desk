@@ -186,5 +186,9 @@ ipcMain.handle("pick-files-for-verification", async (_event) => {
 });
 
 ipcMain.handle('set-db-path', (_event, dbPath: string) => {
+  if (dbInstance) {
+    dbInstance.close();
+  }
   selectedDbPath = dbPath;
+  dbInstance = createDatabase();
 });
