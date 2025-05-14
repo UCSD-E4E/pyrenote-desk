@@ -2,9 +2,11 @@
 import pandas as pd
 import sqlite3
 import sys
+import datetime as dt
 from datetime import datetime
 import os
 import filecmp
+from mutagen import File as MutagenFile
 
 # For dataloader and dataset simulation (assuming torch is used)
 from torch.utils.data import DataLoader, Dataset
@@ -58,39 +60,47 @@ class DBHelper:
         )
         self.connection.commit()
 
-    def save_recording_file(self, flac_file_path):
+    def save_recording_file(self, audio_file_path, dest_path=None):
         """
-        Save a recording file (.flac) to the hidden .recordings directory in the current working directory.
-        If the directory doesn't exist, it will be created.
+        Save an audio file to a specified location.
+        If dest_path is not provided, defaults to hidden .recordings directory.
         
         Args:
-            flac_file_path: Path to the flac file to save
-        
+            audio_file_path: Path to the source audio file
+            dest_path: Optional destination directory or full file path
         Returns:
-            str: Path to the saved file in the .recordings directory
+            str: Path to the saved file
         """
-        # Check if the file exists
-        if not os.path.exists(flac_file_path):
-            raise FileNotFoundError(f"Recording file not found: {flac_file_path}")
+        # Check if source exists
+        if not os.path.exists(audio_file_path):
+            raise FileNotFoundError(f"Recording file not found: {audio_file_path}")
         
-        # Ensure the file is a .flac file
-        if not flac_file_path.lower().endswith('.flac'):
-            raise ValueError(f"File must be a .flac file: {flac_file_path}")
+        # Ensure supported audio format
+        supported_ext = ['.flac', '.mp3', '.wav', '.aac', '.m4a', '.ogg']
+        ext = os.path.splitext(audio_file_path)[1].lower()
+        if ext not in supported_ext:
+            raise ValueError(f"Unsupported audio format '{ext}': {audio_file_path}")
         
-        # Check if .recordings directory exists, create if not
-        recordings_dir = os.path.join(os.getcwd(), '.recordings')
-        if not os.path.exists(recordings_dir):
-            os.makedirs(recordings_dir)
-            print(f"Created hidden directory: {recordings_dir}")
+        # Determine destination path
+        if dest_path:
+            # if dest_path is a directory or ends with path separator, treat as directory
+            if os.path.isdir(dest_path) or dest_path.endswith(os.sep):
+                os.makedirs(dest_path, exist_ok=True)
+                destination_path = os.path.join(dest_path, os.path.basename(audio_file_path))
+            else:
+                # specified as full file path
+                os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+                destination_path = dest_path
+        else:
+            # default to hidden .recordings directory
+            recordings_dir = os.path.join(os.getcwd(), '.recordings')
+            os.makedirs(recordings_dir, exist_ok=True)
+            destination_path = os.path.join(recordings_dir, os.path.basename(audio_file_path))
         
-        # Copy the file to .recordings directory
-        filename = os.path.basename(flac_file_path)
-        destination_path = os.path.join(recordings_dir, filename)
-        
-        # Copy the file if it doesn't exist or is different
-        if not os.path.exists(destination_path) or not filecmp.cmp(flac_file_path, destination_path):
+        # Copy if new or differs
+        if not os.path.exists(destination_path) or not filecmp.cmp(audio_file_path, destination_path):
             import shutil
-            shutil.copy2(flac_file_path, destination_path)
+            shutil.copy2(audio_file_path, destination_path)
             print(f"Saved recording to: {destination_path}")
         else:
             print(f"Recording already exists at: {destination_path}")
@@ -100,7 +110,7 @@ class DBHelper:
     def insert_recording(self, recording_id, deployment_id, filename, url):
         """
         Insert a new recording into the Recording table.
-        Get datetime and duration from the flac file at the given URL.
+        Get datetime and duration from the audio file at the given URL.
         
         Args:
             recording_id: The ID for the new recording
@@ -116,34 +126,31 @@ class DBHelper:
             raise FileNotFoundError(f"Recording file not found at URL: {url}")
         
         try:
-            # Get datetime and duration from the flac file
-            # In a real implementation, you would use a library like mutagen to get these values
-            # Here we're using dummy values for demonstration
-            import datetime as dt
-            from mutagen.flac import FLAC
-            
             try:
-                # Try to get actual metadata from the FLAC file
-                audio = FLAC(url)
-                # Get duration in seconds
-                duration = audio.info.length
-                
-                # Try to get date from metadata (if available)
-                # This is just an example - actual metadata may vary
-                if 'date' in audio:
-                    # Parse date with datetime if it's in a standard format
-                    date_str = audio['date'][0]
+                # load metadata from audio file (supports FLAC, MP3, WAV, etc.)
+                audio = MutagenFile(url)
+                # get duration in seconds
+                duration = audio.info.length if hasattr(audio.info, 'length') else 0.0
+
+                # try to get date from tags (common keys: 'date', 'TDRC', '©day')
+                tags = getattr(audio, 'tags', {}) or {}
+                date_str = None
+                for key in ('date', 'TDRC', '©day'):
+                    if key in tags:
+                        date_str = tags[key][0]
+                        break
+                if date_str:
                     recorded_datetime = dt.datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S")
                 else:
-                    # Use file modification time if no date metadata
+                    # fallback to file modification time
                     recorded_datetime = dt.datetime.fromtimestamp(os.path.getmtime(url))
-                    
+
             except Exception as e:
-                # If parsing fails, use current time and default duration
+                # if metadata parsing fails, use defaults
                 print(f"Could not read metadata from file, using defaults: {e}")
                 recorded_datetime = dt.datetime.now()
-                duration = 30.0  # Default 30 seconds duration
-                
+                duration = 30.0  # default duration
+
             # Format datetime as string for SQLite
             datetime_str = recorded_datetime.strftime("%Y-%m-%d %H:%M:%S")
             
