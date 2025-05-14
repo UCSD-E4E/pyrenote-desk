@@ -647,6 +647,35 @@ const AudioPlayer: React.FC = () => {
         labelElem.textContent = species;
     };
 
+
+  const [selection, setSelection] = useState(false);
+  function toggleRecordingSelect() {
+    setSelection(!selection);
+  }
+  function SelectRecordings() {
+    if (!selection) {
+      return null;
+    }
+    return (
+      <div>
+        <section className={styles.selectPopup}>
+          <label>Select Site</label>
+          <select>Unselected</select>
+          <label>Select Recorder</label>
+          <select>Unselected</select>
+          <label>Select Survey</label>
+          <select>Unselected</select>
+          <label>Select Deployment</label>
+          <select>Unselected</select>
+          <button onClick={toggleRecordingSelect}>Select</button>
+          <button onClick={toggleRecordingSelect}>Cancel</button>
+        </section>
+
+        <div className={styles.overlay}></div>
+        </div>
+    );
+    }
+
     return (
         <React.Fragment>
             <Head>
@@ -655,6 +684,8 @@ const AudioPlayer: React.FC = () => {
             <div className={styles.container}>
                 <div className={styles.main}>
                     <div className={styles.header}>
+                        <button onClick={toggleRecordingSelect}>Select Recordings</button>
+                        <SelectRecordings />
                         <input
                             type="file"
                             multiple

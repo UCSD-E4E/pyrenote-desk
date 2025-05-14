@@ -487,6 +487,34 @@ export default function VerifyPage() {
 	}, [selected, playingSpectro, playSpeed, skipInterval, frozen]);
 	
 
+	const [selection, setSelection] = useState(false);
+	function toggleRecordingSelect() {
+	  setSelection(!selection);
+	}
+	function SelectRecordings() {
+	  if (!selection) {
+		return null;
+	  }
+	  return (
+		<div>
+		  <section className={styles.selectPopup}>
+			<label>Select Site</label>
+			<select>Unselected</select>
+			<label>Select Recorder</label>
+			<select>Unselected</select>
+			<label>Select Survey</label>
+			<select>Unselected</select>
+			<label>Select Deployment</label>
+			<select>Unselected</select>
+			<button onClick={toggleRecordingSelect}>Select</button>
+			<button onClick={toggleRecordingSelect}>Cancel</button>
+		  </section>
+  
+		  <div className={styles.fileSelectOverlay}></div>
+		  </div>
+	  );
+	}
+
 	// <input type="file" accept=".mp4, .wav, .txt, .json" className={styles.hiddenInputFile} multiple onChange={handleFileSelection}/>
 	return (
 		<React.Fragment>
@@ -495,7 +523,8 @@ export default function VerifyPage() {
 			</Head>
 			<div id="container" className={styles.container} onMouseMove={() => {if (!frozen) setMouseControl(true)}}>
 				<div className = {styles.verifyButtonMenu}>
-
+					<button onClick={toggleRecordingSelect}>Select Recordings</button>
+					<SelectRecordings />
 					<label className={styles.pickFiles} onClick={handleFileSelectionNew}>
 						<p>Select files</p>
 					</label> 

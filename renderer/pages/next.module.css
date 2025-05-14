@@ -1,50 +1,32 @@
-.home,.model,.label,.database {
-    align-items: center;
-    margin-top:50px;
-    padding: 10px; /* Add some padding for better spacing */
-    border-radius: 8px;
-  }
-.database:hover{
-    background-color: #b3fad1;
-    cursor: pointer;
-}
-.model:hover{
-    background-color: #b3fad1;
-    cursor: pointer;
-}
-.label:hover{
-    background-color: #b3fad1;
-    cursor: pointer;
-}
-.home:hover{
-    background-color: #b3fad1;
-    cursor: pointer;
-}
-
-.home img {
-    border-radius: 8px; /* Rounded corners for the image */
-  }
-
 .container {
     margin-top: 50px;
     background-color: rgb(243, 243, 243);
     border-radius: 15px;
-    display: flex;
+    /* display: flex; */
     gap: 20px; /* Space between container and magnus */
     width: 80%;
     padding: 20px;
     align-items: flex-start;
-    flex-direction: column;
+    /* flex-direction: column; */
 }
 
 .magnus {
-    padding: 60px;
+    padding: 10px;
     flex-direction: column;
     box-sizing: border-box;
     display: flex;
     align-items: flex-start;
     flex: 1; /* Allow magnus to grow and take available space */
+    width: 80%;
+    background-color: white;
+    margin-right: 20%;
+    padding-left: 15%;
+}
+
+.magnusContent {
     width: 100%;
+    display: flex;
+    flex-direction: column;
 }
 
 .magnus h1 {
@@ -110,4 +92,63 @@
 
 .labelInput input {
     width: 80%;
+}
+
+.selectPopup {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.4rem;
+  width: 450px;
+  padding: 1.3rem;
+  min-height: 250px;
+  position: absolute;
+  top: 20%;
+  background-color: white;
+  border: 1px solid #ddd;
+  border-radius: 15px;
+  z-index: 2;
+}
+
+.overlay {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(3px);
+    z-index: 1;
+}
+
+.databaseNav {
+    float: right;
+    width: 20%;
+    flex-direction: column;
+}
+
+.databaseNav button {
+    width: 100%;
+    background-color:rgb(243, 243, 243);
+    border: 0px;
+    padding-top: 30px;
+    padding-bottom: 30px;
+    font-size: 15px;
+}
+
+.databaseNav button:hover {
+    background-color: white;
+}
+
+#selected {
+    background-color: white;
+}
+
+.hr {
+    border: 1px solid lightgray;
+    width: 120%;
+    padding:0px;
+    margin-left:-20%;
 }
