@@ -253,33 +253,14 @@ export default function VerifyPage() {
 			wavesurferRef.current.setPlaybackRate(playSpeed);
 		}
 		
-		const play = useCallback((playbackRate=null) => {
+		const playPause = (playbackRate=null) => {
 			if (playbackRate != null) {
 				setPlaybackRate(playbackRate);
 			}
-			console.log(isPlaying);
-			wavesurferRef.current.play();
-			setIsPlaying(true);
-			return wavesurferRef.current.isPlaying();
-		}, [isPlaying])
-		const pause = useCallback((playbackRate=null) => {
-			if (playbackRate != null) {
-				setPlaybackRate(playbackRate);
-			}
-			console.log(isPlaying);
-			wavesurferRef.current.pause();
-			setIsPlaying(false);
-			return wavesurferRef.current.isPlaying();
-		}, [isPlaying])
-		const playPause = useCallback((playbackRate=null) => {
-			if (playbackRate != null) {
-				setPlaybackRate(playbackRate);
-			}
-			console.log(isPlaying);
 			setIsPlaying(!wavesurferRef.current.isPlaying());
 			wavesurferRef.current.playPause();
 			return wavesurferRef.current.isPlaying();
-		}, [isPlaying])
+		}
 
 		useImperativeHandle(ref, ()=>{ // exposed functions
 			return { // SpectroRef
@@ -297,8 +278,8 @@ export default function VerifyPage() {
 				setIsHovered,
 				setPlaybackRate,
 				playPause,
-				play, // : () => { wavesurferRef.current.play(); },
-				pause, // : () => { wavesurferRef.current.pause(); },
+				play : () => { wavesurferRef.current.play(); },
+				pause : () => { wavesurferRef.current.pause(); },
 				setTime: (time) => { wavesurferRef.current.setTime(time) },
 				getTime: () => { return wavesurferRef.current.getCurrentTime() },
 				skip: (time) => {wavesurferRef.current.skip(time) },
