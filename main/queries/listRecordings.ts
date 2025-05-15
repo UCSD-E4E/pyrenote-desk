@@ -10,6 +10,7 @@ const listRecordings = async (): Promise<RecordingWithData[]> => {
   `);
   try {
     const rows = statement.all();
+    // NOTE: Not sure if this would work for super large audio files
     const rowsWithData: RecordingWithData[] = rows.map((r) => ({
       ...r,
       fileData: new Uint8Array(fs.readFileSync(r.url)),
