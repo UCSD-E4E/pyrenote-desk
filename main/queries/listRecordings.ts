@@ -1,8 +1,7 @@
 import { getDatabase } from "../background";
-import { Recording } from "../schema";
+import { Recording, RecordingWithData } from "../schema";
 import fs from "fs";
 
-type RecordingWithData = Recording & { fileData: Uint8Array };
 const listRecordings = async (): Promise<RecordingWithData[]> => {
   const db = getDatabase();
   const statement = db.prepare<never[], Recording>(`
