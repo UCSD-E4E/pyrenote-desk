@@ -395,10 +395,12 @@ export default function VerifyPage() {
 
 		// Update label on change
 		const [localLabel, setLocalLabel] = useState(linkedSpectro?.species || "");
+  		const [displaySpecies, setDisplaySpecies] = useState(linkedSpectro?.species || "");
 		
-		useEffect(() => {
-			setLocalLabel(linkedSpectro?.species || "");
-		}, [linkedSpectro]);
+  		useEffect(() => {
+    		setLocalLabel(linkedSpectro?.species || "");
+    		setDisplaySpecies(linkedSpectro?.species || "");
+  		}, [linkedSpectro]);
 
 		const applyLabel = () => {
 			if (linkedSpectro && localLabel.trim() !== "") {
@@ -407,6 +409,7 @@ export default function VerifyPage() {
 					spectrograms.current[-1].setSpecies(localLabel);
 				}
 				setCurrentLabel(localLabel); // Update the parent component's currentLabel state
+				setDisplaySpecies(localLabel);
 			}
 		};
 
@@ -414,15 +417,15 @@ export default function VerifyPage() {
 			<div ref={modalRef} className={styles.modal}>
 				<div className={styles.modalHeader}>
 					<div>ID: {linkedSpectro?.fullIndex + 1}</div>
-					<div>Species: {linkedSpectro?.species || ""}</div>
-				</div>
+					<div>Species: {displaySpecies}</div>
+				</div>				
 				<Spectrogram 
 					id={-1} 
 					fullIndex={fullIndex}
 					url={url} 
 					isFlagged={linkedSpectro.isFlagged}
 					status={linkedSpectro.status}
-					species={linkedSpectro.species}
+					species={displaySpecies}
 					onMouseEnter={onMouseEnter}
 					onMouseLeave={onMouseLeave}
 					onClick={onClick}
@@ -440,10 +443,24 @@ export default function VerifyPage() {
 							onBlur={() => setIsModalInputFocused(false)}
 							// Add keydown event handler directly to the input
 							onKeyDown={(e) => {
-								if (e.key === "Enter") {
-									e.preventDefault();
-									applyLabel();
+							if (e.key === "Enter") {
+								e.preventDefault();
+								
+								// Apply the label
+								if (linkedSpectro && localLabel.trim() !== "") {
+								linkedSpectro.setSpecies(localLabel);
+								if (spectrograms.current[-1]) {
+									spectrograms.current[-1].setSpecies(localLabel);
 								}
+								setCurrentLabel(localLabel);
+								
+								// Update modal
+								toggleModal();
+								setTimeout(() => {
+									toggleModal();
+								}, 10);
+								}
+							}
 							}}
 						/>
 					</div>
@@ -454,7 +471,7 @@ export default function VerifyPage() {
 				</div>
 			</div>
 		);
-	}), [selected, currentLabel]); // Add dependencies to ensure callback updates
+	}), [selected, currentLabel, setCurrentLabel]); // Add dependencies to ensure callback updates
 
 	// MODAL
 
