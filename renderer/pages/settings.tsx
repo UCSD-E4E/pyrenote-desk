@@ -4,6 +4,7 @@ import Head from 'next/head';
 import Link from 'next/link';
 import Image from 'next/image';
 
+const defaultDatabasePath = './pyrenoteDeskDatabase.db';
 export default function SettingsPage() {
     const [showGeneral, setShowGeneral] = useState(false);
     const [showData, setShowData] = useState(false);
@@ -28,17 +29,22 @@ export default function SettingsPage() {
     const [defaultColumns, setDefaultColumns] = useState(localStorage.getItem('defaultColumns'));
 
     //TODO: change default database path to something else, or force user to select database
-    const [databasePath, setDatabasePath] = useState(localStorage.getItem('databasePath') || './pyrenoteDeskDatabase.db');
+    const [databasePath, setDatabasePath] = useState(localStorage.getItem('databasePath') || defaultDatabasePath);
     const [availableDatabases, setAvailableDatabases] = useState([
-        { Country: 'Default', filepath: './pyrenoteDeskDatabase.db' }
+        { Country: 'Default', filepath: defaultDatabasePath }
     ]);
+    const [showNewDatabaseForm, setShowNewDatabaseForm] = useState(false);
+    const [newDatabaseName, setNewDatabaseName] = useState('');
+    const [isCreatingDatabase, setIsCreatingDatabase] = useState(false);
+    const [editingDatabase, setEditingDatabase] = useState(null);
+    const [editDatabaseName, setEditDatabaseName] = useState('');
 
     useEffect(() => {
         fetch('/masterdb.json')
             .then(response => response.json())
             .then(data => {
                 const dbs = [
-                    { Country: 'Default', filepath: './pyrenoteDeskDatabase.db' },
+                    { Country: 'Default', filepath: defaultDatabasePath },
                     ...data.databases
                 ];
                 setAvailableDatabases(dbs);
@@ -144,7 +150,7 @@ export default function SettingsPage() {
         localStorage.setItem('verifyColorScheme', 'black and white');
         localStorage.setItem('confidenceRange', '10');
         localStorage.setItem('defaultColumns', '4');
-        localStorage.setItem('databasePath', './pyrenoteDeskDatabase.db');
+        localStorage.setItem('databasePath', defaultDatabasePath);
 
         setUsername('');
         setEmail('');
@@ -162,7 +168,7 @@ export default function SettingsPage() {
         setVerifyColorScheme('black and white');
         setConfidenceRange('10');
         setDefaultColumns('4');
-        setDatabasePath('./pyrenoteDeskDatabase.db');
+        setDatabasePath(defaultDatabasePath);
     }
     function exportSettings() {
         const settings = {
@@ -248,6 +254,127 @@ export default function SettingsPage() {
         input.click();
     }
 
+    async function createNewDatabase() {
+        if (!newDatabaseName.trim()) { //if name is empty
+            alert('Please enter a database name');
+            return;
+        }
+
+        setIsCreatingDatabase(true);
+        try {
+            const result = await window.ipc.invoke('create-new-database', {
+                name: newDatabaseName.trim(),
+                filepath: `./databases/${newDatabaseName.trim().toLowerCase().replace(/\s+/g, '_')}.db`
+            });
+
+            if (result.success) {
+                //Refresh database list
+                const response = await fetch('/masterdb.json');
+                const data = await response.json();
+                const dbs = [
+                    { Country: 'Default', filepath: defaultDatabasePath },
+                    ...data.databases
+                ];
+                setAvailableDatabases(dbs);
+                
+                //Reset form
+                setNewDatabaseName('');
+                setShowNewDatabaseForm(false);
+            } else {
+                alert('Failed to create database: ' + result.error);
+            }
+        } catch (error) {
+            alert('Error creating database: ' + error);
+        } finally {
+            setIsCreatingDatabase(false);
+        }
+    }
+
+    async function deleteDatabase(db) {
+        if (db.filepath === defaultDatabasePath) {
+            alert('Cannot delete the default database');
+            return;
+        }
+
+        if (!confirm(`Are you sure you want to delete the database "${db.Country}"?`)) {
+            return;
+        }
+
+        try {
+            const result = await window.ipc.invoke('delete-database', {
+                filepath: db.filepath,
+                country: db.Country
+            });
+
+            if (result.success) {
+                // Refresh database list
+                const response = await fetch('/masterdb.json');
+                const data = await response.json();
+                const dbs = [
+                    { Country: 'Default', filepath: defaultDatabasePath },
+                    ...data.databases
+                ];
+                setAvailableDatabases(dbs);
+                
+                // If the deleted database was selected, switch to default
+                if (databasePath === db.filepath) {
+                    newDatabasePath(defaultDatabasePath);
+                }
+            } else {
+                alert('Failed to delete database: ' + result.error);
+            }
+        } catch (error) {
+            alert('Error deleting database: ' + error);
+        }
+    }
+
+    async function editDatabase(db) {
+        if (db.filepath === defaultDatabasePath) {
+            alert('Cannot edit the default database');
+            return;
+        }
+
+        setEditingDatabase(db);
+        setEditDatabaseName(db.Country);
+    }
+
+    async function saveDatabaseEdit() {
+        if (!editDatabaseName.trim()) {
+            alert('Please enter a database name');
+            return;
+        }
+
+        try {
+            const result = await window.ipc.invoke('edit-database', {
+                oldName: editingDatabase.Country,
+                newName: editDatabaseName.trim(),
+                filepath: editingDatabase.filepath
+            });
+
+            if (result.success) {
+                // Refresh database list
+                const response = await fetch('/masterdb.json');
+                const data = await response.json();
+                const dbs = [
+                    { Country: 'Default', filepath: defaultDatabasePath },
+                    ...data.databases
+                ];
+                setAvailableDatabases(dbs);
+                
+                // If the edited database was selected, update the path
+                if (databasePath === editingDatabase.filepath) {
+                    newDatabasePath(editingDatabase.filepath);
+                }
+                
+                setEditingDatabase(null);
+                setEditDatabaseName('');
+            } else {
+                alert('Failed to edit database: ' + result.error);
+            }
+        } catch (error) {
+            alert('Error editing database: ' + error);
+        }
+    }
 
   return (
     <React.Fragment>
@@ -302,6 +429,83 @@ export default function SettingsPage() {
                                 </option>
                             ))}
                         </select>
+                        <button 
+                            type="button" 
+                            onClick={() => setShowNewDatabaseForm(!showNewDatabaseForm)}
+                            style={{ marginLeft: '10px' }}
+                        >
+                            {showNewDatabaseForm ? 'Cancel' : 'Add New Database'}
+                        </button>
+                        {showNewDatabaseForm && (
+                            <div style={{ marginTop: '10px' }}>
+                                <label>New Database Name: </label>
+                                <input
+                                    type="text"
+                                    value={newDatabaseName}
+                                    onChange={(e) => setNewDatabaseName(e.target.value)}
+                                    placeholder="Enter database name"
+                                    style={{ marginRight: '10px' }}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={createNewDatabase}
+                                    disabled={isCreatingDatabase}
+                                >
+                                    {isCreatingDatabase ? 'Creating...' : 'Create Database'}
+                                </button>
+                            </div>
+                        )}
+                        {editingDatabase && (
+                            <div style={{ marginTop: '10px' }}>
+                                <label>Edit Database Name: </label>
+                                <input
+                                    type="text"
+                                    value={editDatabaseName}
+                                    onChange={(e) => setEditDatabaseName(e.target.value)}
+                                    placeholder="Enter new name"
+                                    style={{ marginRight: '10px' }}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={saveDatabaseEdit}
+                                >
+                                    Save
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setEditingDatabase(null);
+                                        setEditDatabaseName('');
+                                    }}
+                                    style={{ marginLeft: '10px' }}
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                        )}
+                        <div style={{ marginTop: '10px' }}>
+                            {availableDatabases.map((db) => (
+                                db.filepath !== defaultDatabasePath && (
+                                    <div key={db.filepath} style={{ marginBottom: '5px' }}>
+                                        <span>{db.Country}</span>
+                                        <button
+                                            type="button"
+                                            onClick={() => editDatabase(db)}
+                                            style={{ marginLeft: '10px' }}
+                                        >
+                                            Edit
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => deleteDatabase(db)}
+                                            style={{ marginLeft: '10px' }}
+                                        >
+                                            Delete
+                                        </button>
+                                    </div>
+                                )
+                            ))}
+                        </div>
                         <br></br>
                         <label >Input Style: </label>
                         <input type="text" id="fname" name="fname"

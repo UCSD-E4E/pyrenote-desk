@@ -14,6 +14,7 @@ export default function databasePage() {
   const [deployment, setDeployment] = useState(false);
   const [recording, setRecording] = useState(false);
   const [test, setTest] = useState(false);
+  const [databases, setDatabases] = useState(false);
 
   function toEntryForm() {
     setEntry(true);
@@ -23,11 +24,17 @@ export default function databasePage() {
     setDeployment(false);
     setRecording(false);
     setTest(false);
+    setDatabases(false);
   }
 
   function toTestForm() {
     setEntry(false);
     setTest(true);
+  }
+
+  function toDatabasesForm() {
+    setEntry(false);
+    setDatabases(true);
   }
 
   function toRecorderForm() {
@@ -62,7 +69,8 @@ export default function databasePage() {
     return (
       <div className={styles.magnus}>
         <h1>Database Page</h1>
-  
+        <p style={{ color: 'red' }}>Current Database Path: {localStorage.getItem('databasePath')}</p>
+        <button onClick={toDatabasesForm}>View and Edit Databases</button>
         <button onClick={toRecorderForm}>Add Recorder</button>
         <button onClick={toSurveyForm}>Add Survey</button>
         <button onClick={toSiteForm}>Add Site</button>
@@ -268,6 +276,247 @@ export default function databasePage() {
     );
   }
 
+  function DatabasesPage() {
+    if (!databases) {
+      return null;
+    }
+    const [loading, setLoading] = useState(false);
+    const [databaseList, setDatabaseList] = useState([]);
+    const [showNewDatabaseForm, setShowNewDatabaseForm] = useState(false);
+    const [newDatabaseName, setNewDatabaseName] = useState('');
+    const [editingDatabase, setEditingDatabase] = useState(null);
+    const [editDatabaseName, setEditDatabaseName] = useState('');
+    const [selectedDatabase, setSelectedDatabase] = useState(localStorage.getItem('databasePath') || './pyrenoteDeskDatabase.db');
+
+    useEffect(() => {
+      loadDatabases();
+    }, [databases]);
+
+    const loadDatabases = async () => {
+      try {
+        const dbs = await window.ipc.invoke('listDatabases');
+        setDatabaseList(dbs);
+      } catch (err) {
+        console.error('Failed to load databases:', err);
+        alert('Failed to load databases: ' + (err?.message || err));
+      }
+    };
+
+    const handleSelectDatabase = async (db) => {
+      try {
+        await window.ipc.invoke('set-db-path', db.filepath);
+        localStorage.setItem('databasePath', db.filepath);
+        setSelectedDatabase(db.filepath);
+        alert(`Selected database: ${db.Country}`);
+      } catch (error) {
+        alert('Error selecting database: ' + error);
+      }
+    };
+
+    const handleCreateDatabase = async () => {
+      if (!newDatabaseName.trim()) {
+        alert('Please enter a database name');
+        return;
+      }
+
+      setLoading(true);
+      try {
+        const result = await window.ipc.invoke('create-new-database', {
+          name: newDatabaseName.trim(),
+          filepath: `./databases/${newDatabaseName.trim().toLowerCase().replace(/\s+/g, '_')}.db`
+        });
+
+        if (result.success) {
+          await loadDatabases();
+          setNewDatabaseName('');
+          setShowNewDatabaseForm(false);
+        } else {
+          alert('Failed to create database: ' + result.error);
+        }
+      } catch (error) {
+        alert('Error creating database: ' + error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    const handleDeleteDatabase = async (db) => {
+      if (db.filepath === selectedDatabase) {
+        alert('Cannot delete selected database. Please select another database before deleting');
+        return;
+      }
+
+      if (!confirm(`Are you sure you want to delete the database "${db.Country}"?`)) {
+        return;
+      }
+
+      try {
+        const result = await window.ipc.invoke('delete-database', {
+          filepath: db.filepath,
+          country: db.Country
+        });
+
+        if (result.success) {
+          await loadDatabases();
+        } else {
+          alert('Failed to delete database: ' + result.error);
+        }
+      } catch (error) {
+        alert('Error deleting database: ' + error);
+      }
+    };
+
+    const handleEditDatabase = async () => {
+      if (!editDatabaseName.trim()) {
+        alert('Please enter a database name');
+        return;
+      }
+
+      try {
+        const result = await window.ipc.invoke('edit-database', {
+          oldName: editingDatabase.Country,
+          newName: editDatabaseName.trim(),
+          filepath: editingDatabase.filepath
+        });
+
+        if (result.success) {
+          await loadDatabases();
+          setEditingDatabase(null);
+          setEditDatabaseName('');
+        } else {
+          alert('Failed to edit database: ' + result.error);
+        }
+      } catch (error) {
+        alert('Error editing database: ' + error);
+      }
+    };
+
+    return (
+      <div className={styles.magnus}>
+        <h1>View and Edit Databases</h1>
+        <div>
+          <h2>Available Databases</h2>
+          <button 
+            type="button" 
+            onClick={() => setShowNewDatabaseForm(!showNewDatabaseForm)}
+            style={{ marginBottom: '10px' }}
+          >
+            {showNewDatabaseForm ? 'Cancel' : 'Add New Database'}
+          </button>
+
+          {showNewDatabaseForm && (
+            <div style={{ marginBottom: '20px' }}>
+              <label>New Database Name: </label>
+              <input
+                type="text"
+                value={newDatabaseName}
+                onChange={(e) => setNewDatabaseName(e.target.value)}
+                placeholder="Enter database name"
+                style={{ marginRight: '10px' }}
+              />
+              <button
+                type="button"
+                onClick={handleCreateDatabase}
+                disabled={loading}
+              >
+                {loading ? 'Creating...' : 'Create Database'}
+              </button>
+            </div>
+          )}
+
+          {editingDatabase && (
+            <div style={{ marginBottom: '20px' }}>
+              <label>Edit Database Name: </label>
+              <input
+                type="text"
+                value={editDatabaseName}
+                onChange={(e) => setEditDatabaseName(e.target.value)}
+                placeholder="Enter new name"
+                style={{ marginRight: '10px' }}
+              />
+              <button
+                type="button"
+                onClick={handleEditDatabase}
+              >
+                Save
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingDatabase(null);
+                  setEditDatabaseName('');
+                }}
+                style={{ marginLeft: '10px' }}
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+
+          {databaseList.length === 0 ? (
+            <p>No databases found</p>
+          ) : (
+            <ul style={{ listStyle: 'none', padding: 0 }}>
+              {databaseList.map((db) => (
+                <li key={db.ID} style={{ 
+                  marginBottom: '10px', 
+                  padding: '10px',
+                  border: '1px solid #ccc',
+                  borderRadius: '4px',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center'
+                }}>
+                  <div>
+                    <strong>{db.Country}</strong>
+                    <small style={{ display: 'block', color: '#666' }}>{db.filepath}</small>
+                    {selectedDatabase === db.filepath && (
+                      <span style={{ color: 'green', fontSize: '0.9em' }}>✓ Currently Selected</span>
+                    )}
+                  </div>
+                  <div>
+                    <button
+                      type="button"
+                      onClick={() => handleSelectDatabase(db)}
+                      style={{ 
+                        marginRight: '10px',
+                        backgroundColor: selectedDatabase === db.filepath ? '#4CAF50' : '#2196F3',
+                        color: 'white',
+                        border: 'none',
+                        padding: '5px 10px',
+                        borderRadius: '3px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {selectedDatabase === db.filepath ? 'Selected' : 'Select'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingDatabase(db);
+                        setEditDatabaseName(db.Country);
+                      }}
+                      style={{ marginRight: '10px' }}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteDatabase(db)}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+          <button type="button" onClick={toEntryForm}>Back</button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <React.Fragment>
       <Head>
@@ -276,6 +525,7 @@ export default function databasePage() {
 
       <div className={styles.container}>
         <div>
+          <DatabasesPage />
           <EntryHomepage />
           <RecorderEntryPage />
           <SurveyEntryPage />

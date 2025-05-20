@@ -26,6 +26,8 @@ const exposedQueries: QueriesApi = {
     invokeQuery("listAnnotationsByRegionId", ...args),
   listRegionOfInterestByRecordingId: (...args) =>
     invokeQuery("listRegionOfInterestByRecordingId", ...args),
+  listDatabases: (...args) => invokeQuery("listDatabases", ...args),
+
 };
 
 const exposedMutations: MutationsApi = {
