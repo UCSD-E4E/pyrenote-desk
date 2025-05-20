@@ -392,6 +392,24 @@ export default function VerifyPage() {
 		toggleModal,
 	}, ref) => {
 		const modalRef = useRef(null);
+
+		// Update label on change
+		const [localLabel, setLocalLabel] = useState(linkedSpectro?.species || "");
+		
+		useEffect(() => {
+			setLocalLabel(linkedSpectro?.species || "");
+		}, [linkedSpectro]);
+
+		const applyLabel = () => {
+			if (linkedSpectro && localLabel.trim() !== "") {
+				linkedSpectro.setSpecies(localLabel);
+				if (spectrograms.current[-1]) {
+					spectrograms.current[-1].setSpecies(localLabel);
+				}
+				setCurrentLabel(localLabel); // Update the parent component's currentLabel state
+			}
+		};
+
 		return (
 			<div ref={modalRef} className={styles.modal}>
 				<div className={styles.modalHeader}>
@@ -412,35 +430,36 @@ export default function VerifyPage() {
 					ref={ref}
 				/>
 				<div className={styles.modalControls}>
+					<div>
+						<input 
+							type="text" 
+							value={localLabel}
+							onChange={(e) => setLocalLabel(e.target.value)}
+							placeholder="Enter label"
+							onFocus={() => setIsModalInputFocused(true)}
+							onBlur={() => setIsModalInputFocused(false)}
+							// Add keydown event handler directly to the input
+							onKeyDown={(e) => {
+								if (e.key === "Enter") {
+									e.preventDefault();
+									applyLabel();
+								}
+							}}
+						/>
+					</div>
 					<button onClick={(e)=>{
 						toggleModal();
 						e.stopPropagation();
 					}}>Close</button>
-					<div>
-						<input 
-							type="text" 
-							value={currentLabel}
-							onChange={(e) => setCurrentLabel(e.target.value)}
-							placeholder="Enter label"
-						/>
-						<button onClick={() => {
-							linkedSpectro.setSpecies(currentLabel);
-							if (spectrograms.current[-1]) {
-								spectrograms.current[-1].setSpecies(currentLabel);
-							}
-						}}>
-							Apply Label
-						</button>
-					</div>
 				</div>
 			</div>
 		);
-	}), [selected, currentLabel]);
-
+	}), [selected, currentLabel]); // Add dependencies to ensure callback updates
 
 	// MODAL
 
 	const [showModal, setShowModal] = useState(false);
+	const [isModalInputFocused, setIsModalInputFocused] = useState(false);
 	const toggleModal = useCallback(() => {  // wraps setShowModal
 		if (selected != null) {
 			setShowModal((prev) => {
@@ -595,6 +614,21 @@ export default function VerifyPage() {
 
 	useEffect(() => { // handle keyboard input
 		const handleKeyDown = (event) => {
+			if (isModalInputFocused) {
+				if (event.key === "Escape") {
+					setIsModalInputFocused(false);
+				} 
+				return; 
+			}
+
+			// If modal is open but input is not focused, only handle Escape
+			if (showModal && !isModalInputFocused) {
+				if (event.key === "Escape") {
+					toggleModal();
+				}
+				return; 
+			}
+			
 			if (isLabelingMode && event.key !== "Escape" && event.key !== "Enter" && event.key !== "Shift") {
 				if (event.key === "Backspace") {
 					setCurrentLabel(prev => prev.slice(0, -1));
@@ -604,29 +638,17 @@ export default function VerifyPage() {
 				return;
 			}
 
-			if (event.key == " ") {
-				event.preventDefault(); 
-			}
-
-			const func = keybinds[event.key];				
+			const func = keybinds[event.key];        
 			if (func) {
 				func();
 			}
 		};
 
-		const handleKeyUp = (event) => {
-			if (event.key === "Shift" && isLabelingMode && currentLabel.trim() !== "" && selected.length > 0) {
-				applyLabelToSelected();
-			}
-		};
-
 		window.addEventListener("keydown", handleKeyDown);
-		window.addEventListener("keyup", handleKeyUp);
 		return () => {
 			window.removeEventListener("keydown", handleKeyDown);
-			window.removeEventListener("keyup", handleKeyUp);
 		};
-	}, [selected, playingSpectro, playSpeed, skipInterval, frozen, isLabelingMode, currentLabel]);
+	}, [selected, playingSpectro, playSpeed, skipInterval, frozen, isLabelingMode, currentLabel, showModal, isModalInputFocused, toggleModal]);
 
 	const [isSelecting, setIsSelecting] = useState(false);
 	const [rectStart, setRectStart] = useState(null);
