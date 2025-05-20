@@ -22,7 +22,6 @@
 	margin-bottom: 0px 20px; 
 }
 
-
 .smallContainerRow {
 	flex: 1; 
 	display: flex; 
@@ -180,4 +179,21 @@
 	padding: 2px 6px;
 	border-radius: 4px;
 	pointer-events: none; /* don't interfere with clicks */
+}
+
+
+/* Added new class for species overlay */
+.speciesOverlay {
+	position: absolute;
+	top: 4px;
+	right: 6px;
+	color: white;
+	font-size: 14px;
+	font-weight: bold;
+	z-index: 10;
+	background-color: rgba(0, 0, 0, 0.6);
+	padding: 2px 6px;
+	border-radius: 4px;
+	pointer-events: none;
+	max-width: 90%;
 }

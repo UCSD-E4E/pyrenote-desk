@@ -367,9 +367,9 @@ export default function VerifyPage() {
 				style={{ position: "relative" }}
 			>
 				{id!=-1 && <div className={styles.indexOverlay}>{fullIndex+1}</div>}
-				{species && (
-					<div className={styles.speciesOverlay}>{species}</div>
-				)}
+    			<div className={styles.speciesOverlay} style={{ opacity: species ? 1 : 0 }}>
+      				{species || "No label"}
+    			</div>
 				<div id={`loading-spinner-${id}`} className={styles.waveLoadingCircle}></div>
 				<div 
 					id={`waveform-${id}`} 
