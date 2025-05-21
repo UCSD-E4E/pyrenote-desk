@@ -8,6 +8,7 @@ import os
 import filecmp
 from mutagen import File as MutagenFile
 import argparse
+import platform
 
 # For dataloader and dataset simulation (assuming torch is used)
 from torch.utils.data import DataLoader, Dataset
@@ -124,82 +125,95 @@ class DBHelper:
 
     def insert_recording(self, recording_id=None, deployment_id=None, filename=None, url=None):
         """
-        Insert a new recording; if recording_id is None, let SQLite auto-generate it.
-        Returns the recordingId used.
+        Parse url for drive prefix, verify and extract full path, then insert into DB.
         """
-        # Check if the file exists at the given URL
-        if not os.path.exists(url):
-            raise FileNotFoundError(f"Recording file not found at URL: {url}")
-        
+        # split drive prefix
+        if url and '::' in url:
+            drive, rel = url.split('::', 1)
+            base = DBHelper.find_mount_point(drive)
+            full_path = os.path.join(base, rel)
+        else:
+            full_path = url
+
+        if not os.path.exists(full_path):
+            raise FileNotFoundError(f"Recording file not found: {full_path}")
+
+        # metadata extraction uses full_path
         try:
-            try:
-                # load metadata from audio file (supports FLAC, MP3, WAV, etc.)
-                audio = MutagenFile(url)
-                # get duration in seconds
-                duration = audio.info.length if hasattr(audio.info, 'length') else 0.0
-
-                # try to get date from tags (common keys: 'date', 'TDRC', '©day')
-                tags = getattr(audio, 'tags', {}) or {}
-                date_str = None
-                for key in ('date', 'TDRC', '©day'):
-                    if key in tags:
-                        date_str = tags[key][0]
-                        break
-                if date_str:
-                    recorded_datetime = dt.datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S")
-                else:
-                    # fallback to file modification time
-                    recorded_datetime = dt.datetime.fromtimestamp(os.path.getmtime(url))
-
-            except Exception as e:
-                # if metadata parsing fails, use defaults
-                print(f"Could not read metadata from file, using defaults: {e}")
-                recorded_datetime = dt.datetime.now()
-                duration = 30.0  # default duration
-
-            # Format datetime as string for SQLite
-            datetime_str = recorded_datetime.strftime("%Y-%m-%d %H:%M:%S")
-            
-            if recording_id is None:
-                self.cursor.execute(
-                    "INSERT INTO Recording (deploymentId, filename, url, datetime, duration) VALUES (?, ?, ?, ?, ?)",
-                    (deployment_id, filename, url, datetime_str, duration),
-                )
-                rec_id = self.cursor.lastrowid
+            audio = MutagenFile(full_path)
+            duration = audio.info.length if hasattr(audio.info, 'length') else 0.0
+            tags = getattr(audio, 'tags', {}) or {}
+            date_str = None
+            for key in ('date','TDRC','©day'):
+                if key in tags:
+                    date_str = tags[key][0]; break
+            if date_str:
+                recorded_datetime = dt.datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S")
             else:
-                self.cursor.execute(
-                    """
-                    INSERT OR REPLACE INTO Recording 
-                    (recordingId, deploymentId, filename, url, datetime, duration)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                    """,
-                    (recording_id, deployment_id, filename, url, datetime_str, duration),
-                )
-                rec_id = recording_id
-            
-            self.connection.commit()
-            print(f"Recording inserted with ID: {rec_id}")
-            return rec_id
-            
-        except Exception as e:
-            print(f"Error inserting recording: {e}")
-            self.connection.rollback()
-            return False
+                recorded_datetime = dt.datetime.fromtimestamp(os.path.getmtime(full_path))
+        except Exception:
+            recorded_datetime = dt.datetime.now(); duration = 30.0
+
+        datetime_str = recorded_datetime.strftime("%Y-%m-%d %H:%M:%S")
+
+        # actual DB insert
+        if recording_id is None:
+            self.cursor.execute(
+                "INSERT INTO Recording (deploymentId, filename, url, datetime, duration) VALUES (?, ?, ?, ?, ?)",
+                (deployment_id, filename, url, datetime_str, duration)
+            )
+            rec_id = self.cursor.lastrowid
+        else:
+            self.cursor.execute(
+                "INSERT OR REPLACE INTO Recording (recordingId, deploymentId, filename, url, datetime, duration)"
+                " VALUES (?, ?, ?, ?, ?, ?)",
+                (recording_id, deployment_id, filename, url, datetime_str, duration)
+            )
+            rec_id = recording_id
+        self.connection.commit()
+        return rec_id
+
+    @staticmethod
+    def find_mount_point(drive_name):
+        """Locate mount point for given drive label on current OS."""
+        system = platform.system()
+        if system == 'Darwin':
+            base = '/Volumes'
+        elif system == 'Linux':
+            base = os.path.join('/media', os.getlogin())
+        elif system == 'Windows':
+            # Windows drive letter, e.g. 'E'
+            base = f"{drive_name.upper()}:\\"
+            if os.path.exists(base):
+                return base
+            raise FileNotFoundError(f"Drive {drive_name} not found at {base}")
+        else:
+            raise EnvironmentError(f"Unsupported OS: {system}")
+
+        path = os.path.join(base, drive_name)
+        if os.path.exists(path):
+            return path
+        raise FileNotFoundError(f"Drive {drive_name} not mounted under {base}")
 
 
 def download_url(url):
     """
-    Download content from the given URL.
-    Supports both audio (.wav, .flac, etc) and video files.
+    Handle drive-prefixed URLs or local paths.
     """
-    # If the file exists locally, read its binary content
-    if os.path.exists(url):
-        with open(url, "rb") as f:
+    if url and '::' in url:
+        drive, rel = url.split('::',1)
+        try:
+            base = DBHelper.find_mount_point(drive)
+        except Exception as e:
+            raise FileNotFoundError(f"Cannot access drive '{drive}': {e}")
+        full = os.path.join(base, rel)
+    else:
+        full = url
+
+    if os.path.exists(full):
+        with open(full, "rb") as f:
             return f.read()
-    
-    # For network URLs (not implemented here)
-    # In a real scenario, you'd use requests or another library
-    return f"Dummy content from {os.path.basename(url)}"
+    raise FileNotFoundError(f"File not found at {full}")
 
 
 class AudioDataset(Dataset):
@@ -402,21 +416,43 @@ if __name__ == "__main__":
     parser.add_argument("inputs", nargs="*", help="For save: <audio_file>; otherwise recording IDs")
     parser.add_argument("--dest", help="Destination path for saving file")
     parser.add_argument("--deployment", type=int, help="Deployment ID for new recording")
+    parser.add_argument("--drive", help="External drive label to save recordings on")
     args = parser.parse_args()
 
     db = DBHelper()
     if args.save:
-        # Save workflow: inputs[0] is audio file path
         audio_file = args.inputs[0]
-        dest_path = args.dest
-        # use provided deployment or auto-create one
+        # determine storage root
+        if args.drive:
+            try:
+                storage_root = DBHelper.find_mount_point(args.drive)
+            except Exception as e:
+                print(f"Drive error: {e}"); sys.exit(1)
+            drive_label = args.drive
+        else:
+            storage_root = os.getcwd()
+            drive_label = None
+
+        # build dest_path under storage_root
+        if args.dest:
+            dest_path = args.dest if os.path.isabs(args.dest) else os.path.join(storage_root, args.dest)
+        else:
+            dest_path = os.path.join(storage_root, '.recordings')
+
         dep_id = args.deployment or db.insert_deployment()
-        # save file to destination
-        saved_path = db.save_recording_file(audio_file, dest_path)
-        filename = os.path.basename(saved_path)
-        # insert recording and get new ID
-        new_rec_id = db.insert_recording(None, dep_id, filename, saved_path)
-        print(f"New recording saved and inserted with ID {new_rec_id}")
+
+        saved_abs = db.save_recording_file(audio_file, dest_path)
+        filename = os.path.basename(saved_abs)
+
+        # prepare URL with optional drive prefix
+        if drive_label:
+            rel = os.path.relpath(saved_abs, storage_root)
+            url = f"{drive_label}::{rel}"
+        else:
+            url = saved_abs
+
+        new_id = db.insert_recording(None, dep_id, filename, url)
+        print(f"Saved to {url}, recordingId={new_id}")
         sys.exit(0)
 
     # Get the recording ID(s) from the command line argument
