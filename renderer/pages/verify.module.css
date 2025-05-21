@@ -181,7 +181,6 @@
 	pointer-events: none; /* don't interfere with clicks */
 }
 
-
 /* Added new class for species overlay */
 .speciesOverlay {
 	position: absolute;
