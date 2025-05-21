@@ -324,7 +324,7 @@ export default function VerifyPage() {
 				SpectrogramPlugin.create({
 					colorMap: 'gray',
 					scale: "linear",
-					fftSamples: (id==-1) ? 512 : 32, // <<< (SPECTROGRAM QUALITY)  zoomed : unzoomed
+					fftSamples: (id==-1) ? 512 : 64, // <<< (SPECTROGRAM QUALITY)  zoomed : unzoomed
 					labels: (id==-1),
 					height: (id==-1) ? 256 : 128, 
 				}),
@@ -953,6 +953,7 @@ export default function VerifyPage() {
 						backgroundColor: 'rgba(0, 0, 0, 0.7)',
 						color: 'white',
 						padding: '10px 20px',
+						zIndex: 1000,
 					}}
 				>
 					<p>Typing: {currentLabel}</p>
