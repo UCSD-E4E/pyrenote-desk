@@ -101,45 +101,66 @@
     width: auto;
 	height: 128px;
 	flex-direction: column;
+	box-sizing: border-box;
 }
+
 .waveContainerModal{
 	margin-bottom: 0px;
     width: 1024px;
 	height: 256px;
 	flex-direction: column;
+	box-sizing: border-box;
 }
 
 .redOutline {
 	outline: 8px solid rgba(255, 0, 0, 0.7);
 }
+
 .greenOutline {
 	outline: 8px solid rgba(0, 177, 0, 0.7); /* Default GREEN */
 }
+
 .selectOutline {
-	box-shadow: 0 0 0 12px black;
+	box-shadow: 0 0 0 4px black;
 }
+
 .unselectOutline {
 	box-shadow: 0 0 0 0px black;
 }
 
-
 .modal {
 	display: flex;
+	flex-direction: column;
 	align-items: center;
-	justify-content: center;  /* Centers horizontally */
+	justify-content: space-between;
 	box-shadow: 0 0 100px rgba(0, 0, 0, 1);
 	background-color: white;
 	border: 2px solid rgb(240, 240, 240);
 	border-radius: 12px;
-	gap: 20px;
-
+	padding: 20px;
+	gap: 15px;
 	width: 1200px;
-	height: 350px;
+	height: 400px;
 	position: absolute;
 	top: 50%;
 	left: 50%;
 	transform: translate(-50%, -50%);
 	z-index: 1000;
+}
+
+.modalHeader {
+	display: flex;
+	justify-content: space-between;
+	width: 100%;
+	padding: 0 15px;
+	font-weight: bold;
+}
+
+.modalControls {
+	display: flex;
+	width: 100%;
+	justify-content: space-between;
+	padding: 10px 15px;
 }
 
 .noInteraction {
@@ -158,4 +179,21 @@
 	padding: 2px 6px;
 	border-radius: 4px;
 	pointer-events: none; /* don't interfere with clicks */
+}
+
+
+/* Added new class for species overlay */
+.speciesOverlay {
+	position: absolute;
+	top: 4px;
+	right: 6px;
+	color: white;
+	font-size: 14px;
+	font-weight: bold;
+	z-index: 10;
+	background-color: rgba(0, 0, 0, 0.6);
+	padding: 2px 6px;
+	border-radius: 4px;
+	pointer-events: none;
+	max-width: 90%;
 }
