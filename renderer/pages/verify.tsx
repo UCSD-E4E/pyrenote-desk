@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, MouseEvent, useCallback, useImperativeHandle, forwardRef } from 'react'
+import React, { useState, useRef, useEffect, useMemo, useCallback, useImperativeHandle, forwardRef } from 'react'
 import { createPortal } from 'react-dom'
 import Head from 'next/head'
 import Image from 'next/image'
@@ -518,7 +518,7 @@ export default function VerifyPage() {
 	const moreColumns = () => { setCOLS((prev) => { updateSelected([]); return Math.min(prev+1, MAX_COLUMNS); }); }
 	const lessColumns = () => { setCOLS((prev) => { updateSelected([]); return Math.max(prev-1, MIN_COLUMNS); }); }
 
-	const keybinds = {
+	const keybinds = useMemo(() => ({
 		"w": moveSelectionUp,
 		"a": moveSelectionLeft,
 		"s": moveSelectionDown,
@@ -544,7 +544,13 @@ export default function VerifyPage() {
 		"o": toggleModal,
 		"Enter": nextPage,
 		"Backspace": prevPage,
-	}
+	}), [
+		moveSelectionUp, moveSelectionLeft, moveSelectionDown, moveSelectionRight,
+  		setSpectroStatus, playPauseSelection, skipBack, skipForward,
+  		doubleSkipInterval, halveSkipInterval, doublePlaySpeed, halvePlaySpeed,
+  		lessColumns, moreColumns, resetIncrements, toggleModal,
+  		nextPage, prevPage
+	]);
 
 	useEffect(() => { // handle keyboard input
 		const handleKeyDown = (event) => {
