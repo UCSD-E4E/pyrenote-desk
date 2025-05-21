@@ -154,7 +154,7 @@ export default function VerifyPage() {
 	const [COLS, setCOLS] = useState(DEFAULT_COLUMNS);
 	const FILES_PER_PAGE = ROWS*COLS;
 	
-	// persistent storage of spectrogram data
+	// persistent spectrogram data
 	const [[audioFiles, setAudioFiles], updateAudioFile] = [useState<ProcessedAudioFile[]>([]), (i, status) => {
 		setAudioFiles(prevItems => {
 			const newItems = [...prevItems]; // make a copy
@@ -171,6 +171,10 @@ export default function VerifyPage() {
 	const numFiles = currentFiles.length;
 	const numRows = Math.ceil(numFiles / COLS);
 	const numSpots = numRows * COLS;
+	
+	if (currentPage > totalPages) {
+		setCurrentPage(totalPages);
+	}
 
 	async function handleFileSelection() {
 		let processed : ProcessedAudioFile[] = [...audioFiles];
@@ -288,6 +292,7 @@ export default function VerifyPage() {
 
 		useEffect(() => { // initialize
 			setStatus(_status);
+			setIsLoaded(false);
 
 			wavesurferRef.current = WaveSurfer.create({	
 				container: innerRef.current,
@@ -517,7 +522,14 @@ export default function VerifyPage() {
 	}
 	const moreColumns = () => { setCOLS((prev) => { updateSelected([]); return Math.min(prev+1, MAX_COLUMNS); }); }
 	const lessColumns = () => { setCOLS((prev) => { updateSelected([]); return Math.max(prev-1, MIN_COLUMNS); }); }
-
+	const deleteSelected = () => {
+		const remainingFiles = audioFiles
+			.filter((_, i) => !(selected.includes(i)))
+  			.map((item, newIndex) => ({ ...item, index: newIndex }));
+		setAudioFiles(remainingFiles);
+		updateSelected([]);
+	}
+	
 	const keybinds = {
 		"w": moveSelectionUp,
 		"a": moveSelectionLeft,
@@ -544,6 +556,7 @@ export default function VerifyPage() {
 		"o": toggleModal,
 		"Enter": nextPage,
 		"Backspace": prevPage,
+		"X": deleteSelected,
 	}
 
 	useEffect(() => { // handle keyboard input
@@ -645,12 +658,12 @@ export default function VerifyPage() {
 			>
 				<div 
 					className = {styles.verifyButtonMenu}
-					onMouseDown={(e) => {if (!frozen) {e.stopPropagation(); setMouseControl(true); handleMouseDown(e, false)}}}
+					onMouseDown={(e) => {if (!frozen) {e.stopPropagation(); console.log("outer clicked"); setMouseControl(true); handleMouseDown(e, false)}}}
 				>
 
 					<label className={styles.pickFiles} onClick={(e) => {
-						e.stopPropagation()
-						handleFileSelection()
+						e.stopPropagation();
+						handleFileSelection();
 					}}>
 						<p>Select files</p>
 					</label> 
@@ -746,13 +759,22 @@ export default function VerifyPage() {
 						<p>Selected: 
 							{	
 								" " + (
-									selected.length==0 ? "none" : 
-									selected.length==1 ? spectrograms.current[selected[0]]?.fullIndex+1 :
-									(firstSelected()+1) + "-" + (lastSelected()+1)
+									selected.length==0 ? 
+										"none" : 
+										selected.map((v,_) => spectrograms.current[v]?.fullIndex+1)
 								)
 							}
 						</p>
+						
+						{ selected.length > 0 && (
+							<button 
+								onClick={(e) => { console.log("inner clicked", selected); deleteSelected(); e.stopPropagation()}}
+								onMouseDown={(e) => { e.stopPropagation()}}>
+									Delete selected
+							</button>
+						)}
 					</div>
+
 				</div>
 
 				{audioFiles.length > 0 && (
