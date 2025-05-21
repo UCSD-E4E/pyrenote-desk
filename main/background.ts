@@ -191,6 +191,7 @@ ipcMain.handle('set-db-path', (_event, dbPath: string) => {
   }
   selectedDbPath = dbPath;
   dbInstance = createDatabase();
+  return { success: true };
 });
 
 ipcMain.handle('create-new-database', async (_event, { name, filepath }) => {
@@ -235,19 +236,16 @@ ipcMain.handle('create-new-database', async (_event, { name, filepath }) => {
 
 ipcMain.handle('delete-database', async (_event, { filepath, country }) => {
   try {
-    // Delete the database file
     const dbPath = path.join(process.cwd(), filepath);
     if (fs.existsSync(dbPath)) {
       fs.unlinkSync(dbPath);
     }
 
-    // Update masterdb.json
     const masterDbPath = path.join(process.cwd(), 'renderer', 'public', 'masterdb.json');
     if (fs.existsSync(masterDbPath)) {
       const content = await readFile(masterDbPath, 'utf8');
       const masterDb = JSON.parse(content);
       
-      // Remove the database entry
       masterDb.databases = masterDb.databases.filter(db => db.Country !== country);
       
       fs.writeFileSync(masterDbPath, JSON.stringify(masterDb, null, 2));
@@ -262,13 +260,12 @@ ipcMain.handle('delete-database', async (_event, { filepath, country }) => {
 
 ipcMain.handle('edit-database', async (_event, { oldName, newName, filepath }) => {
   try {
-    // Check if new name already exists
     const masterDbPath = path.join(process.cwd(), 'renderer', 'public', 'masterdb.json');
     if (fs.existsSync(masterDbPath)) {
       const content = await readFile(masterDbPath, 'utf8');
       const masterDb = JSON.parse(content);
       
-      // Check for duplicate country name (excluding the current database)
+      // Check for duplicate
       if (masterDb.databases.some(db => 
         db.Country.toLowerCase() === newName.toLowerCase() && 
         db.Country !== oldName
@@ -276,7 +273,6 @@ ipcMain.handle('edit-database', async (_event, { oldName, newName, filepath }) =
         return { success: false, error: 'Error: Country already exists. Please name something else' };
       }
 
-      // Update the database entry
       const dbIndex = masterDb.databases.findIndex(db => db.Country === oldName);
       if (dbIndex !== -1) {
         masterDb.databases[dbIndex].Country = newName;

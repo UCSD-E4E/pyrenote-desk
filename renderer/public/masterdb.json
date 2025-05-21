@@ -1,19 +1,19 @@
 {
   "databases": [
     {
-      "ID": 2,
-      "Country": "New Brazil",
-      "filepath": "./databases/brazil.db"
-    },
-    {
       "ID": 3,
-      "Country": "Argentina",
+      "Country": "New Argentina",
       "filepath": "./databases/argentina.db"
     },
     {
-      "ID": 4,
-      "Country": "Peru",
-      "filepath": "./databases/peru.db"
+      "ID": 5,
+      "Country": "Puerto Rico",
+      "filepath": "./databases/puerto_rico.db"
+    },
+    {
+      "ID": 6,
+      "Country": "Brazil",
+      "filepath": "./databases/brazil.db"
     }
   ]
 }

@@ -13,7 +13,7 @@ export default function databasePage() {
   const [site, setSite] = useState(false);
   const [deployment, setDeployment] = useState(false);
   const [recording, setRecording] = useState(false);
-  const [test, setTest] = useState(false);
+  const [speciesPage, setSpeciesPage] = useState(false);
   const [databases, setDatabases] = useState(false);
 
   function toEntryForm() {
@@ -23,13 +23,13 @@ export default function databasePage() {
     setSite(false);
     setDeployment(false);
     setRecording(false);
-    setTest(false);
+    setSpeciesPage(false);
     setDatabases(false);
   }
 
-  function toTestForm() {
+  function toSpeciesForm() {
     setEntry(false);
-    setTest(true);
+    setSpeciesPage(true);
   }
 
   function toDatabasesForm() {
@@ -69,25 +69,26 @@ export default function databasePage() {
     return (
       <div className={styles.magnus}>
         <h1>Database Page</h1>
-        <p style={{ color: 'red' }}>Current Database Path: {localStorage.getItem('databasePath')}</p>
+        {/* uncomment to show current db in page */}
+        {/* <p style={{ color: 'red' }}>Current Database Path: {localStorage.getItem('databasePath')}</p> */}
         <button onClick={toDatabasesForm}>View and Edit Databases</button>
         <button onClick={toRecorderForm}>Add Recorder</button>
         <button onClick={toSurveyForm}>Add Survey</button>
         <button onClick={toSiteForm}>Add Site</button>
         <button onClick={toDeploymentForm}>Add Deployment</button>
         <button onClick={toRecordingForm}>Add Recordings</button>
-        <button onClick={toTestForm}>Test</button>
+        <button onClick={toSpeciesForm}>Add Species</button>
       </div>
     );
   }
 
-  function TestPage() {
+  function SpeciesEntryPage() {
     const [species, setSpecies] = useState('');
     const [common, setCommon] = useState('');
     const [loading, setLoading] = useState(false);
     // submit button won't be there while loading is true
 
-    if (!test) return null;
+    if (!speciesPage) return null;
 
     const handleSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
@@ -111,7 +112,7 @@ export default function databasePage() {
 
     return (
       <div className={styles.magnus}>
-        <h1>Test Page insert species</h1>
+        <h1>Insert Species</h1>
         <form onSubmit={handleSubmit}>
           <label>Species:</label>
           <input value={species} onChange={e => setSpecies(e.target.value)} />
@@ -304,10 +305,14 @@ export default function databasePage() {
 
     const handleSelectDatabase = async (db) => {
       try {
-        await window.ipc.invoke('set-db-path', db.filepath);
-        localStorage.setItem('databasePath', db.filepath);
-        setSelectedDatabase(db.filepath);
-        alert(`Selected database: ${db.Country}`);
+        const result = await window.ipc.invoke('set-db-path', db.filepath);
+        if (result.success) {
+          localStorage.setItem('databasePath', db.filepath);
+          setSelectedDatabase(db.filepath);
+          alert(`Selected database: ${db.Country}`);
+        } else {
+          alert('Error selecting database: ' + result.error);
+        }
       } catch (error) {
         alert('Error selecting database: ' + error);
       }
@@ -399,20 +404,18 @@ export default function databasePage() {
           <button 
             type="button" 
             onClick={() => setShowNewDatabaseForm(!showNewDatabaseForm)}
-            style={{ marginBottom: '10px' }}
           >
             {showNewDatabaseForm ? 'Cancel' : 'Add New Database'}
           </button>
 
           {showNewDatabaseForm && (
-            <div style={{ marginBottom: '20px' }}>
+            <div>
               <label>New Database Name: </label>
               <input
                 type="text"
                 value={newDatabaseName}
                 onChange={(e) => setNewDatabaseName(e.target.value)}
                 placeholder="Enter database name"
-                style={{ marginRight: '10px' }}
               />
               <button
                 type="button"
@@ -425,14 +428,13 @@ export default function databasePage() {
           )}
 
           {editingDatabase && (
-            <div style={{ marginBottom: '20px' }}>
+            <div>
               <label>Edit Database Name: </label>
               <input
                 type="text"
                 value={editDatabaseName}
                 onChange={(e) => setEditDatabaseName(e.target.value)}
                 placeholder="Enter new name"
-                style={{ marginRight: '10px' }}
               />
               <button
                 type="button"
@@ -446,7 +448,6 @@ export default function databasePage() {
                   setEditingDatabase(null);
                   setEditDatabaseName('');
                 }}
-                style={{ marginLeft: '10px' }}
               >
                 Cancel
               </button>
@@ -458,20 +459,12 @@ export default function databasePage() {
           ) : (
             <ul style={{ listStyle: 'none', padding: 0 }}>
               {databaseList.map((db) => (
-                <li key={db.ID} style={{ 
-                  marginBottom: '10px', 
-                  padding: '10px',
-                  border: '1px solid #ccc',
-                  borderRadius: '4px',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center'
-                }}>
+                <li key={db.ID}>
                   <div>
                     <strong>{db.Country}</strong>
-                    <small style={{ display: 'block', color: '#666' }}>{db.filepath}</small>
+                    <small>{db.filepath}</small>
                     {selectedDatabase === db.filepath && (
-                      <span style={{ color: 'green', fontSize: '0.9em' }}>✓ Currently Selected</span>
+                      <span style={{ color: 'green'}}>✓ Currently Selected</span>
                     )}
                   </div>
                   <div>
@@ -479,12 +472,9 @@ export default function databasePage() {
                       type="button"
                       onClick={() => handleSelectDatabase(db)}
                       style={{ 
-                        marginRight: '10px',
-                        backgroundColor: selectedDatabase === db.filepath ? '#4CAF50' : '#2196F3',
+                        backgroundColor: selectedDatabase === db.filepath ? 'green' : 'blue',
                         color: 'white',
                         border: 'none',
-                        padding: '5px 10px',
-                        borderRadius: '3px',
                         cursor: 'pointer'
                       }}
                     >
@@ -496,7 +486,6 @@ export default function databasePage() {
                         setEditingDatabase(db);
                         setEditDatabaseName(db.Country);
                       }}
-                      style={{ marginRight: '10px' }}
                     >
                       Edit
                     </button>
@@ -532,7 +521,7 @@ export default function databasePage() {
           <SiteEntryPage />
           <DeploymentEntryPage />
           <RecordingEntryPage />
-          <TestPage />
+          <SpeciesEntryPage />
         </div>
       </div>
 
