@@ -8,10 +8,11 @@ import SpectrogramPlugin from "wavesurfer.js/dist/plugins/spectrogram";
 import RegionsPlugin from "wavesurfer.js/dist/plugins/regions";
 import TimelinePlugin from "wavesurfer.js/dist/plugins/timeline";
 import { Region } from "wavesurfer.js/src/plugin/regions";
-import { Recording } from "../../main/schema";
+import { Recording, RegionOfInterest } from "../../main/schema";
 
 type WaveSurferObj = {
   recording: Recording;
+  regions: RegionOfInterest[];
   id: string;
   spectrogramId: string;
   file: Blob;
@@ -53,6 +54,7 @@ const AudioPlayer: React.FC = () => {
   const [isNextDisabled, setNextDisabled] = useState(false);
   const [isYesDisabled, setYesDisabled] = useState(false);
   const [isNoDisabled, setNoDisabled] = useState(false);
+  const removeList: number[] = [];
 
   const timelineDotRef = useRef<HTMLDivElement | null>(null);
 
@@ -143,13 +145,31 @@ const AudioPlayer: React.FC = () => {
       console.log("No regions");
     } else {
       // Text document of start/end times
-      Object.values(allRegions).forEach((region: Region, idx: number) => {
+      Object.values(allRegions).forEach(async (region: Region, idx: number) => {
+        console.log("Saved region id: ", region.id);
+        console.log("region: ", region.start, region.end);
+        if (region.id.startsWith("imported-")) {
+          const id = Number.parseInt(region.id.split("imported-")[1]);
+          await window.api.updateRegionOfInterest(id, region.start, region.end);
+        } else {
+          await window.api.createRegionOfInterest(
+            wavesurfers[index].recording.recordingId,
+            region.start,
+            region.end,
+          );
+        }
         const startSec = region.start.toFixed(3);
         const endSec = region.end.toFixed(3);
         lines.push(
           `Region #${idx + 1}: Start = ${startSec}s, End = ${endSec}s`,
         );
       });
+
+      for (const removed of removeList) {
+        console.log("removed ", removed);
+        // TODO: Cascade?
+        await window.api.deleteRegionOfInterest(removed);
+      }
 
       lines.push(
         "",
@@ -252,18 +272,25 @@ const AudioPlayer: React.FC = () => {
     const recordings = await window.api.listRecordings();
     console.log("recordings:", recordings);
 
-    const newWaveSurfers: WaveSurferObj[] = recordings.map((rec, i) => {
-      const containerId = `waveform-${i}`;
-      const spectrogramId = `spectrogram-${i}`;
-      return {
-        recording: rec,
-        id: containerId,
-        spectrogramId: spectrogramId,
-        file: new Blob([rec.fileData]),
-        instance: null,
-        class: "spectrogramContainer",
-      };
-    });
+    const newWaveSurfers: WaveSurferObj[] = await Promise.all(
+      recordings.map(async (rec, i) => {
+        const regions = await window.api.listRegionOfInterestByRecordingId(
+          rec.recordingId,
+        );
+        console.log("regions:", regions);
+        const containerId = `waveform-${i}`;
+        const spectrogramId = `spectrogram-${i}`;
+        return {
+          recording: rec,
+          regions: regions,
+          id: containerId,
+          spectrogramId: spectrogramId,
+          file: new Blob([rec.fileData]),
+          instance: null,
+          class: "spectrogramContainer",
+        };
+      }),
+    );
 
     console.log("New WaveSurfers:", newWaveSurfers);
     setWavesurfers(newWaveSurfers);
@@ -401,7 +428,6 @@ const AudioPlayer: React.FC = () => {
             { color: "rgba(0,255,0,0.3)" },
             3,
           );
-
           // Select timeline
           const timelineContainer = document.getElementById("wave-timeline");
           if (timelineContainer) {
@@ -485,7 +511,6 @@ const AudioPlayer: React.FC = () => {
           }
 
           wsRegions.on("region-created", (region: Region) => {
-            // TODO: createRegionOfInterest
             redraw(region);
             regionListRef.current.push(region);
 
@@ -498,6 +523,15 @@ const AudioPlayer: React.FC = () => {
             }, 50);
           });
 
+          wsRegions.on("region-removed", (region: Region) => {
+            // TODO: add to list for deleteRegionOfInterest?
+            console.log("Removing: ", region.id);
+            if (region.id.startsWith("imported-")) {
+              const id = Number.parseInt(region.id.split("imported-")[1]);
+              removeList.push(id);
+            }
+          });
+
           wsRegions.on("redraw", () => {
             regionList.forEach((region) => {
               regionList.forEach((region) => redraw(region));
@@ -505,7 +539,6 @@ const AudioPlayer: React.FC = () => {
           });
 
           wsRegions.on("region-updated", (region: Region) => {
-            // TODO: updateRegionOfInterest
             redraw(region);
           });
 
@@ -585,6 +618,15 @@ const AudioPlayer: React.FC = () => {
           ws.on("finish", () => {
             setPlaying(false);
           });
+
+          for (const r of wavesurfers[index].regions) {
+            wsRegions.addRegion({
+              start: r.starttime,
+              end: r.endtime,
+              color: "rgba(0, 255, 0, 0.3)",
+              id: "imported-" + r.regionId,
+            });
+          }
         };
 
         createWavesurfer();
@@ -593,9 +635,9 @@ const AudioPlayer: React.FC = () => {
   }, [showSpec, index, wavesurfers, playbackRate, sampleRate]);
 
   // Deletes selected region
-  const deleteActiveRegion = () => {
-    // TODO: deleteRegionOfInterest
+  const deleteActiveRegion = async () => {
     if (!wavesurfers[index]?.instance || !activeRegionRef.current) return;
+
     activeRegionRef.current.remove();
     activeRegionRef.current = null;
   };

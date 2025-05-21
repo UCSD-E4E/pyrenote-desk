@@ -46,7 +46,7 @@ export const createRegionOfInterest = async (
   // TODO: test this mutation
   const db = getDatabase();
   const statement = db.prepare<CreateParams, RegionOfInterest>(`
-    INSERT INTO RegionOfInterest (recordingId, startime, endtime) 
+    INSERT INTO RegionOfInterest (recordingId, starttime, endtime) 
     VALUES (@recordingId, @startTime, @endTime)
     RETURNING *
   `);
