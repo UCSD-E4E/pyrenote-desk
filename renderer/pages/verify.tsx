@@ -248,6 +248,8 @@ export default function VerifyPage() {
 		const [isHovered, setIsHovered] = useState(false);
 		const [isLoaded, setIsLoaded] = useState(false);
 
+		let isDestroyed = false;
+
 		const setPlaybackRate = (playSpeed) => {
 			wavesurferRef.current.setPlaybackRate(playSpeed);
 		}
@@ -283,7 +285,7 @@ export default function VerifyPage() {
 				skip: (time) => {wavesurferRef.current.skip(time) },
 			}
 		});
-		
+
 		useEffect(() => { // initialize
 			setStatus(_status);
 
@@ -305,8 +307,15 @@ export default function VerifyPage() {
 					height: (id==-1) ? 256 : 128, 
 				}),
 			)
-			
-			wavesurferRef.current.load(url);
+
+			wavesurferRef.current.load(url).catch((e) => {
+				if (e.name === "AbortError" && isDestroyed) {
+					console.log("WaveSurfer load aborted cleanly");
+				} else {
+					console.error("WaveSurfer load failed:", e);
+				}
+			});
+
 			wavesurferRef.current.on('ready', function() {
 				document.getElementById(`loading-spinner-${id}`).style.display = 'none';
 
@@ -320,8 +329,17 @@ export default function VerifyPage() {
 			});
 			
 			return () => { 
+				isDestroyed = true;
 				wavesurferRef.current.unAll();
-				wavesurferRef.current.destroy(); 
+				try {
+					wavesurferRef.current?.destroy();
+				} catch (e) {
+					if (e instanceof DOMException && e.name === "AbortError") {
+						console.warn("WaveSurfer load aborted cleanly");
+					} else {
+						console.error("WaveSurfer destroy failed:", e);
+					}
+				}
 			};
 		}, [url]);
 	
@@ -423,18 +441,21 @@ export default function VerifyPage() {
 
 	// MENU
 
-	const nextPage = () => {
+	const nextPage = useCallback(() => {
+		console.log(currentPage, totalPages);
 		if (currentPage < totalPages) {
 			setCurrentPage((prev) => Math.min(prev + 1, totalPages));
 			setForceReloadKey((prev) => prev + 1);
 		}
-	}
-	const prevPage = () => {
+	}, [currentPage, totalPages]);
+	const prevPage = useCallback(() => {
+		console.log(currentPage, totalPages);
 		if (currentPage > 1) {
 			setCurrentPage((prev) => Math.max(prev - 1, 1));
 			setForceReloadKey((prev) => prev + 1);
 		}
-	}
+	}, [currentPage, totalPages]);
+
 	const saveToJSON = async () => {
 		var obj : SaveData = { page: currentPage, columns: COLS, spectrograms: [] };
 		for (let i = 0; i < audioFiles.length; i++) {
