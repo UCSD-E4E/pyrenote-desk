@@ -141,8 +141,16 @@ const AudioPlayer: React.FC = () => {
     const allRegions = regionPlugin?.wavesurfer?.plugins[2]?.regions;
     const lines: string[] = [];
 
+    const removeRegions = async () => {
+      for (const removed of removeList) {
+        console.log("removed ", removed);
+        await window.api.deleteRegionOfInterest(removed);
+      }
+    };
+
     if (!allRegions || !Object.keys(allRegions).length) {
       console.log("No regions");
+      await removeRegions();
     } else {
       // Text document of start/end times
       Object.values(allRegions).forEach(async (region: Region, idx: number) => {
@@ -160,37 +168,33 @@ const AudioPlayer: React.FC = () => {
             region.end,
           );
         }
-        const startSec = region.start.toFixed(3);
-        const endSec = region.end.toFixed(3);
-        lines.push(
-          `Region #${idx + 1}: Start = ${startSec}s, End = ${endSec}s`,
-        );
+        // const startSec = region.start.toFixed(3);
+        // const endSec = region.end.toFixed(3);
+        // lines.push(
+        //   `Region #${idx + 1}: Start = ${startSec}s, End = ${endSec}s`,
+        // );
       });
-
-      for (const removed of removeList) {
-        console.log("removed ", removed);
-        // TODO: Cascade?
-        await window.api.deleteRegionOfInterest(removed);
-      }
-
-      lines.push(
-        "",
-        `Confidence: ${confidence}`,
-        `Call Type: ${callType}`,
-        `Additional Notes: ${notes}`,
-      );
+      //
+      // lines.push(
+      //   "",
+      //   `Confidence: ${confidence}`,
+      //   `Call Type: ${callType}`,
+      //   `Additional Notes: ${notes}`,
+      // );
 
       // Make text file
-      const blob = new Blob([lines.join("\n")], { type: "text/plain" });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = "regionTimes.txt";
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
+      // const blob = new Blob([lines.join("\n")], { type: "text/plain" });
+      // const url = URL.createObjectURL(blob);
+      // const link = document.createElement("a");
+      // link.href = url;
+      // link.download = "regionTimes.txt";
+      // document.body.appendChild(link);
+      // link.click();
+      // document.body.removeChild(link);
+      // URL.revokeObjectURL(url);
     }
+
+    await removeRegions();
 
     // remove or shift current wavesurfer
     if (index === 0) {
@@ -346,7 +350,11 @@ const AudioPlayer: React.FC = () => {
           clickYes();
           break;
         case "p":
-          playing ? clickPause() : clickPlay();
+          if (playing) {
+            clickPause();
+          } else {
+            clickPlay();
+          }
           break;
         case "d":
           clickNo();
