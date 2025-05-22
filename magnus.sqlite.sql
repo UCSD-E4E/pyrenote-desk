@@ -76,7 +76,7 @@ CREATE TABLE Annotation (
     speciesId INTEGER,
     speciesProbability INTEGER,
     mostRecent BOOLEAN,
-    FOREIGN KEY (regionId) REFERENCES RegionOfInterest (regionId),
+    FOREIGN KEY (regionId) REFERENCES RegionOfInterest (regionId) ON DELETE CASCADE
     FOREIGN KEY (labelerId) REFERENCES Labeler (labelerId),
     FOREIGN KEY (speciesId) REFERENCES Species (speciesId)
 );
@@ -92,6 +92,6 @@ CREATE TABLE RegionOfInterest (
     recordingId INTEGER,
     starttime REAL,
     endtime REAL,
-    FOREIGN KEY (recordingId) REFERENCES Recording (recordingId),
+    FOREIGN KEY (recordingId) REFERENCES Recording (recordingId) ON DELETE CASCADE
     UNIQUE (recordingId, starttime, endtime)
 );

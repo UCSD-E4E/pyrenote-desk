@@ -152,6 +152,8 @@ const AudioPlayer: React.FC = () => {
           const id = Number.parseInt(region.id.split("imported-")[1]);
           await window.api.updateRegionOfInterest(id, region.start, region.end);
         } else {
+          // NOTE: Would this cause issues if newly assigned ids &
+          // cur region id not linked?
           await window.api.createRegionOfInterest(
             wavesurfers[index].recording.recordingId,
             region.start,
