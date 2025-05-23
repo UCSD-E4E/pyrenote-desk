@@ -307,7 +307,7 @@ export default function databasePage() {
       try {
         const result = await window.ipc.invoke('set-db-path', db.filepath);
         if (result.success) {
-          localStorage.setItem('databasePath', db.filepath);
+          localStorage.setItem('databasePath', db.filepath); //maybe don't need to save to local storage every time? Only on app close.
           setSelectedDatabase(db.filepath);
           alert(`Selected database: ${db.Country}`);
         } else {

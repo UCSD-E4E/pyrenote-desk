@@ -185,15 +185,18 @@ ipcMain.handle("pick-files-for-verification", async (_event) => {
   return filesWithData;
 });
 
+// For db switching
 ipcMain.handle('set-db-path', (_event, dbPath: string) => {
   if (dbInstance) {
     dbInstance.close();
   }
-  selectedDbPath = dbPath;
+  selectedDbPath = dbPath; //set global selected db path to new dbpath
   dbInstance = createDatabase();
   return { success: true };
 });
 
+// FOR DATABASE PAGE \/ \/ \/
+// Creating new database
 ipcMain.handle('create-new-database', async (_event, { name, filepath }) => {
   try {
     // Check if country name already exists
@@ -234,6 +237,7 @@ ipcMain.handle('create-new-database', async (_event, { name, filepath }) => {
   }
 });
 
+// Deletes database
 ipcMain.handle('delete-database', async (_event, { filepath, country }) => {
   try {
     const dbPath = path.join(process.cwd(), filepath);
@@ -258,6 +262,7 @@ ipcMain.handle('delete-database', async (_event, { filepath, country }) => {
   }
 });
 
+// Edits database
 ipcMain.handle('edit-database', async (_event, { oldName, newName, filepath }) => {
   try {
     const masterDbPath = path.join(process.cwd(), 'renderer', 'public', 'masterdb.json');
