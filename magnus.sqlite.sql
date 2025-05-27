@@ -1,93 +1,97 @@
-CREATE TABLE "Survey" (
-	"survey_id"	INTEGER,
-	"survey_name"	TEXT,
-	"study_site"	TEXT,
-	"start_date"	INTEGER,
-	"end_date"	INTEGER,
-	"latitude"	REAL,
-	"longitude"	REAL,
-	"notes"	TEXT,
-	PRIMARY KEY("survey_id")
+CREATE TABLE Survey (
+    surveyId INTEGER PRIMARY KEY,
+    surveyname TEXT,
+    studysite TEXT,
+    start_date DATETIME,
+    end_date DATETIME,
+    latitude REAL,
+    longitude REAL,
+    notes TEXT
 );
 
-CREATE TABLE "Site" (
-	"site_id"	INTEGER,
-	"survey_id"	INTEGER,
-	"site_code"	TEXT,
-	"latitude"	REAL,
-	"longitude"	REAL,
-	"elevation"	REAL,
-	PRIMARY KEY("site_id"),
-	FOREIGN KEY("survey_id") REFERENCES "Survey"("survey_id")
+CREATE TABLE Site (
+    siteId INTEGER PRIMARY KEY,
+    surveyId INTEGER,
+    site_code TEXT,
+    latitude REAL,
+    longitude REAL,
+    elevation REAL,
+    FOREIGN KEY (surveyId) REFERENCES Survey (surveyId)
 );
 
-CREATE TABLE "Recorder" (
-	"recorder_id"	INTEGER,
-	"brand"	TEXT,
-	"model"	TEXT,
-	"serial_nbr"	TEXT,
-	"code"	TEXT,
-	"purchase_date"	INTEGER,
-	PRIMARY KEY("recorder_id")
+CREATE TABLE Recorder (
+    recorderId INTEGER PRIMARY KEY,
+    brand TEXT,
+    model TEXT,
+    serialnbr TEXT,
+    code TEXT,
+    purchase_date DATE
 );
 
-CREATE TABLE "Deployment" (
-	"deploymnet_id"	INTEGER,
-	"site_id"	INTEGER,
-	"recorder_id"	INTEGER,
-	"start_date"	INTEGER,
-	"end_date"	INTEGER,
-	"deployed_by"	TEXT,
-	"note"	TEXT,
-	PRIMARY KEY("deploymnet_id"),
-	FOREIGN KEY("recorder_id") REFERENCES "Recorder"("recorder_id"),
-	FOREIGN KEY("site_id") REFERENCES "Site"("site_id")
+CREATE TABLE Deployment (
+    deploymentId INTEGER PRIMARY KEY,
+    siteId INTEGER,
+    recorderId INTEGER,
+    start_date DATE,
+    end_date DATE,
+    deployed_by TEXT,
+    note TEXT,
+    FOREIGN KEY (siteId) REFERENCES Site (siteId),
+    FOREIGN KEY (recorderId) REFERENCES Recorder (recorderId)
 );
 
-CREATE TABLE "Recording" (
-	"recording_id"	INTEGER,
-	"deployment_id"	INTEGER,
-	"file_name"	TEXT,
-	"url"	REAL,
-	"date"	INTEGER,
-	"time"	INTEGER,
-	"duration"	REAL,
-	"sample_rate"	INTEGER,
-	"bit_rate"	TEXT,
-	PRIMARY KEY("recording_id"),
-	FOREIGN KEY("deployment_id") REFERENCES ""
+CREATE TABLE Recording (
+    recordingId INTEGER PRIMARY KEY,
+    deploymentId INTEGER,
+    filename TEXT,
+    url TEXT,
+    datetime DATETIME,
+    duration REAL,
+    samplerate INTEGER,
+    bitrate INTEGER,
+    FOREIGN KEY (deploymentId) REFERENCES Deployment (deploymentId)
 );
 
-CREATE TABLE "Labeler" (
-	"labeler_id"	INTEGER,
-	"name"	TEXT,
-	"email"	TEXT,
-	"url"	TEXT,
-	"model_version"	TEXT,
-	"is_human"	INTEGER,
-	PRIMARY KEY("labeler_id")
+CREATE TABLE Model (
+    modelId INTEGER PRIMARY KEY,
+    name TEXT,
+    type TEXT,
+    url TEXT
 );
 
-CREATE TABLE "Species" (
-	"species_id"	INTEGER,
-	"species"	TEXT,
-	"common"	TEXT,
-	PRIMARY KEY("species_id")
+CREATE TABLE Labeler (
+    labelerId INTEGER PRIMARY KEY,
+    name TEXT,
+    email TEXT,
+    modelId INTEGER,
+    isHuman BOOLEAN,
+    FOREIGN KEY (modelId) REFERENCES Model (modelId)
 );
 
-CREATE TABLE "Annotation" (
-	"detection_id"	INTEGER,
-	"recording_id"	INTEGER,
-	"species_id"	INTEGER,
-	"labeler_id"	INTEGER,
-	"start_time"	INTEGER,
-	"end_time"	INTEGER,
-	"min_frequency"	REAL,
-	"max_frequency"	REAL,
-	"validated"	TEXT,
-	"create_date"	INTEGER,
-	PRIMARY KEY("detection_id"),
-	FOREIGN KEY("labeler_id") REFERENCES "Labeler"("labeler_id"),
-	FOREIGN KEY("recording_id") REFERENCES "",
-	FOREIGN KEY("species_id") REFERENCES "Species"("species_id")
+CREATE TABLE Annotation (
+    annotationId INTEGER PRIMARY KEY,
+    regionId INTEGER,
+    labelerId INTEGER,
+    annotationDate DATETIME,
+    speciesId INTEGER,
+    speciesProbability INTEGER,
+    mostRecent BOOLEAN,
+    FOREIGN KEY (regionId) REFERENCES RegionOfInterest (regionId),
+    FOREIGN KEY (labelerId) REFERENCES Labeler (labelerId),
+    FOREIGN KEY (speciesId) REFERENCES Species (speciesId)
+);
+
+CREATE TABLE Species (
+    speciesId INTEGER PRIMARY KEY,
+    species TEXT,
+    common TEXT
+);
+
+CREATE TABLE RegionOfInterest (
+    regionId INTEGER PRIMARY KEY,
+    recordingId INTEGER,
+    starttime REAL,
+    endtime REAL,
+    FOREIGN KEY (recordingId) REFERENCES Recording (recordingId),
+    UNIQUE (recordingId, starttime, endtime)
 );

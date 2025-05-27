@@ -158,7 +158,8 @@ export default function VerifyPage() {
 	const firstSelected = useCallback(() => {return selected[0]}, [selected])
 	const lastSelected = useCallback(() => {return selected[selected.length-1]}, [selected])
 
-	const [speciesList, setSpeciesList] = useState<string[]>(["Default"]);
+	// Species management
+	const [speciesList, setSpeciesList] = useState<string[]>([DEFAULT_SPECIES]);
 	const [inputSpecies, setInputSpecies] = useState("");
 	const [showingSpeciesInput, setShowingSpeciesInput] = useState(false);
 
@@ -246,7 +247,7 @@ export default function VerifyPage() {
 		setAudioFiles(processed);
 		setCurrentPage(spawnPage); // Reset to first page
 
-		const uniqueSpecies = new Set(["Default"]);
+		const uniqueSpecies = new Set([DEFAULT_SPECIES]);
 		processed.forEach(file => {
 			if (file.species && file.species.trim() !== DEFAULT_SPECIES) {
 				uniqueSpecies.add(file.species);
@@ -404,13 +405,13 @@ export default function VerifyPage() {
 				onMouseLeave={onMouseLeave}
 				onClick={onClick}
 				style={{ position: "relative" }}
-			> 
+			>
 				{id!=-1 && (<div className={styles.indexOverlay}>{fullIndex+1}</div>)} 
 				{id!=-1 && (<div className={styles.filePathOverlay}>{filePath}</div>)} 
-				<div className={styles.speciesOverlay} style={{ opacity: species ? 1 : 0 }}>
-      				{species || "No label"}
-    			</div>
-
+				{species && species !== "Default" && (
+					<div className={styles.speciesOverlay}>{species}</div>
+				)}
+				
 				<div id={`loading-spinner-${id}`} className={styles.waveLoadingCircle}></div>
 				<div 
 					id={`waveform-${id}`} 
@@ -439,7 +440,7 @@ export default function VerifyPage() {
 				<div className={styles.modalHeader}>
 					<div>ID: {linkedSpectro?.fullIndex + 1}</div>
 					<div>File Path: {linkedSpectro?.filePath}</div>
-					<div>Species: {linkedSpectro?.species}</div>
+					<div>Species: {linkedSpectro?.species || DEFAULT_SPECIES}</div>
 				</div>		
 
 				<Spectrogram 
@@ -854,7 +855,9 @@ export default function VerifyPage() {
 							<button onClick={(e) => {moreColumns(); e.stopPropagation()}}>+</button>
 						</div>
 					</div>
-
+					
+					<p>Page: {`${currentPage} / ${totalPages}`}</p>
+					
 					<div>
 						<p>Selected: 
 							{	
@@ -941,10 +944,9 @@ export default function VerifyPage() {
 								toggleModal={toggleModal}
 							/>,
 							document.body
-						)
-					}
+						)}
+					
 				</>
-
 				{isSelecting && rect && (
 					<div
 						style={{
