@@ -614,9 +614,11 @@ export default function VerifyPage() {
 	const moreColumns = () => { setCOLS((prev) => { updateSelected([]); return Math.min(prev+1, MAX_COLUMNS); }); }
 	const lessColumns = () => { setCOLS((prev) => { updateSelected([]); return Math.max(prev-1, MIN_COLUMNS); }); }
 	const deleteSelected = () => {
+		const fullIndexSelected = selected.map((v,_) => spectrograms.current[v]?.fullIndex)
 		const remainingFiles = audioFiles
-			.filter((_, i) => !(selected.includes(i)))
+			.filter((_, i) => !(fullIndexSelected.includes(i)))
   			.map((item, newIndex) => ({ ...item, index: newIndex }));
+
 		setAudioFiles(remainingFiles);
 		updateSelected([]);
 	}
@@ -855,9 +857,7 @@ export default function VerifyPage() {
 							<button onClick={(e) => {moreColumns(); e.stopPropagation()}}>+</button>
 						</div>
 					</div>
-					
-					<p>Page: {`${currentPage} / ${totalPages}`}</p>
-					
+
 					<div>
 						<p>Selected: 
 							{	
@@ -871,7 +871,7 @@ export default function VerifyPage() {
 						
 						{ selected.length > 0 && (
 							<button 
-								onClick={(e) => { console.log("inner clicked", selected); deleteSelected(); e.stopPropagation()}}
+								onClick={(e) => { deleteSelected(); e.stopPropagation()}}
 								onMouseDown={(e) => { e.stopPropagation()}}>
 									Delete selected
 							</button>
