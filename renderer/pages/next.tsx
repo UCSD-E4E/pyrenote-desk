@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
 import Head from 'next/head'
 import styles from './next.module.css'
 
@@ -6,6 +6,10 @@ import styles from './next.module.css'
 export default function databasePage() {
   //toggle between data entry and data view
   const [addData, setAddData] = useState(true);
+
+  //Toggle between actually between forms and actually displaying data
+  const [displayingData, setDisplayingData] = useState(true);
+  function startDisplaying() {setDisplayingData(true)};
 
   //toggle between different data entry forms
   const [entry, setEntry] = useState(true);
@@ -18,15 +22,14 @@ export default function databasePage() {
   function toAddData() {setAddData(true);}
   function toViewData() {setAddData(false);}
 
-  //toggle between different data view forms
-
+  //toggle between different viewing different parts of database
   const [viewSite, setViewSite] = useState(false);
   const [viewSurvey, setViewSurvey] = useState(false);
   const [viewRecorder, setViewRecorder] = useState(false);
   const [viewDeployment, setViewDeployment] = useState(false);
   const [viewRecordings, setViewRecordings] = useState(false);
 
-  //Switch between data entry and data view pages
+  //Nav bar to switch between data entry and data view pages
   function DataBaseNavigation() {
     if (addData) {
       return (
@@ -46,48 +49,220 @@ export default function databasePage() {
     
   }
 
+  //Initial form to select what part of database is being viewed
+  function DatabaseView() {
+    if(addData) {
+      return null;
+    }
+    return (
+      <div className={styles.magnus}>
+        <h1> View Database </h1>
+        <label>Viewing:</label>
+        <select onChange={updateViewForm}>
+          <option>None</option>
+          <option>Survey</option>
+          <option>Site</option>
+          <option>Recorders</option>
+          <option>Deployments</option>
+          <option>Recordings</option>
+        </select>
+        <hr className={styles.hr}/>
+        <SurveyViewPage />
+        <SiteViewForm />
+        <RecorderViewPage />
+        <DeploymentViewForm />
+        <RecordingViewForm />
+      </div>
+    );
+  }
+
+  //Updates which part of the database is currently being viewed
   const updateViewForm = (e) => {
+    setDisplayingData(false);
+
     setViewSurvey(false);
     setViewSite(false);
     setViewRecorder(false);
     setViewDeployment(false);
     setViewRecordings(false);
-    if (e.target.value == "Survey") { setViewSurvey(true);}
-    else if (e.target.value == "Site") {setViewSite(true);}
-    else if (e.target.value == "Recorder") {setViewRecorder(true);}
-    else if (e.target.value == "Deployment") {setViewDeployment(true);}
-    else if (e.target.value == "Recordings") {setViewRecordings(true);}
+    if (e.target.value == "Survey") { setViewSurvey(true); }
+    else if (e.target.value == "Site") { setViewSite(true); }
+    else if (e.target.value == "Recorders") { setViewRecorder(true); }
+    else if (e.target.value == "Deployments") { setViewDeployment(true); }
+    else if (e.target.value == "Recordings") { setViewRecordings(true); }
   }
 
+  //View surveys
+  const surveys = [
+    {surveyid: 1, surveyname: "LA", studysite: "North America", startdate: "1/1/2000", enddate: "12/12/2001", latitude: 35, longitude: 100, notes: ""},
+    {surveyid: 2, surveyname: "SD", studysite: "North America", startdate: "1/1/2005", enddate: "12/12/20010", latitude: 40, longitude: 120, notes: ""},
+    {surveyid: 1, surveyname: "LA", studysite: "North America", startdate: "1/1/2000", enddate: "12/12/2001", latitude: 35, longitude: 100, notes: ""},
+    {surveyid: 2, surveyname: "SD", studysite: "North America", startdate: "1/1/2005", enddate: "12/12/20010", latitude: 40, longitude: 120, notes: ""},
+    {surveyid: 1, surveyname: "LA", studysite: "North America", startdate: "1/1/2000", enddate: "12/12/2001", latitude: 35, longitude: 100, notes: ""},
+    {surveyid: 2, surveyname: "SD", studysite: "North America", startdate: "1/1/2005", enddate: "12/12/20010", latitude: 40, longitude: 120, notes: ""}
+  ];
+  function SurveyViewPage() {
+    if (!viewSurvey) {return null;}
+    const headers = Object.keys(surveys[0]);
+    return (
+      <table className={styles.dispData}>
+        <thead>
+          <tr>
+          {headers.map((key) => (
+            <th>{key}</th>
+          ))}
+          </tr>
+        </thead>
+        <tbody>
+          {surveys.map((item, idx) => (
+            <tr>
+              {headers.map((key) => (
+                <td>{item[key]}</td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    );
+  }
+
+  // View sites
+  const sites = [
+    {siteid: 1, surveyid: 3, site_code: "La jolla shores", elevation: 10},
+    {siteid: 2, surveyid: 2, site_code: "La jolla cove", elevation: 70},
+    {siteid: 1, surveyid: 3, site_code: "La jolla shores", elevation: 10},
+    {siteid: 2, surveyid: 2, site_code: "La jolla cove", elevation: 70},
+    {siteid: 1, surveyid: 3, site_code: "La jolla shores", elevation: 10},
+    {siteid: 2, surveyid: 2, site_code: "La jolla cove", elevation: 70},
+    {siteid: 1, surveyid: 3, site_code: "La jolla shores", elevation: 10},
+    {siteid: 2, surveyid: 2, site_code: "La jolla cove", elevation: 70}
+  ];
   function SiteViewForm() {
     if (!viewSite) {return null;}
-    return (
-      <div className={styles.magnusContent}>
-        <form>
-          <label>Select Survey</label>
-          <select>
-            <option>Unselected</option>
-          </select>
-        </form>
-        <button>View Sites</button>
-      </div>
+    if (!displayingData) {
+      return (
+        <div className={styles.magnusContent}>
+          <form>
+            <label>Select Survey</label>
+            <select>
+              <option>Unselected</option>
+            </select>
+          </form>
+          <button onClick={startDisplaying}>View Sites</button>
+        </div>
+      );
+    }
+
+    if (displayingData) {
+      const headers = Object.keys(sites[0]);
+      return (
+          <table className={styles.dispData}>
+            <thead>
+              <tr>
+                {headers.map((key) => (
+                  <th>{key}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {sites.map((item, idx) => (
+                <tr>
+                  {headers.map((key) => (
+                    <td>{item[key]}</td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+      );
+    }
+  }
+
+  const recorders = [
+    {recorderid: 1, brand: "iphone", model: "X", serialnbr: "srujam's iphone", code: 3, purchase_date: "1/1/2000"},
+    {recorderid: 2, brand: "android", model: "google pixel", serialnbr: "idk", code: 4, purchase_date: "2/2/2000"},
+    {recorderid: 1, brand: "iphone", model: "X", serialnbr: "srujam's iphone", code: 3, purchase_date: "1/1/2000"},
+    {recorderid: 2, brand: "android", model: "google pixel", serialnbr: "idk", code: 4, purchase_date: "2/2/2000"},
+    {recorderid: 1, brand: "iphone", model: "X", serialnbr: "srujam's iphone", code: 3, purchase_date: "1/1/2000"},
+    {recorderid: 2, brand: "android", model: "google pixel", serialnbr: "idk", code: 4, purchase_date: "2/2/2000"}
+  ];
+  function RecorderViewPage() {
+    if(!viewRecorder) {return null;}
+
+    const headers = Object.keys(recorders[0]);
+    return  (
+      <table className={styles.dispData}>
+        <thead>
+          <tr>
+            {headers.map((key) => (
+              <th>{key}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {recorders.map((item, idx) => (
+            <tr>
+              {headers.map((key) => (
+                <td>{item[key]}</td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
     );
   }
 
+  //View deployments
+  const deployments = [
+    {deploymentid: 0, siteid: 1, recorderid: 2, start_date: "01/01/2000", end_date: "01/01/2001", deployed_by: "Srujam", note: ""},
+    {deploymentid: 0, siteid: 1, recorderid: 2, start_date: "01/01/2000", end_date: "01/01/2001", deployed_by: "Srujam", note: ""},
+    {deploymentid: 0, siteid: 1, recorderid: 2, start_date: "01/01/2000", end_date: "01/01/2001", deployed_by: "Srujam", note: ""},
+    {deploymentid: 0, siteid: 1, recorderid: 2, start_date: "01/01/2000", end_date: "01/01/2001", deployed_by: "Srujam", note: ""},
+    {deploymentid: 0, siteid: 1, recorderid: 2, start_date: "01/01/2000", end_date: "01/01/2001", deployed_by: "Srujam", note: ""},
+  ];
   function DeploymentViewForm() {
     if (!viewDeployment) {return null;}
-    return (
-      <div className={styles.magnusContent}>
-        <form>
-          <label>Select Recorder</label>
-          <select>
-            <option>Unselected</option>
-          </select>
-        </form>
-        <button>View Deployments</button>
-      </div>
-    );
+
+    if (!displayingData) {
+      return (
+        <div className={styles.magnusContent}>
+          <form>
+            <label>Select Recorder</label>
+            <select>
+              <option>Unselected</option>
+            </select>
+          </form>
+          <button onClick={startDisplaying}>View Deployments</button>
+        </div>
+      );
+    }
+    
+    if (displayingData) {
+      const headers = Object.keys(deployments[0]);
+      return (
+          <table className={styles.dispData}>
+            <thead>
+              <tr>
+                {headers.map((key) => (
+                  <th>{key}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {deployments.map((item, idx) => (
+                <tr>
+                  {headers.map((key) => (
+                    <td>{item[key]}</td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+      );
+    }
   }
+
+  // View recordings
 
   function RecordingViewForm() {
     if (!viewRecordings){ return null;}
@@ -105,30 +280,6 @@ export default function databasePage() {
           <select>Unselected</select>
         </form>
         <button>View Recordings</button>
-      </div>
-    );
-  }
-
-  //Database view page
-  function DatabaseView() {
-    if(addData) {
-      return null;
-    }
-    return (
-      <div className={styles.magnus}>
-        <h1> View Database </h1>
-        <label>Viewing:</label>
-        <select onChange={updateViewForm}>
-          <option>Survey</option>
-          <option>Site</option>
-          <option>Recorders</option>
-          <option>Deployments</option>
-          <option>Recordings</option>
-        </select>
-        <hr className={styles.hr}/>
-        <RecordingViewForm />
-        <SiteViewForm />
-        <DeploymentViewForm />
       </div>
     );
   }

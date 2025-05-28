@@ -152,3 +152,18 @@
     padding:0px;
     margin-left:-20%;
 }
+
+.dispData {
+    border-collapse: collapse;
+    width: 120%;
+    margin-left: -20%;
+}
+
+.dispData tbody tr td {
+    padding-top:5px;
+    padding-bottom: 5px;
+}
+
+.dispData tbody tr:nth-child(odd) td{
+    background-color:  rgb(230, 230, 230);
+  }
