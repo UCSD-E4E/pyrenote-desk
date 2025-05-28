@@ -8,7 +8,12 @@ import SpectrogramPlugin from "wavesurfer.js/dist/plugins/spectrogram";
 import RegionsPlugin from "wavesurfer.js/dist/plugins/regions";
 import TimelinePlugin from "wavesurfer.js/dist/plugins/timeline";
 import { Region } from "wavesurfer.js/src/plugin/regions";
-import { Recording, RegionOfInterest } from "../../main/schema";
+import {
+  Annotation,
+  Recording,
+  RegionOfInterest,
+  Species,
+} from "../../main/schema";
 
 type WaveSurferObj = {
   recording: Recording;
@@ -45,8 +50,11 @@ const AudioPlayer: React.FC = () => {
   // Region & species
   const regionListRef = useRef<any[]>([]);
   const activeRegionRef = useRef<any>(null);
-  const [speciesList, setSpeciesList] = useState(["Default"]);
-  const [selectedSpecies, setSelectedSpecies] = useState("Default");
+  const [speciesList, setSpeciesList] = useState<Species[]>([
+    { species: "Default", common: "no", speciesId: 0 },
+    { species: "some birds", common: "?", speciesId: 1 },
+  ]);
+  const [selectedSpecies, setSelectedSpecies] = useState<number>(0);
 
   // Wavesurfers array + button‑disable flags
   const [wavesurfers, setWavesurfers] = useState<any[]>([]);
@@ -156,17 +164,35 @@ const AudioPlayer: React.FC = () => {
       Object.values(allRegions).forEach(async (region: Region, idx: number) => {
         console.log("Saved region id: ", region.id);
         console.log("region: ", region.start, region.end);
+        let regionId;
         if (region.id.startsWith("imported-")) {
           const id = Number.parseInt(region.id.split("imported-")[1]);
           await window.api.updateRegionOfInterest(id, region.start, region.end);
+          regionId = id;
         } else {
           // NOTE: Would this cause issues if newly assigned ids &
           // cur region id not linked?
-          await window.api.createRegionOfInterest(
+          const newRegion = await window.api.createRegionOfInterest(
             wavesurfers[index].recording.recordingId,
             region.start,
             region.end,
           );
+          regionId = newRegion.regionId;
+        }
+        if (region.data?.species && region.data?.confidence) {
+          const species: Species = region.data.species as Species;
+          console.log("label: ", region.data.species);
+          const confidence = Number.parseInt(region.data?.confidence as string);
+          // TODO: Labeller id & confidence
+          await window.api.createAnnotation(
+            wavesurfers[index].recording.recordingId,
+            0,
+            regionId,
+            species.speciesId,
+            confidence,
+          );
+        } else {
+          console.log("no annotation");
         }
         // const startSec = region.start.toFixed(3);
         // const endSec = region.end.toFixed(3);
@@ -391,18 +417,22 @@ const AudioPlayer: React.FC = () => {
         console.log("No more audioclips");
       } else if (wavesurfers[index]) {
         //if wavesurfers[index] exists
-        console.log(index);
+        console.log("idx", index);
         //create wavesurfer
         const createWavesurfer = async () => {
           const waveId = wavesurfers[index].id;
           const spectroId = wavesurfers[index].spectrogramId;
 
+          console.log("Creating ws");
           const ws = WaveSurfer.create({
             container: `#${wavesurfers[index].id}`,
             waveColor: "violet",
             progressColor: "purple",
             sampleRate: parseInt(sampleRate),
             plugins: [
+              // TODO: Currently errors after spectrogram hidden from bug
+              //        May need to update wavesurfer verison to > 7.5
+              //        See: https://github.com/katspaugh/wavesurfer.js/pull/3110
               SpectrogramPlugin.create({
                 container: `#${wavesurfers[index].spectrogramId}`,
                 labels: true,
@@ -418,8 +448,6 @@ const AudioPlayer: React.FC = () => {
               }),
             ],
           });
-
-          window.ws = ws;
 
           // Allow draw selection with Regions plugin
           const wsRegions = ws.registerPlugin(
@@ -683,6 +711,7 @@ const AudioPlayer: React.FC = () => {
   };
 
   // Download regions data only (maybe repurpose logic later)
+  // TODO: Fix this
   const saveLabelsToSpecies = () => {
     const ws = wavesurfers[index]?.instance;
     if (!ws) return;
@@ -707,17 +736,21 @@ const AudioPlayer: React.FC = () => {
   };
 
   // Saves selected category as label
-  const assignSpecies = (species: string) => {
+  const assignSpecies = (species: Species) => {
     if (!activeRegionRef.current) {
       console.log("No active region selected.");
       return;
     }
 
+    // TODO: Save and initialize confidence by active region
     activeRegionRef.current.data = {
       ...activeRegionRef.current.data,
-      label: species,
+      label: species.species,
+      species: species,
+      confidence: confidence,
     };
 
+    // TODO: Initialize label when importing
     const regionEl = activeRegionRef.current.element;
     let labelElem = regionEl.querySelector(".region-label");
     if (!labelElem) {
@@ -725,7 +758,7 @@ const AudioPlayer: React.FC = () => {
       labelElem.className = "region-label";
       regionEl.appendChild(labelElem);
     }
-    labelElem.textContent = species;
+    labelElem.textContent = species.species;
   };
 
   return (
@@ -749,16 +782,16 @@ const AudioPlayer: React.FC = () => {
               <select
                 name="Species"
                 id="species-names"
-                value={selectedSpecies}
+                value={speciesList[selectedSpecies].species}
                 onChange={(e) => {
-                  const sp = e.target.value;
-                  assignSpecies(sp);
-                  setSelectedSpecies("Default");
+                  const idx = e.target.selectedIndex;
+                  assignSpecies(speciesList[idx]);
+                  setSelectedSpecies(0);
                 }}
               >
                 {speciesList.map((sp) => (
-                  <option key={sp} value={sp}>
-                    {sp}
+                  <option key={sp.speciesId} value={sp.species}>
+                    {sp.species}
                   </option>
                 ))}
               </select>
@@ -906,7 +939,8 @@ const AudioPlayer: React.FC = () => {
           {showSpec && (
             <div className={styles.annotationSection}>
               <label>
-                Zoom: <input type="range" min="10" max="1000" value="10" />
+                Zoom:{" "}
+                <input type="range" min="10" max="1000" defaultValue="10" />
               </label>
               <label>Call Type:</label>
               <input
