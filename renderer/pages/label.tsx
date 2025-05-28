@@ -489,7 +489,7 @@ const AudioPlayer: React.FC = () => {
             });
           }
 
-          // TODO: Not sure if any performance difference between loading
+          // NOTE: Not sure if any performance difference between loading
           // w/ url or blob
           // await ws.load(URL.createObjectURL(wavesurfers[index].file));
           await ws.loadBlob(wavesurfers[index].file);
@@ -534,7 +534,7 @@ const AudioPlayer: React.FC = () => {
           });
 
           wsRegions.on("region-removed", (region: Region) => {
-            // TODO: add to list for deleteRegionOfInterest?
+            // NOTE: add to list for deleteRegionOfInterest?
             console.log("Removing: ", region.id);
             if (region.id.startsWith("imported-")) {
               const id = Number.parseInt(region.id.split("imported-")[1]);
