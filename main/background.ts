@@ -73,12 +73,12 @@ app.on("before-quit", async () => {
   }
 });
 
-// Setup all queries
+// Setup all queries on backend
 for (const query in queries) {
   ipcMain.handle(query, (_event, ...args) => queries[query](...args));
 }
 
-// Setup all mutations
+// Setup all mutations on backend
 for (const mutation in mutations) {
   ipcMain.handle(mutation, (_event, ...args) => mutations[mutation](...args));
 }
