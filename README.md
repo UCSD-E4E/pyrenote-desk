@@ -33,6 +33,25 @@ The settings page allows for customization of a variety of features on each of t
 
 #### Labeling
 
+The labeling page allows the user to verify and label one or multiple audio files in more detail. 
+To Upload Files
+- Click the "Choose Files button" to load one or more audio files
+- Switch between files with the left and right arrow icons or corresponding keyboard keys
+Create/Label Regions
+- Click and drag on the waveform to define a region
+- To mark a region or unmark a region as selected, click it once, which highlights it 
+- To label a region, double‑click the region, type the label, then press Enter
+- Alternatively, select a region, then choose a species from the “Choose a species” dropdown
+Manage Regions
+- Under the "Region buttons" section, click "Delete" to remove a selected region
+- Click "Clear" to remove all regions
+- Click "Undo" to remove the most recently created regions
+- Click "Save Labels" to add all current labels onto the "Choose a species" dropdown
+Playback Controls
+- Press the play/pause button or "P" to start and stop audio
+- Press the save button or "W" to save a document with includes start and end times, confidence scores, call types, and additional notes
+- Press the delete button or "D" to delete the current file
+
 #### Verification
 
 ## Development
