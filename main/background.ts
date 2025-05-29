@@ -185,7 +185,7 @@ ipcMain.handle("pick-files-for-verification", async (_event) => {
   return filesWithData;
 });
 
-// For db switching
+// ipcMain handle to set db path
 ipcMain.handle('set-db-path', (_event, dbPath: string) => {
   if (dbInstance) {
     dbInstance.close();
@@ -195,7 +195,7 @@ ipcMain.handle('set-db-path', (_event, dbPath: string) => {
   return { success: true };
 });
 
-// FOR DATABASE PAGE \/ \/ \/
+// FOR DATABASE PAGE
 // Creating new database
 ipcMain.handle('create-new-database', async (_event, { name, filepath }) => {
   try {
@@ -221,7 +221,7 @@ ipcMain.handle('create-new-database', async (_event, { name, filepath }) => {
     db.close();
 
     //Adds new database to masterdb.json
-    const newId = Math.max(0, ...masterDb.databases.map(db => db.ID)) + 1;
+    const newId = Math.max(0, ...masterDb.databases.map(db => db.ID)) + 1; //increment id by 1
     masterDb.databases.push({
       ID: newId,
       Country: name,
@@ -250,8 +250,8 @@ ipcMain.handle('delete-database', async (_event, { filepath, country }) => {
       const content = await readFile(masterDbPath, 'utf8');
       const masterDb = JSON.parse(content);
       
+      //remove by filtering out the deleted country, and then rewrite the filtered content back to masterdb.json
       masterDb.databases = masterDb.databases.filter(db => db.Country !== country);
-      
       fs.writeFileSync(masterDbPath, JSON.stringify(masterDb, null, 2));
     }
 
@@ -278,7 +278,10 @@ ipcMain.handle('edit-database', async (_event, { oldName, newName, filepath }) =
         return { success: false, error: 'Error: Country already exists. Please name something else' };
       }
 
+      //find db that will be edited
       const dbIndex = masterDb.databases.findIndex(db => db.Country === oldName);
+
+      //if country found (it should be impossible for it not to be found), set the new name for the db
       if (dbIndex !== -1) {
         masterDb.databases[dbIndex].Country = newName;
         fs.writeFileSync(masterDbPath, JSON.stringify(masterDb, null, 2));
