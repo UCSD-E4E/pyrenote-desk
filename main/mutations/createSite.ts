@@ -1,4 +1,4 @@
-import { Annotation } from "../schema";
+import { Site } from "../schema";
 import { getDatabase } from "../background";
 
 type CreateParams = {
@@ -15,9 +15,9 @@ const createSite = async (
   latitude: number,
   longitude: number,
   elevation: number,
-): Promise<Annotation | undefined> => {
+): Promise<Site | undefined> => {
   const db = getDatabase();
-  const statement = db.prepare<CreateParams, Annotation>(`
+  const statement = db.prepare<CreateParams, Site>(`
     INSERT INTO site (surveyId, site_code, latitude, longitude, elevation)
     VALUES (@surveyId, @site_code, @latitude, @longitude, @elevation)
     RETURNING *
