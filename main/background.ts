@@ -18,18 +18,20 @@ if (isProd) {
 }
 
 let dbInstance: BetterSqlite3.Database;
+let selectedDbPath: string | null = null;
 
 export const getDatabase = () => {
   return dbInstance;
 };
 
 function createDatabase() {
-  const dbPath = "./pyrenoteDeskDatabase.db";
+  const dbPath = selectedDbPath || "./pyrenoteDeskDatabase.db";
   let db: BetterSqlite3.Database;
 
   if (fs.existsSync(dbPath)) {
     db = new BetterSqlite3(dbPath);
   } else {
+    console.log("Database does not exist, creating new one");
     //Creates new database if it did not exist already
     db = new BetterSqlite3(dbPath);
     const sqlFilePath = "./magnus.sqlite.sql";
@@ -181,4 +183,114 @@ ipcMain.handle("pick-files-for-verification", async (_event) => {
     }),
   );
   return filesWithData;
+});
+
+// ipcMain handle to set db path
+ipcMain.handle('set-db-path', (_event, dbPath: string) => {
+  if (dbInstance) {
+    dbInstance.close();
+  }
+  selectedDbPath = dbPath; //set global selected db path to new dbpath
+  dbInstance = createDatabase();
+  return { success: true };
+});
+
+// FOR DATABASE PAGE
+// Creating new database
+ipcMain.handle('create-new-database', async (_event, { name, filepath }) => {
+  try {
+    // Check if country name already exists
+    const masterDbPath = path.join(process.cwd(), 'renderer', 'public', 'masterdb.json');
+    let masterDb = { databases: [] };
+    if (fs.existsSync(masterDbPath)) {
+      const content = await readFile(masterDbPath, 'utf8');
+      masterDb = JSON.parse(content);
+      
+      // Check for duplicate country name
+      if (masterDb.databases.some(db => db.Country.toLowerCase() === name.toLowerCase())) {
+        return { success: false, error: 'Error: Country already exists. Please name something else' };
+      }
+    }
+
+    //Creates new database along with tables in databases folder
+    const dbPath = path.join(process.cwd(), filepath);
+    const db = new BetterSqlite3(dbPath);
+    const sqlFilePath = path.join(process.cwd(), "magnus.sqlite.sql");
+    const sqlFile = fs.readFileSync(sqlFilePath, "utf8");
+    db.exec(sqlFile);
+    db.close();
+
+    //Adds new database to masterdb.json
+    const newId = Math.max(0, ...masterDb.databases.map(db => db.ID)) + 1; //increment id by 1
+    masterDb.databases.push({
+      ID: newId,
+      Country: name,
+      filepath: filepath
+    });
+
+    fs.writeFileSync(masterDbPath, JSON.stringify(masterDb, null, 2));
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error creating new database:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Deletes database
+ipcMain.handle('delete-database', async (_event, { filepath, country }) => {
+  try {
+    const dbPath = path.join(process.cwd(), filepath);
+    if (fs.existsSync(dbPath)) {
+      fs.unlinkSync(dbPath);
+    }
+
+    const masterDbPath = path.join(process.cwd(), 'renderer', 'public', 'masterdb.json');
+    if (fs.existsSync(masterDbPath)) {
+      const content = await readFile(masterDbPath, 'utf8');
+      const masterDb = JSON.parse(content);
+      
+      //remove by filtering out the deleted country, and then rewrite the filtered content back to masterdb.json
+      masterDb.databases = masterDb.databases.filter(db => db.Country !== country);
+      fs.writeFileSync(masterDbPath, JSON.stringify(masterDb, null, 2));
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error deleting database:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Edits database
+ipcMain.handle('edit-database', async (_event, { oldName, newName, filepath }) => {
+  try {
+    const masterDbPath = path.join(process.cwd(), 'renderer', 'public', 'masterdb.json');
+    if (fs.existsSync(masterDbPath)) {
+      const content = await readFile(masterDbPath, 'utf8');
+      const masterDb = JSON.parse(content);
+      
+      // Check for duplicate
+      if (masterDb.databases.some(db => 
+        db.Country.toLowerCase() === newName.toLowerCase() && 
+        db.Country !== oldName
+      )) {
+        return { success: false, error: 'Error: Country already exists. Please name something else' };
+      }
+
+      //find db that will be edited
+      const dbIndex = masterDb.databases.findIndex(db => db.Country === oldName);
+
+      //if country found (it should be impossible for it not to be found), set the new name for the db
+      if (dbIndex !== -1) {
+        masterDb.databases[dbIndex].Country = newName;
+        fs.writeFileSync(masterDbPath, JSON.stringify(masterDb, null, 2));
+      }
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error editing database:', error);
+    return { success: false, error: error.message };
+  }
 });
