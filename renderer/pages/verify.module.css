@@ -4,6 +4,10 @@
     padding: 10px;
     align-items: flex-start;
 	width: fit-content;
+
+	transform: scale(1);
+	transform-origin: top left;
+	overflow: hidden;
 }
 
 .verifyButtonMenu {
