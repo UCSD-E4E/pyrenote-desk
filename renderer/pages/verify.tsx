@@ -668,10 +668,10 @@ export default function VerifyPage() {
 		"'": moreColumns,
 		"r": resetIncrements,
 		"o": toggleModal,
-		"X": deleteSelected, // note capital
+		"Backspace": deleteSelected, 
 		"Shift": startLabelingMode,
 		"Enter": isLabelingMode ? applyLabelToSelected : nextPage,
-		"Backspace": prevPage,
+		"\\": prevPage,
 		"Escape": () => { if (isLabelingMode) setIsLabelingMode(false); }
 	}
 
@@ -713,12 +713,12 @@ export default function VerifyPage() {
 		};
 	}, [selected, playingSpectro, playSpeed, skipInterval, frozen, currentPage, totalPages, isLabelingMode, currentLabel, showModal, isModalInputFocused, toggleModal]);
 
+	// BOX SELECT
+
 	const [isSelecting, setIsSelecting] = useState(false);
 	const [rectStart, setRectStart] = useState(null);
 	const [rect, setRect] = useState(null);
 	const containerRef = useRef(null)
-
-	// BOX SELECT
 
 	const handleMouseDown = (e, canSelect=true) => {
 		const x = e.clientX;
