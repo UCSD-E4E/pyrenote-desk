@@ -388,6 +388,7 @@ export default function VerifyPage() {
 						(status==SpectroStatus.Invalid && styles.redOutline)
 					)}
 					${isLoaded && (isSelected ? styles.selectOutline : styles.unselectOutline)}
+					${isLoaded && (isHovered ? styles.hoverOutline : styles.unhoverOutline)}
 				`}
 				ref={containerRef}
 				onMouseEnter={onMouseEnter}

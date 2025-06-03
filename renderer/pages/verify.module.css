@@ -119,17 +119,33 @@
 .redOutline {
 	outline: 8px solid rgba(255, 0, 0, 0.7);
 }
-
 .greenOutline {
 	outline: 8px solid rgba(0, 177, 0, 0.7); /* Default GREEN */
 }
-
 .selectOutline {
-	box-shadow: 0 0 0 4px black;
+	box-shadow: 0 0 0 12px black;
 }
-
 .unselectOutline {
 	box-shadow: 0 0 0 0px black;
+}
+
+/* Hover outline via pseudo-element */
+.hoverOutline {
+    position: relative;
+}
+.hoverOutline::after {
+    content: "";
+    position: absolute;
+    top: -10px;
+    left: -10px;
+    right: -10px;
+    bottom: -10px;
+    border: 3px dotted black;
+    pointer-events: none;
+    z-index: 1;
+}
+.unhoverOutline::after {
+    content: none;
 }
 
 .modal {
