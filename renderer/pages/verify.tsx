@@ -6,7 +6,8 @@ import styles from './verify.module.css'
 import WaveSurfer from 'wavesurfer.js';
 import SpectrogramPlugin from 'wavesurfer.js/dist/plugins/spectrogram';
 
-// UTILS (can be moved to seperate file?)
+// UTILS //
+// can be moved to seperate file?
 
 function VIRIDIS_COLORMAP() { // colormap option to be used in Wavesurfer spectrograms
 	const viridisColors = [
@@ -34,7 +35,8 @@ function arraysEqual<T>(a: T[], b: T[]): boolean { // can be moved to a utilitie
 }
 
 
-// CONSTANTS (modification in Settings page to be implemented)
+// CONSTANTS //
+// modification in Settings page to be implemented
 
 const MAX_SKIPINTERVAL = 8;
 const DEFAULT_SKIPINTERVAL = 2;
@@ -51,7 +53,7 @@ const MIN_COLUMNS = 1;
 const DEFAULT_SPECIES = "Default"
 
 
-// DATA STRUCTURES
+// DATA STRUCTURES //
 
 enum SpectroStatus { // 3 spectrogram states (default: Unverified)
 	Unverified,
@@ -94,6 +96,7 @@ interface SpectroProps { // Spectrogram parameters
 	onClick : (e)=>void,
 	linkedSpectro : SpectroRef,
 	filePath? : string,
+	// modify this when you want to add a new parameter to Spectrogram / ModalSpectrogram
 }
 interface SaveData { // JSON data structure for save files
 	page: number,
@@ -115,17 +118,16 @@ interface ProcessedAudioFile { // Audio file information
 
 export default function VerifyPage() {	
 
-	// SPECTROGRAMS and PAGE SETUP
-
-	const spectrograms = useRef([]);
-
-	const currentlyPlaying = useRef(null); // spectrogram that is currently playing sound
-
-	const [isLabelingMode, setIsLabelingMode] = useState(false);
-	const [currentLabel, setCurrentLabel] = useState("");
-
-	const [skipInterval, setSkipInterval] = useState(DEFAULT_SKIPINTERVAL);
-	const [playSpeed, setPlaySpeed] = useState(DEFAULT_PLAYSPEED);
+	// DEFINITIONS //
+	
+	const spectrograms = useRef([]); // array of Spectrogram components on screen
+	const [[audioFiles, setAudioFiles], updateAudioFile] = [useState<ProcessedAudioFile[]>([]), (i, field, value) => { // array of all audio files
+		setAudioFiles(prevItems => {
+			const newItems = [...prevItems]; // make a copy
+			newItems[i][field] = value; 
+			return newItems;				 // set new array
+		});
+	}]; 
 	
 	const [hovered, setHovered] = useState(null); // hovered spectrogram
 	const updateHovered = (i) => { // wraps setHovered
@@ -163,36 +165,37 @@ export default function VerifyPage() {
 			return arr;
 		}
 	};
-	const getFirstSelected = useCallback(() => {return selected[0]}, [selected])
+	const getFirstSelected = useCallback(() => {return selected[0]}, [selected]) 
 	const getLastSelected = useCallback(() => {return selected[selected.length-1]}, [selected])
+
+	const currentlyPlaying = useRef(null); // spectrogram that is currently playing sound
+	const [skipInterval, setSkipInterval] = useState(DEFAULT_SKIPINTERVAL);
+	const [playSpeed, setPlaySpeed] = useState(DEFAULT_PLAYSPEED);
+
+	const [isLabelingMode, setIsLabelingMode] = useState(false);
+	const [currentLabel, setCurrentLabel] = useState("");
 
 	const [ROWS, setROWS] = useState(5); // try not to change this (spectrogram height is not very flexible)
 	const [COLS, setCOLS] = useState(DEFAULT_COLUMNS);
 	const FILES_PER_PAGE = ROWS*COLS;
-	
-	// persistent spectrogram data
-	const [[audioFiles, setAudioFiles], updateAudioFile] = [useState<ProcessedAudioFile[]>([]), (i, field, value) => {
-		setAudioFiles(prevItems => {
-			const newItems = [...prevItems]; // make a copy
-			newItems[i][field] = value; 
-			return newItems;				 // set new array
-		});
-	}]; 
 
 	const [currentPage, setCurrentPage] = useState(1);
 	const [forceReloadKey, setForceReloadKey] = useState(0); // crucial for switching pages	
 	
 	const totalPages = Math.ceil(audioFiles.length / FILES_PER_PAGE);
-	const currentFiles = audioFiles.slice((currentPage-1)*FILES_PER_PAGE, (currentPage)*FILES_PER_PAGE); 
+	const currentFiles = audioFiles.slice((currentPage-1)*FILES_PER_PAGE, (currentPage)*FILES_PER_PAGE); // files to be displayed on this page
 	const numFiles = currentFiles.length;
-	const numRows = Math.ceil(numFiles / COLS);
-	const numSpots = numRows * COLS;
+	const numRows = Math.ceil(numFiles / COLS); 
+	const numSpots = numRows * COLS; 
 	
 	if (currentPage > totalPages) { // crucial for when # of pages decreases while on the last page
 		setCurrentPage(totalPages);
 	}
 
-	async function handleFileSelection() {
+	
+	// FILE SELECTION //
+
+	async function handleFileSelection() { // selecting files from system and updating arrays
 		let processed : ProcessedAudioFile[] = [...audioFiles];
 		let spawnPage = 1;
 
@@ -250,6 +253,9 @@ export default function VerifyPage() {
 		setAudioFiles(processed);
 		setCurrentPage(spawnPage); // Reset to first page
 	};
+
+
+	// SPECTROGRAMS //
 
 	const Spectrogram = useCallback(forwardRef<SpectroRef, SpectroProps>(({ 
 		id, // -1 if modal 
@@ -419,14 +425,14 @@ export default function VerifyPage() {
 		)
 	}), []);
 	
-	const ModalSpectrogram = useCallback(forwardRef<SpectroRef, SpectroProps&{toggleModal:()=>void}>(({
+	const ModalSpectrogram = useCallback(forwardRef<SpectroRef, SpectroProps&{toggleModal:()=>void}>(({ // detailed view of single spectrogram
 		id, // -1 if modal 
 		fullIndex=-1,
 		url, 
 		onMouseEnter, 
 		onMouseLeave,
 		onClick,
-		linkedSpectro=spectrograms.current[selected[0]],
+		linkedSpectro=spectrograms.current[getFirstSelected()], // update linked spectrogram whenever user edits the modal one
 		toggleModal,
 	}, ref) => {
 		const modalRef = useRef(null);
@@ -513,10 +519,10 @@ export default function VerifyPage() {
 		);
 	}), [selected, currentLabel, setCurrentLabel]); // Add dependencies to ensure callback updates
 
-	// MODAL
+
+	// MODAL SYSTEM //
 
 	const [showModal, setShowModal] = useState(false);
-	const [isModalInputFocused, setIsModalInputFocused] = useState(false);
 	const toggleModal = useCallback(() => {  // wraps setShowModal
 		if (selected.length != 0) {
 			setShowModal((prev) => {
@@ -533,30 +539,19 @@ export default function VerifyPage() {
 		}		
 	}, [selected, showModal]);
 
-	useEffect(() => {
+	const [isModalInputFocused, setIsModalInputFocused] = useState(false);
+
+	useEffect(() => { // prevents rest of page from interacting with mouse while modal is open
 		if (showModal) {
-			document.getElementById("container").classList.add(styles.noInteraction);
+			document.getElementById("container").classList.add(styles.noInteraction); 
 		} else {
 			document.getElementById("container").classList.remove(styles.noInteraction);
 		}
 	}, [showModal]);
+	
 
-	// MENU
-
-	const nextPage = useCallback(() => {
-		console.log(currentPage, totalPages);
-		if (!showModal && currentPage < totalPages) {
-			setCurrentPage((prev) => Math.min(prev + 1, totalPages));
-			setForceReloadKey((prev) => prev + 1);
-		}
-	}, [currentPage, totalPages, showModal]);
-	const prevPage = useCallback(() => {
-		console.log(currentPage, totalPages);
-		if (!showModal && currentPage > 1) {
-			setCurrentPage((prev) => Math.max(prev - 1, 1));
-			setForceReloadKey((prev) => prev + 1);
-		}
-	}, [currentPage, totalPages, showModal]);
+	// ACTIONS //
+	// most of these have keybinds
 
 	const saveToJSON = async () => {
 		var obj : SaveData = { page: currentPage, columns: COLS, spectrograms: [] };
@@ -576,7 +571,20 @@ export default function VerifyPage() {
 		}
 	}
 
-	// ACTIONS
+	const nextPage = useCallback(() => {
+		console.log(currentPage, totalPages);
+		if (!showModal && currentPage < totalPages) {
+			setCurrentPage((prev) => Math.min(prev + 1, totalPages));
+			setForceReloadKey((prev) => prev + 1);
+		}
+	}, [currentPage, totalPages, showModal]);
+	const prevPage = useCallback(() => {
+		console.log(currentPage, totalPages);
+		if (!showModal && currentPage > 1) {
+			setCurrentPage((prev) => Math.max(prev - 1, 1));
+			setForceReloadKey((prev) => prev + 1);
+		}
+	}, [currentPage, totalPages, showModal]);
 
 	const moveSelectionUp = () => 		{ updateSelected([selected.length==0 ? 0 : Math.max(getLastSelected() - COLS, getLastSelected() % COLS)]); }
 	const moveSelectionDown = () => 	{ updateSelected([selected.length==0 ? 0 : Math.min(getLastSelected() + COLS, numFiles-1, numSpots-COLS+(getLastSelected() % COLS))]); }
@@ -632,9 +640,11 @@ export default function VerifyPage() {
 		setAudioFiles(remainingFiles);
 		updateSelected([]);
 	}
+
+
+	// LABELLING SYSTEM (work in progress) //
 	
-	// Direct labeling function (WIP)
-	const startLabelingMode = () => {
+	const startLabelingMode = () => { // Direct labeling function (WIP)
 		setIsLabelingMode(true);
 		setCurrentLabel(""); 
 	};
@@ -648,6 +658,10 @@ export default function VerifyPage() {
 		}
 	};
 
+
+	// KEYBIND SYSTEM //
+	// print 'event.key' to get the right keycode 
+	
 	const keybinds = {
 		"w": moveSelectionUp,
 		"a": moveSelectionLeft,
@@ -671,7 +685,7 @@ export default function VerifyPage() {
 		";": lessColumns,
 		"'": moreColumns,
 		"r": resetIncrements,
-		"o": toggleModal,
+		"o": toggleModal, // only to enable modal view, use ESC to exit out of it
 		"Backspace": deleteSelected, 
 		"Shift": startLabelingMode,
 		"Enter": isLabelingMode ? applyLabelToSelected : nextPage,
@@ -717,7 +731,8 @@ export default function VerifyPage() {
 		};
 	}, [selected, currentlyPlaying, playSpeed, skipInterval, currentPage, totalPages, isLabelingMode, currentLabel, showModal, isModalInputFocused, toggleModal]);
 
-	// BOX SELECT
+
+	// BOX SELECTION SYSTEM //
 
 	const [isSelecting, setIsSelecting] = useState(false);
 	const [rectStart, setRectStart] = useState(null);
@@ -731,7 +746,6 @@ export default function VerifyPage() {
 		setRect({ x, y, width: 0, height: 0 });
 		setIsSelecting(canSelect);
 	};
-
 	const handleMouseMove = (e) => {
 		if (!isSelecting) return;
 
@@ -747,9 +761,8 @@ export default function VerifyPage() {
 
 		setRect(newRect);
 	};
-
 	const handleMouseUp = () => {
-	if (!rect) return;
+		if (!rect) return;
 		let selection = [];
 
 		spectrograms.current.forEach((spectrogram) => {
@@ -781,7 +794,9 @@ export default function VerifyPage() {
 		setRect(null);
 	};
 
-	// <input type="file" accept=".mp4, .wav, .txt, .json" className={styles.hiddenInputFile} multiple onChange={handleFileSelection}/>
+	
+	// DOM //
+
 	return (
 		<React.Fragment>
 			<Head>
