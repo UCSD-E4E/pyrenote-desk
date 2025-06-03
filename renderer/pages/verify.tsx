@@ -115,6 +115,8 @@ export default function VerifyPage() {
 	const playingSpectro = useRef(null); // spectrogram that is currently playing sound
 	const [frozen, setFrozen] = useState(false);
 	const [mouseControl, setMouseControl] = useState(true);
+	const [isLabelingMode, setIsLabelingMode] = useState(false);
+	const [currentLabel, setCurrentLabel] = useState("");
 
 	const [skipInterval, setSkipInterval] = useState(DEFAULT_SKIPINTERVAL);
 	const [playSpeed, setPlaySpeed] = useState(DEFAULT_PLAYSPEED);
@@ -157,11 +159,6 @@ export default function VerifyPage() {
 	};
 	const firstSelected = useCallback(() => {return selected[0]}, [selected])
 	const lastSelected = useCallback(() => {return selected[selected.length-1]}, [selected])
-
-	// Species management
-	const [speciesList, setSpeciesList] = useState<string[]>([DEFAULT_SPECIES]);
-	const [inputSpecies, setInputSpecies] = useState("");
-	const [showingSpeciesInput, setShowingSpeciesInput] = useState(false);
 
 	const [ROWS, setROWS] = useState(5); // try not to change this (spectrogram height is not very flexible)
 	const [COLS, setCOLS] = useState(DEFAULT_COLUMNS);
@@ -246,14 +243,6 @@ export default function VerifyPage() {
 		processed = await processInput(files);
 		setAudioFiles(processed);
 		setCurrentPage(spawnPage); // Reset to first page
-
-		const uniqueSpecies = new Set([DEFAULT_SPECIES]);
-		processed.forEach(file => {
-			if (file.species && file.species.trim() !== DEFAULT_SPECIES) {
-				uniqueSpecies.add(file.species);
-			}
-		});
-		setSpeciesList(Array.from(uniqueSpecies));
 	};
 
 	const Spectrogram = useCallback(forwardRef<SpectroRef, SpectroProps>(({ 
@@ -348,7 +337,7 @@ export default function VerifyPage() {
 				SpectrogramPlugin.create({
 					colorMap: 'gray',
 					scale: "linear",
-					fftSamples: (id==-1) ? 512 : 32, // <<< (SPECTROGRAM QUALITY)  zoomed : unzoomed
+					fftSamples: (id==-1) ? 512 : 64, // <<< (SPECTROGRAM QUALITY)  zoomed : unzoomed
 					labels: (id==-1),
 					height: (id==-1) ? 256 : 128, 
 				}),
@@ -435,12 +424,32 @@ export default function VerifyPage() {
 	}, ref) => {
 		const modalRef = useRef(null);
 
+		// Update label on change
+		const [localLabel, setLocalLabel] = useState(linkedSpectro?.species || "");
+  		const [displaySpecies, setDisplaySpecies] = useState(linkedSpectro?.species || "");
+		
+  		useEffect(() => {
+    		setLocalLabel(linkedSpectro?.species || DEFAULT_SPECIES);
+    		setDisplaySpecies(linkedSpectro?.species || DEFAULT_SPECIES);
+  		}, [linkedSpectro]);
+
+		const applyLabel = () => {
+			if (linkedSpectro && localLabel.trim() !== "") {
+				linkedSpectro.setSpecies(localLabel);
+				if (spectrograms.current[-1]) {
+					spectrograms.current[-1].setSpecies(localLabel);
+				}
+				setCurrentLabel(localLabel); // Update the parent component's currentLabel state
+				setDisplaySpecies(localLabel);
+			}
+		};
+
 		return (
 			<div ref={modalRef} className={styles.modal}>
 				<div className={styles.modalHeader}>
 					<div>ID: {linkedSpectro?.fullIndex + 1}</div>
 					<div>File Path: {linkedSpectro?.filePath}</div>
-					<div>Species: {linkedSpectro?.species || DEFAULT_SPECIES}</div>
+					<div>Species: {displaySpecies}</div>
 				</div>		
 
 				<Spectrogram 
@@ -448,7 +457,7 @@ export default function VerifyPage() {
 					fullIndex={fullIndex}
 					url={url} 
 					status={linkedSpectro.status}
-					species={linkedSpectro.species}
+					species={displaySpecies}
 					onMouseEnter={onMouseEnter}
 					onMouseLeave={onMouseLeave}
 					onClick={onClick}
@@ -457,20 +466,50 @@ export default function VerifyPage() {
 				/>
 				
 				<div className={styles.modalControls}>
+					<div>
+						<input 
+							type="text" 
+							value={localLabel}
+							onChange={(e) => setLocalLabel(e.target.value)}
+							placeholder="Enter label"
+							onFocus={() => setIsModalInputFocused(true)}
+							onBlur={() => setIsModalInputFocused(false)}
+							// Add keydown event handler directly to the input
+							onKeyDown={(e) => {
+							if (e.key === "Enter") {
+								e.preventDefault();
+								
+								// Apply the label
+								if (linkedSpectro && localLabel.trim() !== "") {
+								linkedSpectro.setSpecies(localLabel);
+								if (spectrograms.current[-1]) {
+									spectrograms.current[-1].setSpecies(localLabel);
+								}
+								setCurrentLabel(localLabel);
+								
+								// Update modal
+								toggleModal();
+								setTimeout(() => {
+									toggleModal();
+								}, 10);
+								}
+							}
+							}}
+						/>
+					</div>
 					<button onClick={(e)=>{
 						toggleModal();
 						e.stopPropagation();
 					}}>Close</button>
-					<button onClick={() => openSpeciesInput()}>Update Species</button>
 				</div>
 			</div>
 		);
-	}), [selected]);
-
+	}), [selected, currentLabel, setCurrentLabel]); // Add dependencies to ensure callback updates
 
 	// MODAL
 
-	const [showingModal, setShowModal] = useState(false);
+	const [showModal, setShowModal] = useState(false);
+	const [isModalInputFocused, setIsModalInputFocused] = useState(false);
 	const toggleModal = useCallback(() => {  // wraps setShowModal
 		if (selected != null) {
 			setShowModal((prev) => {
@@ -490,63 +529,29 @@ export default function VerifyPage() {
 	}, [selected, frozen]);
 
 	useEffect(() => {
-		if (showingModal) {
+		if (showModal) {
 			document.getElementById("container").classList.add(styles.noInteraction);
 		} else {
 			document.getElementById("container").classList.remove(styles.noInteraction);
 		}
-	}, [showingModal]);
-
-	// SPECIES
-
-	const openSpeciesInput = () => {
-		if (selected !== null) {
-			setInputSpecies(spectrograms.current[firstSelected()].species || ""); // prob a bad idea, overrides all selected's species even if they're diff
-			setShowingSpeciesInput(true);
-		}
-	};
-
-	const closeSpeciesInput = () => {
-		setShowingSpeciesInput(false);
-		setInputSpecies("");
-	};
-
-	const updateSpeciesForSelected = () => {
-		if (selected !== null && inputSpecies.trim() !== "") {
-			const newSpecies = inputSpecies.trim();
-			selected.forEach(index => {
-				spectrograms.current[index].setSpecies(newSpecies);
-			});
-
-			if (showingModal && spectrograms.current[-1]) {
-				spectrograms.current[-1].setSpecies(newSpecies);
-			}
-			
-			// Add to species list
-			if (!speciesList.includes(newSpecies)) {
-				setSpeciesList([...speciesList, newSpecies]);
-			}
-			
-			closeSpeciesInput();
-		}
-	};
+	}, [showModal]);
 
 	// MENU
 
 	const nextPage = useCallback(() => {
 		console.log(currentPage, totalPages);
-		if (!showingModal && currentPage < totalPages) {
+		if (!showModal && currentPage < totalPages) {
 			setCurrentPage((prev) => Math.min(prev + 1, totalPages));
 			setForceReloadKey((prev) => prev + 1);
 		}
-	}, [currentPage, totalPages, showingModal]);
+	}, [currentPage, totalPages, showModal]);
 	const prevPage = useCallback(() => {
 		console.log(currentPage, totalPages);
-		if (!showingModal && currentPage > 1) {
+		if (!showModal && currentPage > 1) {
 			setCurrentPage((prev) => Math.max(prev - 1, 1));
 			setForceReloadKey((prev) => prev + 1);
 		}
-	}, [currentPage, totalPages, showingModal]);
+	}, [currentPage, totalPages, showModal]);
 
 	const saveToJSON = async () => {
 		var obj : SaveData = { page: currentPage, columns: COLS, spectrograms: [] };
@@ -577,19 +582,19 @@ export default function VerifyPage() {
 			updateAudioFile(spectrograms.current[selected[i]].fullIndex, "status", true)
 			spectrograms.current[selected[i]].setStatus(status);
 		}
-		if (showingModal) {spectrograms.current[-1].setStatus(status);}
+		if (showModal) {spectrograms.current[-1].setStatus(status);}
 	}
 	const playPauseSelection = () => { 
 		if (selected.length == 0) { return }; // null
 		if (playingSpectro.current != null && playingSpectro.current != selected[0]) { spectrograms.current[playingSpectro.current].pause(); }; // pause existing
-		const id = showingModal ? -1 : selected[0];
+		const id = showModal ? -1 : selected[0];
 
 		spectrograms.current[id].setPlaybackRate(playSpeed); // set speed of selected
 		const isPlaying = spectrograms.current[id].playPause(); // play/pause selected
 		playingSpectro.current = (isPlaying ? selected : null);
 	}
-	const skipBack = () => { if (selected.length != 0) {spectrograms.current[showingModal ? -1 : selected[0]].skip(-skipInterval);}; }
-	const skipForward = () => { if (selected.length != 0) {spectrograms.current[showingModal ? -1 : selected[0]].skip(skipInterval);}; } 
+	const skipBack = () => { if (selected.length != 0) {spectrograms.current[showModal ? -1 : selected[0]].skip(-skipInterval);}; }
+	const skipForward = () => { if (selected.length != 0) {spectrograms.current[showModal ? -1 : selected[0]].skip(skipInterval);}; } 
 	const doubleSkipInterval = () => { setSkipInterval((prev) => Math.min(prev*2, MAX_SKIPINTERVAL)) } 
 	const halveSkipInterval = () => { setSkipInterval((prev) => Math.max(prev/2, MIN_SKIPINTERVAL)) } 
 	const doublePlaySpeed = () => { 
@@ -623,6 +628,21 @@ export default function VerifyPage() {
 		updateSelected([]);
 	}
 	
+	// Direct labeling function (WIP)
+	const startLabelingMode = () => {
+		setIsLabelingMode(true);
+		setCurrentLabel(""); 
+	};
+
+	const applyLabelToSelected = () => {
+		if (selected.length > 0 && currentLabel.trim() !== "") {
+			for (let i = 0; i < selected.length; i++) {
+				spectrograms.current[selected[i]].setSpecies(currentLabel);
+			}
+			setIsLabelingMode(false);
+		}
+	};
+
 	const keybinds = {
 		"w": moveSelectionUp,
 		"a": moveSelectionLeft,
@@ -648,25 +668,37 @@ export default function VerifyPage() {
 		"r": resetIncrements,
 		"o": toggleModal,
 		"X": deleteSelected, // note capital
-		"Shift": openSpeciesInput,
-		"Enter": nextPage,
+		"Shift": startLabelingMode,
+		"Enter": isLabelingMode ? applyLabelToSelected : nextPage,
 		"Backspace": prevPage,
+		"Escape": () => { if (isLabelingMode) setIsLabelingMode(false); }
 	}
 
 	useEffect(() => { // handle keyboard input (ADD STATES TO THE DEPENDENCY ARRAY IF RELATED TO A KEYBIND )
 		const handleKeyDown = (event) => {
-			if (event.key == " " || event.key.includes("Arrow") || event.key == "Tab") {
-				event.preventDefault(); 
+			if (isModalInputFocused) {
+				if (event.key === "Escape") {
+					setIsModalInputFocused(false);
+				} 
+				return; 
+			}
+
+			// If modal is open but input is not focused, only handle Escape
+			if (showModal && !isModalInputFocused) {
+				if (event.key === "Escape") {
+					toggleModal();
+				}
+				return; 
 			}
 			
-			if (showingSpeciesInput) { // editing species keybinds
-                if (event.key === "Escape") {
-                    closeSpeciesInput();
-                } else if (event.key === "Enter") {
-                    updateSpeciesForSelected();
-                }
-                return;
-            }
+			if (isLabelingMode && event.key !== "Escape" && event.key !== "Enter" && event.key !== "Shift") {
+				if (event.key === "Backspace") {
+					setCurrentLabel(prev => prev.slice(0, -1));
+				} else if (event.key.length === 1) {
+					setCurrentLabel(prev => prev + event.key);
+				}
+				return;
+			}
 
 			const func = keybinds[event.key];        
 			if (func) {
@@ -675,9 +707,10 @@ export default function VerifyPage() {
 		};
 
 		window.addEventListener("keydown", handleKeyDown);
-		return () => window.removeEventListener("keydown", handleKeyDown);
-	}, [selected, playingSpectro, playSpeed, skipInterval, frozen, currentPage, totalPages, showingModal, showingSpeciesInput, inputSpecies]);
-	
+		return () => {
+			window.removeEventListener("keydown", handleKeyDown);
+		};
+	}, [selected, playingSpectro, playSpeed, skipInterval, frozen, currentPage, totalPages, isLabelingMode, currentLabel, showModal, isModalInputFocused, toggleModal]);
 
 	const [isSelecting, setIsSelecting] = useState(false);
 	const [rectStart, setRectStart] = useState(null);
@@ -877,11 +910,11 @@ export default function VerifyPage() {
 							</button>
 						)}
 					</div>
-					
-					<div>
-                        <p>Species: {spectrograms.current[firstSelected()]?.species || "Default"}</p>
-                        <button onClick={openSpeciesInput}>Edit</button>
-                    </div>
+					{isLabelingMode && selected.length > 0 && (
+    				<div className={styles.labelingIndicator}>
+        				<p>Labeling: {currentLabel}</p>
+    				</div>
+					)}
 				</div>
 
 				{audioFiles.length > 0 && (
@@ -925,7 +958,7 @@ export default function VerifyPage() {
 				)}
 
 				<>
-					{showingModal && 	
+					{showModal && 	
 						createPortal(
 							<ModalSpectrogram
 								key={-1}
@@ -962,39 +995,25 @@ export default function VerifyPage() {
 						}}
 					/>
 				)}
-				
-				{showingSpeciesInput && (
-                    <div className={styles.speciesModal}>
-                        <div className={styles.speciesModalContent}>
-                            <h3>Update Species</h3>
-                            <input
-                                type="text"
-                                value={inputSpecies}
-                                onChange={(e) => setInputSpecies(e.target.value)}
-                            />
-                            {speciesList.length > 0 && (
-                                <div className={styles.speciesList}>
-                                    <p>Quick Select:</p>
-                                    <div className={styles.speciesButtons}>
-                                        {speciesList.map((species, idx) => (
-                                            <button 
-                                                key={idx} 
-                                                onClick={() => setInputSpecies(species)}
-                                                className={inputSpecies === species ? styles.activeSpecies : ''}
-                                            >
-                                                {species}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-                            <div className={styles.speciesModalButtons}>
-                                <button onClick={updateSpeciesForSelected}>Save</button>
-                                <button onClick={closeSpeciesInput}>Cancel</button>
-                            </div>
-                        </div>
-                    </div>
-                )}
+				{/* Styling for labelling modal */}
+                {isLabelingMode && selected.length > 0 && (
+				<div 
+					className={styles.floatingLabel}
+					style={{
+						position: 'fixed',
+						top: '50%',
+						left: '50%',
+						transform: 'translate(-50%, -50%)',
+						backgroundColor: 'rgba(0, 0, 0, 0.7)',
+						color: 'white',
+						padding: '10px 20px',
+						zIndex: 1000,
+					}}
+				>
+					<p>Typing: {currentLabel}</p>
+					<p className={styles.labelTip}>Press Enter to apply, Esc to cancel</p>
+				</div>
+			)}
 			</div>
 		</React.Fragment>
 	)

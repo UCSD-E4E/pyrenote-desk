@@ -5,8 +5,8 @@ import listRecordingsBySiteId from "./listRecordingsBySiteId";
 import listSurveys from "./listSurveys";
 import listDeployments from "./listDeployments";
 import listRegionOfInterestByRecordingId from "./listRegionOfInterestByRecordingId";
-import { ApiWithoutEvent } from "../helpers/util-types";
 
+// List of queries to expose
 export const setupQueries = {
   listRecordingsByDeploymentId,
   listRecordings,
@@ -17,4 +17,4 @@ export const setupQueries = {
   listRegionOfInterestByRecordingId,
 };
 
-export type QueriesApi = ApiWithoutEvent<typeof setupQueries>;
+export type QueriesApi = typeof setupQueries;

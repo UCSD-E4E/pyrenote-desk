@@ -105,27 +105,32 @@
     width: auto;
 	height: 128px;
 	flex-direction: column;
+	box-sizing: border-box;
 }
+
 .waveContainerModal{
 	margin-bottom: 0px;
     width: 1024px;
 	height: 256px;
 	flex-direction: column;
+	box-sizing: border-box;
 }
 
 .redOutline {
 	outline: 8px solid rgba(255, 0, 0, 0.7);
 }
+
 .greenOutline {
 	outline: 8px solid rgba(0, 177, 0, 0.7); /* Default GREEN */
 }
+
 .selectOutline {
-	box-shadow: 0 0 0 12px black;
+	box-shadow: 0 0 0 4px black;
 }
+
 .unselectOutline {
 	box-shadow: 0 0 0 0px black;
 }
-
 
 .modal {
 	display: flex;

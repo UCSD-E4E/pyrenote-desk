@@ -59,14 +59,13 @@ export const deleteRecording = async (
   `);
   try {
     const rows = statement.get({
-      recordingId
+      recordingId,
     })!;
     return Promise.resolve(rows);
   } catch (e) {
     console.log("Error: failed to delete recording", e);
   }
 };
-
 
 type UpdateParams = {
   recordingId: number;
@@ -120,5 +119,3 @@ export const updateRecording = async (
     console.log("Error: failed to update recording", e);
   }
 };
-
-
