@@ -120,7 +120,6 @@ export default function VerifyPage() {
 	const spectrograms = useRef([]);
 
 	const currentlyPlaying = useRef(null); // spectrogram that is currently playing sound
-	const [frozen, setFrozen] = useState(false);
 	const [mouseControl, setMouseControl] = useState(true);
 	const [isLabelingMode, setIsLabelingMode] = useState(false);
 	const [currentLabel, setCurrentLabel] = useState("");
@@ -130,7 +129,7 @@ export default function VerifyPage() {
 	
 	const [hovered, setHovered] = useState(null); // hovered spectrogram
 	const updateHovered = (i) => { // wraps setHovered
-		if (!frozen) {
+		if (!showModal) {
 			if (hovered != null) { spectrograms.current[hovered].setIsHovered(false); }
 			setHovered(i);
 			if (i != null && i >= 0) { spectrograms.current[i].setIsHovered(true); }
@@ -141,7 +140,7 @@ export default function VerifyPage() {
 
 	const [selected, setSelected] = useState([]); // selected spectrogram(s)
 	const updateSelected = (arr) => { // wraps setSelected
-		if (!(frozen && mouseControl)) {
+		if (!(showModal && mouseControl)) {
 			if (arraysEqual(arr, selected)) {
 				return;
 			}
@@ -156,7 +155,7 @@ export default function VerifyPage() {
 			for (let i = 0; i < arr.length; i++) {
 				spectrograms.current[arr[i]].setIsSelected(true);
 			}
-			if (arr.length == 1 && frozen) { // reselect using arrow keys during modal
+			if (arr.length == 1 && showModal) { // reselect using arrow keys during modal
 				toggleModal();
 				toggleModal();
 			}
@@ -519,9 +518,8 @@ export default function VerifyPage() {
 	const [showModal, setShowModal] = useState(false);
 	const [isModalInputFocused, setIsModalInputFocused] = useState(false);
 	const toggleModal = useCallback(() => {  // wraps setShowModal
-		if (selected != null) {
+		if (selected.length != 0) {
 			setShowModal((prev) => {
-				setFrozen(!prev);
 				if (prev) { // EXIT MODAL
 					currentlyPlaying.current = null;
 					return false;
@@ -534,7 +532,7 @@ export default function VerifyPage() {
 				}
 			});
 		}		
-	}, [selected, frozen]);
+	}, [selected, showModal]);
 
 	useEffect(() => {
 		if (showModal) {
@@ -718,7 +716,7 @@ export default function VerifyPage() {
 		return () => {
 			window.removeEventListener("keydown", handleKeyDown);
 		};
-	}, [selected, currentlyPlaying, playSpeed, skipInterval, frozen, currentPage, totalPages, isLabelingMode, currentLabel, showModal, isModalInputFocused, toggleModal]);
+	}, [selected, currentlyPlaying, playSpeed, skipInterval, currentPage, totalPages, isLabelingMode, currentLabel, showModal, isModalInputFocused, toggleModal]);
 
 	// BOX SELECT
 
