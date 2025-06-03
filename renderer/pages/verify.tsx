@@ -120,7 +120,7 @@ export default function VerifyPage() {
 	const spectrograms = useRef([]);
 
 	const currentlyPlaying = useRef(null); // spectrogram that is currently playing sound
-	const [mouseControl, setMouseControl] = useState(true);
+
 	const [isLabelingMode, setIsLabelingMode] = useState(false);
 	const [currentLabel, setCurrentLabel] = useState("");
 
@@ -140,7 +140,7 @@ export default function VerifyPage() {
 
 	const [selected, setSelected] = useState([]); // selected spectrogram(s)
 	const updateSelected = (arr) => { // wraps setSelected
-		if (!(showModal && mouseControl)) {
+		if (!showModal) {
 			if (arraysEqual(arr, selected)) {
 				return;
 			}
@@ -524,7 +524,6 @@ export default function VerifyPage() {
 					currentlyPlaying.current = null;
 					return false;
 				} else { // SHOW MODAL
-					setMouseControl(false);
 					if (currentlyPlaying.current != null) {
 						spectrograms.current[currentlyPlaying.current].pause();
 					}
@@ -579,10 +578,10 @@ export default function VerifyPage() {
 
 	// ACTIONS
 
-	const moveSelectionUp = () => 		{ setMouseControl(false); updateSelected([selected.length==0 ? 0 : Math.max(getLastSelected() - COLS, getLastSelected() % COLS)]); }
-	const moveSelectionDown = () => 	{ setMouseControl(false); updateSelected([selected.length==0 ? 0 : Math.min(getLastSelected() + COLS, numFiles-1, numSpots-COLS+(getLastSelected() % COLS))]); }
-	const moveSelectionLeft = () => 	{ setMouseControl(false); updateSelected([selected.length==0 ? 0 : Math.max(getLastSelected() - 1, 0)]); }
-	const moveSelectionRight = () => 	{ setMouseControl(false); updateSelected([selected.length==0 ? 0 : Math.min(getLastSelected() + 1, numFiles-1)]); }
+	const moveSelectionUp = () => 		{ updateSelected([selected.length==0 ? 0 : Math.max(getLastSelected() - COLS, getLastSelected() % COLS)]); }
+	const moveSelectionDown = () => 	{ updateSelected([selected.length==0 ? 0 : Math.min(getLastSelected() + COLS, numFiles-1, numSpots-COLS+(getLastSelected() % COLS))]); }
+	const moveSelectionLeft = () => 	{ updateSelected([selected.length==0 ? 0 : Math.max(getLastSelected() - 1, 0)]); }
+	const moveSelectionRight = () => 	{ updateSelected([selected.length==0 ? 0 : Math.min(getLastSelected() + 1, numFiles-1)]); }
 	const setSpectroStatus = (status) => { 
 		for (let i = 0; i < selected.length; i++) {
 			updateAudioFile(spectrograms.current[selected[i]].fullIndex, "status", true)
@@ -792,14 +791,14 @@ export default function VerifyPage() {
 				id="container" 
 				className={styles.container} 
 				ref={containerRef}
-				onMouseMove={(e) => {if (!showModal) {setMouseControl(true); handleMouseMove(e)}}}
-				onMouseDown={(e) => {if (!showModal) {setMouseControl(true); e.preventDefault(); handleMouseDown(e)}}}
-				onMouseUp={(e) => {if (!showModal) {setMouseControl(true); handleMouseUp()}}}
+				onMouseMove={(e) => {if (!showModal) {handleMouseMove(e)}}}
+				onMouseDown={(e) => {if (!showModal) {e.preventDefault(); handleMouseDown(e)}}}
+				onMouseUp={(e) => {if (!showModal) {handleMouseUp()}}}
 				style={{ userSelect: 'none' }}
 			>
 				<div 
 					className = {styles.verifyButtonMenu}
-					onMouseDown={(e) => {if (!showModal) {e.stopPropagation(); setMouseControl(true); handleMouseDown(e, false)}}}
+					onMouseDown={(e) => {if (!showModal) {e.stopPropagation(); handleMouseDown(e, false)}}}
 				>
 
 					<label className={styles.pickFiles} onClick={(e) => {
@@ -939,14 +938,10 @@ export default function VerifyPage() {
 										species={species}
 										status={status}
 										onMouseEnter={() => {
-											if (mouseControl) {
-												updateHovered(i);
-											}
+											updateHovered(i);
 										}}
 										onMouseLeave={() => {
-											if (mouseControl) {
-												updateHovered(null);
-											}
+											updateHovered(null);
 										}}
 										onClick={(e) => {
 											e.stopPropagation();
