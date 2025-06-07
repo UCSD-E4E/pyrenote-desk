@@ -4,6 +4,14 @@
 	padding: 10px;
 	align-items: flex-start;
 	width: fit-content;
+	overflow: hidden;
+
+	/* 
+	transform: scale(0.75);
+	transform-origin: top left;
+	overflow: hidden;
+	// works but results in dead space
+	*/ 
 }
 
 .verifyButtonMenu {
@@ -11,23 +19,30 @@
 	flex-direction: row;
 	width: 100%;
 	gap: 20px;
-	height: 100px;
+	height: 75px;
 }
 
 .smallContainer {
 	display: flex; 
 	flex-direction: column; 
 	align-items: center;
-	justify-content: center;
-	margin-bottom: 0px 20px; 
+	justify-content: flex-start;
 }
 
 .smallContainerRow {
-	flex: 1; 
 	display: flex; 
 	flex-direction: row; 
 	justify-content: space-between;
-	padding-bottom: 20px; 
+}
+
+.smallButton {
+	width: fit-content;
+	height: 40;
+	font-size: larger;
+}
+
+.smallLabel {
+	margin: 5px 0px;
 }
 
 .nextFiles,.prevFiles,.save {
@@ -65,14 +80,8 @@
 .grid {
 	margin-top: 20px;
 	display: grid;
-	width: 100%;
-	/* 
 	grid-template-columns: repeat(2, 1fr); 
-	grid-template-rows: repeat(5, auto); 
-	*/
 	gap: 30px;
-	width: 1500px;
-	
 	align-items: start;
 }
 
@@ -98,8 +107,8 @@
 
 .waveContainer{
 	margin-bottom: 0px;
-	width: auto;
-	height: 128px;
+	width: 560px;
+	height: 90px;
 	flex-direction: column;
 	box-sizing: border-box;
 }
