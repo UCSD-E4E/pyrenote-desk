@@ -35,7 +35,7 @@
     "electron-builder": "^24.13.3",
     "eslint-plugin-unused-imports": "^4.1.4",
     "jiti": "^2.4.2",
-    "next": "^14.2.21",
+    "next": "^14.2.30",
     "nextron": "^9.1.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
