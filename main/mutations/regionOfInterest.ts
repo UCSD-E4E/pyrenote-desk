@@ -12,7 +12,6 @@ export const updateRegionOfInterest = async (
   startTime: number,
   endTime: number,
 ): Promise<RegionOfInterest | undefined> => {
-  // TODO: test this mutation
   const db = getDatabase();
   const statement = db.prepare<UpdateParams, RegionOfInterest>(`
     UPDATE RegionOfInterest
@@ -43,10 +42,9 @@ export const createRegionOfInterest = async (
   startTime: number,
   endTime: number,
 ): Promise<RegionOfInterest | undefined> => {
-  // TODO: test this mutation
   const db = getDatabase();
   const statement = db.prepare<CreateParams, RegionOfInterest>(`
-    INSERT INTO RegionOfInterest (recordingId, startime, endtime) 
+    INSERT INTO RegionOfInterest (recordingId, starttime, endtime) 
     VALUES (@recordingId, @startTime, @endTime)
     RETURNING *
   `);
@@ -69,7 +67,6 @@ type DeleteParams = {
 export const deleteRegionOfInterest = async (
   regionId: number,
 ): Promise<RegionOfInterest | undefined> => {
-  // TODO: test this mutation
   const db = getDatabase();
   const statement = db.prepare<DeleteParams, RegionOfInterest>(`
     DELETE FROM RegionOfInterest 

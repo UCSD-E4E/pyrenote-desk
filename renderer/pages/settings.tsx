@@ -55,8 +55,14 @@ export default function SettingsPage() {
     function collapseModel () { setShowModel(!showModel); }
     function collapseLabel () { setShowLabel(!showLabel); }
     function collapseVerify () { setShowVerify(!showVerify); }
-
+    
+    /**
+     * Each new_____ function updates local storage and updates the state with the new value.
+     *
+     * @param param the new value to be set in local storage and state.
+     */
     function newUsername (username) {
+        
         localStorage.setItem('username', username);
         setUsername(localStorage.getItem('username'));
     }
@@ -128,8 +134,10 @@ export default function SettingsPage() {
         console.log("path set to ", path);
     }
 
-    //TODO: Implement Local Storage for existing settings
-    //      Create export/import settings button
+    /**
+     * restoreDefaults function resets all settings to their default values.
+     * It updates both local storage and the state variables.
+     */
     function restoreDefaults () {
         localStorage.setItem('username', '');
         localStorage.setItem('email', '');
@@ -167,6 +175,10 @@ export default function SettingsPage() {
         setDefaultColumns('4');
         setDatabasePath(defaultDatabasePath);
     }
+    /**
+     * exportSettings function creates a JSON file with the current settings
+     * and triggers a download of that file.
+     */
     function exportSettings() {
         const settings = {
             username,
@@ -196,6 +208,10 @@ export default function SettingsPage() {
         link.click();
         URL.revokeObjectURL(url);
     }
+    /**
+     * importSettings function allows the user to select a JSON file
+     * and imports the settings from that file into the application.
+     */
     function importSettings() {
         const input = document.createElement("input");
         input.type = "file";

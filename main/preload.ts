@@ -1,19 +1,24 @@
 import { contextBridge, ipcRenderer, IpcRendererEvent } from "electron";
 
+// Helper function for exposing queries
 function invokeQuery<C extends keyof QueriesApi>(
   channel: C,
-  ...args: Parameters<QueriesApi[C]>
-): ReturnType<QueriesApi[C]> {
-  return ipcRenderer.invoke(channel, ...args) as ReturnType<QueriesApi[C]>;
+): (...args: Parameters<QueriesApi[C]>) => ReturnType<QueriesApi[C]> {
+  return (...args: Parameters<QueriesApi[C]>) =>
+    ipcRenderer.invoke(channel, ...args) as ReturnType<QueriesApi[C]>;
 }
 
+// Helper function for exposing mutations
 function invokeMutation<C extends keyof MutationsApi>(
   channel: C,
-  ...args: Parameters<MutationsApi[C]>
-): ReturnType<MutationsApi[C]> {
-  return ipcRenderer.invoke(channel, ...args) as ReturnType<MutationsApi[C]>;
+): (...args: Parameters<MutationsApi[C]>) => ReturnType<MutationsApi[C]> {
+  return (...args: Parameters<MutationsApi[C]>) =>
+    ipcRenderer.invoke(channel, ...args) as ReturnType<MutationsApi[C]>;
 }
 
+// Queries that are exposed to renderer process
+// Queries that are present in queries/index.ts while not
+// exposed here will result in type errors
 const exposedQueries: QueriesApi = {
   listSurveys: (...args) => invokeQuery("listSurveys", ...args),
   listRecordingsByDeploymentId: (...args) =>
@@ -27,16 +32,18 @@ const exposedQueries: QueriesApi = {
   listRegionOfInterestByRecordingId: (...args) =>
     invokeQuery("listRegionOfInterestByRecordingId", ...args),
   listDatabases: (...args) => invokeQuery("listDatabases", ...args),
-
 };
 
+// Mutations that are exposed to renderer process
+// Mutations that are present in mutations/index.ts while not
+// exposed here will result in type errors
 const exposedMutations: MutationsApi = {
-  createSite: (...args) => invokeMutation("createSite", ...args),
-  createSurvey: (...args) => invokeMutation("createSurvey", ...args),
+  createSite: invokeMutation("createSite"),
+  createSurvey: invokeMutation("createSurvey"),
   // Annotations
-  createAnnotation: (...args) => invokeMutation("createAnnotation", ...args),
-  deleteAnnotation: (...args) => invokeMutation("deleteAnnotation", ...args),
-  updateAnnotation: (...args) => invokeMutation("updateAnnotation", ...args),
+  createAnnotation: invokeMutation("createAnnotation"),
+  deleteAnnotation: invokeMutation("deleteAnnotation"),
+  updateAnnotation: invokeMutation("updateAnnotation"),
   // Recordings
   createRecording: (...args) => invokeMutation("createRecording", ...args),
   updateRecording: (...args) => invokeMutation("updateRecording", ...args),
@@ -52,6 +59,7 @@ const exposedMutations: MutationsApi = {
   createSpecies: (...args) => invokeMutation("createSpecies", ...args),
 };
 
+// Exposes all backend queries & mutations
 contextBridge.exposeInMainWorld("api", {
   ...exposedQueries,
   ...exposedMutations,

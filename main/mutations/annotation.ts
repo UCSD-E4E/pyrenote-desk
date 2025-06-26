@@ -58,10 +58,9 @@ export const deleteAnnotation = async (
     })!;
     return Promise.resolve(rows);
   } catch (e) {
-    console.log("Error: failed to update annotation", e);
+    console.log("Error: failed to delete annotation", e);
   }
 };
-
 
 type UpdateParams = {
   annotationId: number;
@@ -92,4 +91,3 @@ export const updateAnnotation = async (
     console.log("Error: failed to update annotation", e);
   }
 };
-

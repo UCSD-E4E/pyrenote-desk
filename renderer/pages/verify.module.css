@@ -1,49 +1,76 @@
 .container {
-    margin-top: 10px;
-    display: flex;
+	display: flex;
 	flex-direction: column;
-    gap: 20px; 
-    padding: 20px;
-    align-items: flex-start;
+	padding: 10px;
+	align-items: flex-start;
 	width: fit-content;
-}
+	overflow: hidden;
 
+	/* 
+	transform: scale(0.75);
+	transform-origin: top left;
+	overflow: hidden;
+	// works but results in dead space
+	*/ 
+}
 
 .verifyButtonMenu {
 	display: flex;
-    flex-direction: row;
+	flex-direction: row;
 	width: 100%;
 	gap: 20px;
+	height: 75px;
+}
+
+.smallContainer {
+	display: flex; 
+	flex-direction: column; 
+	align-items: center;
+	justify-content: flex-start;
+}
+
+.smallContainerRow {
+	display: flex; 
+	flex-direction: row; 
+	justify-content: space-between;
+}
+
+.smallButton {
+	width: fit-content;
+	height: 40;
+	font-size: larger;
+}
+
+.smallLabel {
+	margin: 5px 0px;
 }
 
 .nextFiles,.prevFiles,.save {
 	align-items: center;
-    padding: 10px; /* Add some padding for better spacing */
-    border-radius: 8px;
+	padding: 10px; /* Add some padding for better spacing */
 }
 .nextFiles:hover,.prevFiles:hover,.save:hover,.pickFiles:hover {
 	background-color: #b3fad1;
-    cursor: pointer;
+	cursor: pointer;
 }
 .disabled {
 	align-items: center;
-    padding: 10px; /* Add some padding for better spacing */
-    border-radius: 8px;
+	padding: 10px; /* Add some padding for better spacing */
 	background-color: #7f7f7f;
 }
 
 .pickFiles{
-    background-color: rgb(109, 156, 182); 
-    color: black; 
-    font-size: 16px;
-    font-weight: bold; 
-    padding: 5px 5px; 
-    margin: 0px 20px; 
-    border: none; 
-    text-align: center;
-    display: inline-block; 
-    align-self: center;
-    width: 150px;
+	background-color: rgb(109, 156, 182); 
+	color: black; 
+	font-size: 16px;
+	font-weight: bold; 
+	padding: 5px 5px; 
+	margin: 0px 20px; 
+	border: none; 
+	text-align: center;
+	display: inline-block; 
+	align-self: center;
+	width: 150px;
 }
 .hiddenInputFile{
 	display: none;
@@ -53,14 +80,8 @@
 .grid {
 	margin-top: 20px;
 	display: grid;
-	width: 100%;
-	/* 
 	grid-template-columns: repeat(2, 1fr); 
-	grid-template-rows: repeat(5, auto); 
-	*/
 	gap: 30px;
-	width: 1500px;
-	
 	align-items: start;
 }
 
@@ -74,9 +95,9 @@
 	display: block; /* Initially hidden */
 
 	position: relative;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
 }
 
 @keyframes spin {
@@ -86,22 +107,25 @@
 
 .waveContainer{
 	margin-bottom: 0px;
-    width: auto;
-	height: 128px;
+	width: 560px;
+	height: 90px;
 	flex-direction: column;
+	box-sizing: border-box;
 }
+
 .waveContainerModal{
 	margin-bottom: 0px;
-    width: 1024px;
+	width: 1024px;
 	height: 256px;
 	flex-direction: column;
+	box-sizing: border-box;
 }
 
 .redOutline {
 	outline: 8px solid rgba(255, 0, 0, 0.7);
 }
 .greenOutline {
-	outline: 8px solid rgba(0, 128, 0, 0.7); /* Default GREEN */
+	outline: 8px solid rgba(0, 177, 0, 0.7); /* Default GREEN */
 }
 .selectOutline {
 	box-shadow: 0 0 0 12px black;
@@ -110,23 +134,58 @@
 	box-shadow: 0 0 0 0px black;
 }
 
+/* Hover outline via pseudo-element */
+.hoverOutline {
+	position: relative;
+}
+.hoverOutline::after {
+	content: "";
+	position: absolute;
+	top: -10px;
+	left: -10px;
+	right: -10px;
+	bottom: -10px;
+	border: 3px dotted black;
+	pointer-events: none;
+	z-index: 1;
+}
+.unhoverOutline::after {
+	content: none;
+}
 
 .modal {
 	display: flex;
+	flex-direction: column;
 	align-items: center;
-	justify-content: center;  /* Centers horizontally */
-	box-shadow: rgba(100, 100, 111, 0.3) 0px 7px 29px 0px;
+	justify-content: space-between;
+	box-shadow: 0 0 100px rgba(0, 0, 0, 1);
 	background-color: white;
 	border: 2px solid rgb(240, 240, 240);
 	border-radius: 12px;
-
-	width: 1400px;
+	padding: 20px;
+	gap: 15px;
+	width: 1200px;
 	height: 400px;
 	position: absolute;
 	top: 50%;
 	left: 50%;
 	transform: translate(-50%, -50%);
 	z-index: 1000;
+}
+
+.modalHeader {
+	display: flex;
+	justify-content: space-between;
+	width: 100%;
+	padding: 0 15px;
+	font-weight: bold;
+}
+
+.modalControls {
+	display: flex;
+	width: 100%;
+	justify-content: space-between;
+	padding: 10px 15px;
 }
 
 .noInteraction {
@@ -145,4 +204,34 @@
 	padding: 2px 6px;
 	border-radius: 4px;
 	pointer-events: none; /* don't interfere with clicks */
+}
+
+.filePathOverlay {
+	position: absolute;
+	bottom: 4px;
+	left: 6px;
+	color: lightgoldenrodyellow;
+	text-shadow: 1px 1px 1px black;
+	mix-blend-mode: hard-light;
+	font-size: 14px;
+	z-index: 10;
+	padding: 2px 6px;
+	border-radius: 4px;
+	pointer-events: none; /* don't interfere with clicks */
+}
+
+/* Added new class for species overlay */
+.speciesOverlay {
+	position: absolute;
+	top: 4px;
+	right: 6px;
+	color: white;
+	font-size: 14px;
+	font-weight: bold;
+	z-index: 10;
+	background-color: rgba(0, 0, 0, 0.6);
+	padding: 2px 6px;
+	border-radius: 4px;
+	pointer-events: none;
+	max-width: 90%;
 }

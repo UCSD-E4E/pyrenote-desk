@@ -49,6 +49,7 @@ function SuccessButton({ onClick }) {
   );
 }
 
+//Main Model Page Component
 export default function ModelPage() {
   const [isButtonVisible, setIsButtonVisible] = React.useState(true);
   const [origionalTextVisible, setOrigionalTextVisible] = React.useState(true);
@@ -84,18 +85,18 @@ export default function ModelPage() {
     "############################",
   ];
 
+  // Start image and message rotation when the component mounts
   const startImageRotation = () => {
     imageIntervalRef.current = setInterval(() => {
       setImageIndex((prevIndex) => (prevIndex + 1) % 4);
     }, 300);
-    // Change image
 
     messageIntervalRef.current = setInterval(() => {
       setMessageIndex((prevMessageIndex) => (prevMessageIndex + 1) % 4);
     }, 300);
-    // Change message
   };
 
+  // Stop image and message rotation when the component unmounts or when the model stops
   const stopImageRotation = () => {
     clearInterval(imageIntervalRef.current);
     imageIntervalRef.current = null;
@@ -106,7 +107,7 @@ export default function ModelPage() {
     //stop message cycle
   };
 
-  //defines click behavior of file select button
+  
   function HandleClick() {
     alert("Clicked");
     // TODO: Add Backend Functionality Here

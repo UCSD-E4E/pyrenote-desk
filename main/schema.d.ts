@@ -88,3 +88,5 @@ export type RegionOfInterest = {
   starttime: number;
   endtime: number;
 };
+
+export type RecordingWithData = Recording & { fileData: Uint8Array };
