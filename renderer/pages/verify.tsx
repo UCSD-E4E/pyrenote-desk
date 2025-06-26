@@ -351,7 +351,7 @@ export default function VerifyPage() {
 					scale: "linear",
 					fftSamples: (id==-1) ? 512 : 64, // <<< (SPECTROGRAM QUALITY)  zoomed : unzoomed
 					labels: (id==-1),
-					height: (id==-1) ? 256 : 128, 
+					height: (id==-1) ? 256 : 90, 
 				}),
 			)
 
@@ -418,7 +418,7 @@ export default function VerifyPage() {
 				<div 
 					id={`waveform-${id}`} 
 					ref={innerRef}
-					style={{ width: "100%", height: "256px"}} // the height doesnt matter, it's predetermined by FFT
+					style={{ width: "100%", height: "256px"}}
 					onContextMenu={(e) => { e.preventDefault(); if (isSelected) playPause(); }}
 				></div>
 			</div>	
@@ -825,7 +825,7 @@ export default function VerifyPage() {
 					{audioFiles.length > 0 && (
 						<>
 							<div className={styles.smallContainer}>
-								<p style={{ margin: '5px 0px' }}>Save</p>
+								<p className={styles.smallLabel}>Save</p>
 
 								<div className={styles.save} onClick={(e) => {
 									e.stopPropagation()
@@ -834,14 +834,14 @@ export default function VerifyPage() {
 									<Image
 									src="/images/database.png"
 									alt="Save to JSON"
-									width={30}
-									height={30}
+									width={20}
+									height={20}
 									/>
 								</div>
 							</div>
 
 							<div className={styles.smallContainer}>
-								<p>
+								<p className={styles.smallLabel}>
 									Page:{" "}
 									<input
 										type="number"
@@ -887,31 +887,31 @@ export default function VerifyPage() {
 					)}
 					
 					<div className={styles.smallContainer}>
-						<p>Skip Interval: {skipInterval}</p>
+						<p className={styles.smallLabel}>Skip Interval: {skipInterval}</p>
 						<div className={styles.smallContainerRow}>
-							<button onClick={(e) => {halveSkipInterval(); e.stopPropagation()}}>-</button>
-							<button onClick={(e) => {doubleSkipInterval(); e.stopPropagation()}}>+</button>
+							<button className={styles.smallButton} onClick={(e) => {halveSkipInterval(); e.stopPropagation()}}>-</button>
+							<button className={styles.smallButton} onClick={(e) => {doubleSkipInterval(); e.stopPropagation()}}>+</button>
 						</div>
 					</div>
 					
 					<div className={styles.smallContainer}>
-						<p>Playback Speed: {playSpeed}</p>
+						<p className={styles.smallLabel}>Playback Speed: {playSpeed}</p>
 						<div className={styles.smallContainerRow}>
-							<button onClick={(e) => {halvePlaySpeed(); e.stopPropagation()}}>-</button>
-							<button onClick={(e) => {doublePlaySpeed(); e.stopPropagation()}}>+</button>
+							<button className={styles.smallButton} onClick={(e) => {halvePlaySpeed(); e.stopPropagation()}}>-</button>
+							<button className={styles.smallButton} onClick={(e) => {doublePlaySpeed(); e.stopPropagation()}}>+</button>
 						</div>
 					</div>
 
 					<div className={styles.smallContainer}>
-						<p>COLUMNS: {COLS}</p>
+						<p className={styles.smallLabel}>COLUMNS: {COLS}</p>
 						<div className={styles.smallContainerRow}>
-							<button onClick={(e) => {lessColumns(); e.stopPropagation()}}>-</button>
-							<button onClick={(e) => {moreColumns(); e.stopPropagation()}}>+</button>
+							<button className={styles.smallButton} onClick={(e) => {lessColumns(); e.stopPropagation()}}>-</button>
+							<button className={styles.smallButton} onClick={(e) => {moreColumns(); e.stopPropagation()}}>+</button>
 						</div>
 					</div>
 
 					<div>
-						<p>Selected: 
+						<p className={styles.smallLabel}>Selected: 
 							{	
 								" " + (
 									selected.length==0 ? 
@@ -930,9 +930,9 @@ export default function VerifyPage() {
 						)}
 					</div>
 					{isLabelingMode && selected.length > 0 && (
-					<div className={styles.labelingIndicator}>
-						<p>Labeling: {currentLabel}</p>
-					</div>
+						<div className={styles.labelingIndicator}>
+							<p>Labeling: {currentLabel}</p>
+						</div>
 					)}
 				</div>
 
