@@ -4,6 +4,7 @@ import Head from 'next/head';
 import Link from 'next/link';
 import Image from 'next/image';
 
+const defaultDatabasePath = './pyrenoteDeskDatabase.db';
 export default function SettingsPage() {
     const [showGeneral, setShowGeneral] = useState(false);
     const [showData, setShowData] = useState(false);
@@ -26,6 +27,28 @@ export default function SettingsPage() {
     const [verifyColorScheme, setVerifyColorScheme] = useState(localStorage.getItem('verifyColorScheme'));
     const [confidenceRange, setConfidenceRange] = useState(localStorage.getItem('confidenceRange'));
     const [defaultColumns, setDefaultColumns] = useState(localStorage.getItem('defaultColumns'));
+
+    //TODO: maybe change default database path to something else, or force user to select database
+    const [databasePath, setDatabasePath] = useState(localStorage.getItem('databasePath') || defaultDatabasePath);
+    const [availableDatabases, setAvailableDatabases] = useState([
+        { Country: 'Default', filepath: defaultDatabasePath }
+    ]);
+
+    // fetch data from masterdb.json and save to availableDatabases variable
+    useEffect(() => {
+        fetch('/masterdb.json')
+            .then(response => response.json())
+            .then(data => {
+                const dbs = [
+                    { Country: 'Default', filepath: defaultDatabasePath },
+                    ...data.databases
+                ];
+                setAvailableDatabases(dbs);
+            })
+            .catch(error => {
+                console.error('Error loading database paths:', error);
+            });
+    }, []);
 
     function collapseGeneral () { setShowGeneral(!showGeneral); }
     function collapseData () { setShowData(!showData); }
@@ -103,6 +126,13 @@ export default function SettingsPage() {
         localStorage.setItem('defaultColumns', columns);
         setDefaultColumns(localStorage.getItem('defaultColumns'));
     }
+    function newDatabasePath(path) {
+        // Sets new database path for all SQL operations
+        localStorage.setItem('databasePath', path);
+        setDatabasePath(localStorage.getItem('databasePath'));
+        window.ipc.invoke('set-db-path', path);
+        console.log("path set to ", path);
+    }
 
     /**
      * restoreDefaults function resets all settings to their default values.
@@ -125,6 +155,7 @@ export default function SettingsPage() {
         localStorage.setItem('verifyColorScheme', 'black and white');
         localStorage.setItem('confidenceRange', '10');
         localStorage.setItem('defaultColumns', '4');
+        localStorage.setItem('databasePath', defaultDatabasePath);
 
         setUsername('');
         setEmail('');
@@ -142,6 +173,7 @@ export default function SettingsPage() {
         setVerifyColorScheme('black and white');
         setConfidenceRange('10');
         setDefaultColumns('4');
+        setDatabasePath(defaultDatabasePath);
     }
     /**
      * exportSettings function creates a JSON file with the current settings
@@ -164,7 +196,8 @@ export default function SettingsPage() {
             disableConfidence,
             verifyColorScheme,
             confidenceRange,
-            defaultColumns
+            defaultColumns,
+            databasePath
         };
 
         const blob = new Blob([JSON.stringify(settings, null, 2)], { type: "application/json" });
@@ -274,6 +307,22 @@ export default function SettingsPage() {
                 {showData && <div id="content">
                     <br></br>
                     <form>
+                        <label>Database Path: </label>
+                        <select 
+                            id="dbPath" 
+                            name="dbPath"
+                            onChange={(e) => newDatabasePath(e.target.value)}
+                            value={databasePath}
+                            style={{ width: '300px' }}
+                        >
+                            {availableDatabases.map((db) => (
+                                <option key={db.filepath} value={db.filepath}>
+                                    {db.Country}
+                                </option>
+                            ))}
+                        </select>
+                        
+                        <br></br>
                         <label >Input Style: </label>
                         <input type="text" id="fname" name="fname"
                             onChange={(e) => newInputStyle(e.target.value)}

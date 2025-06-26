@@ -11,6 +11,7 @@ import {
   createRegionOfInterest,
   updateRegionOfInterest,
 } from "./regionOfInterest";
+import createSpecies from "./createSpecies";
 
 // List of mutations to expose
 export const setupMutations = {
@@ -25,6 +26,7 @@ export const setupMutations = {
   deleteRegionOfInterest,
   createRegionOfInterest,
   updateRegionOfInterest,
+  createSpecies,
 };
 
 export type MutationsApi = typeof setupMutations;

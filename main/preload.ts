@@ -20,15 +20,18 @@ function invokeMutation<C extends keyof MutationsApi>(
 // Queries that are present in queries/index.ts while not
 // exposed here will result in type errors
 const exposedQueries: QueriesApi = {
-  listSurveys: invokeQuery("listSurveys"),
-  listRecordingsByDeploymentId: invokeQuery("listRecordingsByDeploymentId"),
-  listRecordings: invokeQuery("listRecordings"),
-  listDeployments: invokeQuery("listDeployments"),
-  listRecordingsBySiteId: invokeQuery("listRecordingsBySiteId"),
-  listAnnotationsByRegionId: invokeQuery("listAnnotationsByRegionId"),
-  listRegionOfInterestByRecordingId: invokeQuery(
-    "listRegionOfInterestByRecordingId",
-  ),
+  listSurveys: (...args) => invokeQuery("listSurveys", ...args),
+  listRecordingsByDeploymentId: (...args) =>
+    invokeQuery("listRecordingsByDeploymentId", ...args),
+  listRecordings: (...args) => invokeQuery("listRecordings", ...args),
+  listDeployments: (...args) => invokeQuery("listDeployments", ...args),
+  listRecordingsBySiteId: (...args) =>
+    invokeQuery("listRecordingsBySiteId", ...args),
+  listAnnotationsByRegionId: (...args) =>
+    invokeQuery("listAnnotationsByRegionId", ...args),
+  listRegionOfInterestByRecordingId: (...args) =>
+    invokeQuery("listRegionOfInterestByRecordingId", ...args),
+  listDatabases: (...args) => invokeQuery("listDatabases", ...args),
 };
 
 // Mutations that are exposed to renderer process
@@ -42,13 +45,18 @@ const exposedMutations: MutationsApi = {
   deleteAnnotation: invokeMutation("deleteAnnotation"),
   updateAnnotation: invokeMutation("updateAnnotation"),
   // Recordings
-  createRecording: invokeMutation("createRecording"),
-  updateRecording: invokeMutation("updateRecording"),
-  deleteRecording: invokeMutation("deleteRecording"),
-  // Region of interest
-  deleteRegionOfInterest: invokeMutation("deleteRegionOfInterest"),
-  createRegionOfInterest: invokeMutation("createRegionOfInterest"),
-  updateRegionOfInterest: invokeMutation("updateRegionOfInterest"),
+  createRecording: (...args) => invokeMutation("createRecording", ...args),
+  updateRecording: (...args) => invokeMutation("updateRecording", ...args),
+  deleteRecording: (...args) => invokeMutation("deleteRecording", ...args),
+  // Region of interest 
+  deleteRegionOfInterest: (...args) =>
+    invokeMutation("deleteRegionOfInterest", ...args),
+  createRegionOfInterest: (...args) =>
+    invokeMutation("createRegionOfInterest", ...args),
+  updateRegionOfInterest: (...args) =>
+    invokeMutation("updateRegionOfInterest", ...args),
+  // Species
+  createSpecies: (...args) => invokeMutation("createSpecies", ...args),
 };
 
 // Exposes all backend queries & mutations

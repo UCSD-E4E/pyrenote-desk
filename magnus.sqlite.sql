@@ -52,24 +52,10 @@ CREATE TABLE Recording (
     FOREIGN KEY (deploymentId) REFERENCES Deployment (deploymentId)
 );
 
-CREATE TABLE Model (
-    modelId INTEGER PRIMARY KEY,
-    name TEXT,
-    type TEXT,
-    url TEXT
-);
-
-CREATE TABLE Labeler (
-    labelerId INTEGER PRIMARY KEY,
-    name TEXT,
-    email TEXT,
-    modelId INTEGER,
-    isHuman BOOLEAN,
-    FOREIGN KEY (modelId) REFERENCES Model (modelId)
-);
 
 CREATE TABLE Annotation (
     annotationId INTEGER PRIMARY KEY,
+    verified TEXT CHECK(verified IN ('YES', 'NO', 'UNVERIFIED')), --ensure value is only YES NO OR UNVERIFIED
     regionId INTEGER,
     labelerId INTEGER,
     annotationDate DATETIME,
@@ -94,4 +80,11 @@ CREATE TABLE RegionOfInterest (
     endtime REAL,
     FOREIGN KEY (recordingId) REFERENCES Recording (recordingId) ON DELETE CASCADE
     UNIQUE (recordingId, starttime, endtime)
+);
+
+CREATE TABLE Model(
+  modelId INTEGER PRIMARY KEY,
+  name TEXT,
+  type TEXT,
+  url TEXT --maybe filepath?
 );
