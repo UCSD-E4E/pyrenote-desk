@@ -188,6 +188,8 @@ To modify the species label of selected spectrograms(s), press ***Shift***.
 This uses a package called [Nextron](https://blog.logrocket.com/building-app-next-js-electron/) to combine Electron and Next.js. All [Next.js](https://nextjs.org/) code can be found in the `/renderer` directory. Additionally, code is written in [TypeScript](https://www.typescriptlang.org/).
 
   
+## BackEnd Documentation
+Please see this [attached document](https://docs.google.com/document/d/10autWGSIJDS4cQx3b90XQbgZoM-lmTRWkSTbVVMZHbs/edit?usp=sharing) for documentation about the backend development of the desktop app. 
 
 ## Acknowledgements
 
