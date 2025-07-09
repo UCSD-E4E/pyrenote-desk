@@ -23,7 +23,8 @@ const exposedQueries: QueriesApi = {
   listSurveys: (...args) => invokeQuery("listSurveys", ...args),
   listRecordingsByDeploymentId: (...args) =>
     invokeQuery("listRecordingsByDeploymentId", ...args),
-  listRecordings: (...args) => invokeQuery("listRecordings", ...args),
+  listRecordings: () => invokeQuery("listRecordings")(), 
+  listSpecies: () => invokeQuery("listSpecies")(), 
   listDeployments: (...args) => invokeQuery("listDeployments", ...args),
   listRecordingsBySiteId: (...args) =>
     invokeQuery("listRecordingsBySiteId", ...args),
@@ -57,6 +58,7 @@ const exposedMutations: MutationsApi = {
     invokeMutation("updateRegionOfInterest", ...args),
   // Species
   createSpecies: (...args) => invokeMutation("createSpecies", ...args),
+  createRecorder: (...args) => invokeMutation("createRecorder", ...args),
 };
 
 // Exposes all backend queries & mutations

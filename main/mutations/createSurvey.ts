@@ -22,7 +22,7 @@ const createSurvey = async (
 ): Promise<Survey | undefined> => {
   const db = getDatabase();
   const statement = db.prepare<CreateParams, Survey>(`
-    INSERT INTO survey (
+    INSERT INTO Survey (
       surveyname,
       studysite,
       start_date,

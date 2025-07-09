@@ -21,6 +21,7 @@ let dbInstance: BetterSqlite3.Database;
 let selectedDbPath: string | null = null;
 
 export const getDatabase = () => {
+  console.log("db instance: ", dbInstance)
   return dbInstance;
 };
 
