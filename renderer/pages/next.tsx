@@ -131,24 +131,68 @@ export default function databasePage() {
     if (!recorder) {
       return null;
     }
+    const [loading, setLoading] = useState(false);
+    const [brand, setBrand] = useState('');
+    const [model, setModel] = useState('');
+    const [serialNo, setSerialNo] = useState('');
+    const [code, setCode] = useState('');
+    const [date, setDate] = useState<Date | null>(null); 
+
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!brand || !model || !serialNo || !code || !date) {
+          alert('Please fill in all fields.');
+          return;
+        }
+        setLoading(true);
+        try {
+          const purchase_date= date.toISOString().split("T")[0];
+          await window.ipc.invoke('createRecorder', {
+            brand, 
+            model, 
+            serialnbr: serialNo, 
+            code, 
+            purchase_date
+          });
+          alert('Recorder inserted!');
+          setBrand('');
+          setModel('');
+          setSerialNo('');
+          setCode('');
+          setDate(null);
+          toEntryForm();
+        } catch (err) {
+          alert('Failed to insert recording: ' + (err?.message || err));
+        } finally {
+          setLoading(false);
+        }
+      };
     return (
       <div className={styles.magnus}>
         <h1>Recorder Entry</h1>
 
-        <form>
-          <label>Brand: </label>
-          <input type="text" />
-          <label>Model: </label>
-          <input type="text" />
-          <label>Serial number: </label>
-          <input type="text" />
-          <label>Code: </label>
-          <input type="text" />
-          <label>Date Purchased: </label>
-          <input type="date" />
+        <form onSubmit={handleSubmit}>
+          <label>Brand:</label>
+          <input value={brand} onChange={e => setBrand(e.target.value)} />
+          <label>Model:</label>
+          <input value={model} onChange={e => setModel(e.target.value)} />
+          <label>Serial number:</label>
+          <input value={serialNo} onChange={e => setSerialNo(e.target.value)} />
+          <label>Code:</label>
+          <input value={code} onChange={e => setCode(e.target.value)} />
+          <label>Date Purchased:</label>
+          <input
+            type="date"
+            value={date ? date.toISOString().split("T")[0] : ""}
+            onChange={(e) => setDate(new Date(e.target.value))}
+          />
+
+          {/* <label>Date Purchased: </label>
+          <input type="date" /> */}
           <div>
-            <button onClick={toEntryForm}>Enter</button>
-            <button onClick={toEntryForm}>Cancel</button>
+            <button type="submit" disabled={loading}>Enter</button>
+            <button type="button" onClick={toEntryForm}>Cancel</button>
           </div>
         </form>
       </div>

@@ -58,7 +58,7 @@ export type Recorder = {
   model: string;
   serialnbr: string;
   code: string;
-  purchase_date: date;
+  purchase_date: string;
 };
 
 export type Model = {

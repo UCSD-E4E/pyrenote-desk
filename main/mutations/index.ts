@@ -5,6 +5,7 @@ import {
 } from "./annotation";
 import createSite from "./createSite";
 import { createRecording, deleteRecording, updateRecording } from "./recording";
+import createRecorder from "./createRecorder";
 import createSurvey from "./createSurvey";
 import {
   deleteRegionOfInterest,
@@ -27,6 +28,7 @@ export const setupMutations = {
   createRegionOfInterest,
   updateRegionOfInterest,
   createSpecies,
+  createRecorder
 };
 
 export type MutationsApi = typeof setupMutations;

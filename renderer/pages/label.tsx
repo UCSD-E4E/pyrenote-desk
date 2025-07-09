@@ -50,10 +50,11 @@ const AudioPlayer: React.FC = () => {
   // Region & species
   const regionListRef = useRef<any[]>([]);
   const activeRegionRef = useRef<any>(null);
-  const [speciesList, setSpeciesList] = useState<Species[]>([
-    { species: "Default", common: "no", speciesId: 0 },
-    { species: "some birds", common: "?", speciesId: 1 },
-  ]);
+  // const [speciesList, setSpeciesList] = useState<Species[]>([
+  //   { species: "Default", common: "no", speciesId: 0 },
+  //   { species: "some birds", common: "?", speciesId: 1 },
+  // ]);
+  const [speciesList, setSpeciesList] = useState<Species[]>([]);
   const [selectedSpecies, setSelectedSpecies] = useState<number>(0);
 
   // Wavesurfers array + button‑disable flags
@@ -303,6 +304,11 @@ const AudioPlayer: React.FC = () => {
   const importFromDB = async () => {
     const recordings = await window.api.listRecordings();
     console.log("recordings:", recordings);
+    // Ensure it's an array
+    if (!Array.isArray(recordings)) {
+      console.error("Expected recordings to be an array, got:", recordings);
+      return;
+    }
 
     const newWaveSurfers: WaveSurferObj[] = await Promise.all(
       recordings.map(async (rec, i) => {
@@ -331,6 +337,23 @@ const AudioPlayer: React.FC = () => {
     regionListRef.current = [];
     activeRegionRef.current = null;
   };
+
+  useEffect(() => {
+    const fetchSpecies = async () => {
+      try {
+        const species = await window.api.listSpecies();
+        setSpeciesList(species);
+      } catch (error) {
+        console.error("Failed to fetch species list:", error);
+        setSpeciesList([
+          { species: "Default", common: "no", speciesId: 0 },
+          { species: "some birds", common: "?", speciesId: 1 },
+        ]);
+      }
+    };
+
+    fetchSpecies();
+  }, []);
 
   //Handle audio files upload/import and map new wavesurfers
   const handleFiles = async (acceptedFiles: File[]) => {
@@ -761,6 +784,14 @@ const AudioPlayer: React.FC = () => {
     labelElem.textContent = species.species;
   };
 
+  /*
+  <input
+              type="file"
+              multiple
+              accept="audio/*"
+              onChange={(e) => handleFiles(Array.from(e.target.files))}
+            />*/
+
   return (
     <React.Fragment>
       <Head>
@@ -769,29 +800,27 @@ const AudioPlayer: React.FC = () => {
       <div className={styles.container}>
         <div className={styles.main}>
           <div className={styles.header}>
-            <button onClick={(_e) => importFromDB()}>Import</button>
-            <input
-              type="file"
-              multiple
-              accept="audio/*"
-              onChange={(e) => handleFiles(Array.from(e.target.files))}
-            />
+            <button onClick={(_e) => importFromDB()}>Import all Recordings from DB</button>
             <div>
-              <label>Choose a species: </label>
-              {/* Turns category selection back to default on selection */}
+              <label htmlFor="species-names">Choose a species: </label>
               <select
                 name="Species"
                 id="species-names"
-                value={speciesList[selectedSpecies].species}
+                value={speciesList[selectedSpecies]?.speciesId ?? ""}
                 onChange={(e) => {
-                  const idx = e.target.selectedIndex;
-                  assignSpecies(speciesList[idx]);
-                  setSelectedSpecies(0);
+                  const selectedId = Number(e.target.value);
+                  const selectedIdx = speciesList.findIndex(
+                    (sp) => sp.speciesId === selectedId
+                  );
+                  if (selectedIdx !== -1) {
+                    assignSpecies(speciesList[selectedIdx]);
+                    setSelectedSpecies(selectedIdx);
+                  }
                 }}
               >
                 {speciesList.map((sp) => (
-                  <option key={sp.speciesId} value={sp.species}>
-                    {sp.species}
+                  <option key={sp.speciesId} value={sp.speciesId}>
+                    {sp.common} ({sp.species})
                   </option>
                 ))}
               </select>
