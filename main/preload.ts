@@ -20,18 +20,19 @@ function invokeMutation<C extends keyof MutationsApi>(
 // Queries that are present in queries/index.ts while not
 // exposed here will result in type errors
 const exposedQueries: QueriesApi = {
-  listSurveys: (...args) => invokeQuery("listSurveys", ...args),
+  listSurveys: () => invokeQuery("listSurveys")(),
   listRecordingsByDeploymentId: (...args) =>
     invokeQuery("listRecordingsByDeploymentId", ...args),
   listRecordings: () => invokeQuery("listRecordings")(), 
   listSpecies: () => invokeQuery("listSpecies")(), 
+  listRecorders: () => invokeQuery("listRecorders")(),
+  listSites: () => invokeQuery("listSites")(),
   listDeployments: (...args) => invokeQuery("listDeployments", ...args),
   listRecordingsBySiteId: (...args) =>
     invokeQuery("listRecordingsBySiteId", ...args),
   listAnnotationsByRegionId: (...args) =>
     invokeQuery("listAnnotationsByRegionId", ...args),
-  listRegionOfInterestByRecordingId: (...args) =>
-    invokeQuery("listRegionOfInterestByRecordingId", ...args),
+  listRegionOfInterestByRecordingId: (...args) => invokeQuery("listRegionOfInterestByRecordingId", ...args),
   listDatabases: (...args) => invokeQuery("listDatabases", ...args),
 };
 
@@ -52,13 +53,15 @@ const exposedMutations: MutationsApi = {
   // Region of interest 
   deleteRegionOfInterest: (...args) =>
     invokeMutation("deleteRegionOfInterest", ...args),
-  createRegionOfInterest: (...args) =>
-    invokeMutation("createRegionOfInterest", ...args),
+  // createRegionOfInterest: (...args) =>
+  //   invokeMutation("createRegionOfInterest", ...args),
+  createRegionOfInterest: invokeMutation("createRegionOfInterest"),
   updateRegionOfInterest: (...args) =>
     invokeMutation("updateRegionOfInterest", ...args),
   // Species
   createSpecies: (...args) => invokeMutation("createSpecies", ...args),
   createRecorder: (...args) => invokeMutation("createRecorder", ...args),
+  createDeployment: (...args) => invokeMutation("createDeployment", ...args)
 };
 
 // Exposes all backend queries & mutations

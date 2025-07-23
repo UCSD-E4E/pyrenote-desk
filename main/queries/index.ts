@@ -7,6 +7,8 @@ import listDeployments from "./listDeployments";
 import listRegionOfInterestByRecordingId from "./listRegionOfInterestByRecordingId";
 import listDatabases from "./listDatabases";
 import listSpecies from "./listSpecies";
+import listSites from "./listSites";
+import listRecorders from "./listRecorders"
 import { ApiWithoutEvent } from "../helpers/util-types";
 
 // List of queries to expose
@@ -20,6 +22,8 @@ export const setupQueries = {
   listRegionOfInterestByRecordingId,
   listDatabases,
   listSpecies,
+  listSites,
+  listRecorders
 };
 
 export type QueriesApi = typeof setupQueries;

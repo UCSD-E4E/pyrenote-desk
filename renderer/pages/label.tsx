@@ -147,44 +147,56 @@ const AudioPlayer: React.FC = () => {
 
     // Accesses all regions
     const regionPlugin = ws.plugins[1];
+    if (!wavesurfers[index]?.instance?.regions?.list) {
+      console.warn("Missing regions plugin or list not ready");
+    }
     const allRegions = regionPlugin?.wavesurfer?.plugins[2]?.regions;
     const lines: string[] = [];
 
     const removeRegions = async () => {
       for (const removed of removeList) {
-        console.log("removed ", removed);
+        console.log("removed following region of interest", removed);
         await window.api.deleteRegionOfInterest(removed);
       }
     };
 
+
     if (!allRegions || !Object.keys(allRegions).length) {
       console.log("No regions");
       await removeRegions();
+      //await removeRegionsFromUI(); //clear UI just in case even if no regions exist
     } else {
       // Text document of start/end times
-      Object.values(allRegions).forEach(async (region: Region, idx: number) => {
+      //Object.values(allRegions).forEach(async (region: Region, idx: number) => {
+      const regionValues = Object.values(allRegions) as Region[];
+      for (let idx = 0; idx < regionValues.length; idx++) {
+        const region = regionValues[idx];
         console.log("Saved region id: ", region.id);
         console.log("region: ", region.start, region.end);
         let regionId;
         if (region.id.startsWith("imported-")) {
           const id = Number.parseInt(region.id.split("imported-")[1]);
+          console.log("Calling updateRegionOfInterest with:", id, region.start, region.end);
           await window.api.updateRegionOfInterest(id, region.start, region.end);
           regionId = id;
         } else {
           // NOTE: Would this cause issues if newly assigned ids &
           // cur region id not linked?
+          console.log("Creating new region of interest with ",wavesurfers[index].recording.recordingId, region.start, region.end);
           const newRegion = await window.api.createRegionOfInterest(
             wavesurfers[index].recording.recordingId,
             region.start,
             region.end,
           );
           regionId = newRegion.regionId;
+          console.log("New region created with ID:", regionId);
         }
         if (region.data?.species && region.data?.confidence) {
           const species: Species = region.data.species as Species;
           console.log("label: ", region.data.species);
           const confidence = Number.parseInt(region.data?.confidence as string);
           // TODO: Labeller id & confidence
+          console.log("creating new annoations")
           await window.api.createAnnotation(
             wavesurfers[index].recording.recordingId,
             0,
@@ -200,7 +212,7 @@ const AudioPlayer: React.FC = () => {
         // lines.push(
         //   `Region #${idx + 1}: Start = ${startSec}s, End = ${endSec}s`,
         // );
-      });
+      };
       //
       // lines.push(
       //   "",
@@ -222,6 +234,7 @@ const AudioPlayer: React.FC = () => {
     }
 
     await removeRegions();
+    //await removeRegionsFromUI();
 
     // remove or shift current wavesurfer
     if (index === 0) {
@@ -320,7 +333,7 @@ const AudioPlayer: React.FC = () => {
         const spectrogramId = `spectrogram-${i}`;
         return {
           recording: rec,
-          regions: regions,
+          regions: regions || [], //ensure regions is array
           id: containerId,
           spectrogramId: spectrogramId,
           file: new Blob([rec.fileData]),
@@ -473,7 +486,9 @@ const AudioPlayer: React.FC = () => {
           });
 
           // Allow draw selection with Regions plugin
-          const wsRegions = ws.registerPlugin(
+          // const wsRegions = ws.registerPlugin(
+          //   (RegionsPlugin as any).create({
+          const wsRegions = await ws.registerPlugin(
             (RegionsPlugin as any).create({
               name: "regions",
               regions: [],
@@ -483,6 +498,19 @@ const AudioPlayer: React.FC = () => {
               dragSelection: true,
             }),
           );
+
+          // Load DB regions into the plugin
+          // regions.forEach((region) => {
+          //   wsRegions.addRegion({
+          //     id: region.id,
+          //     start: region.start,
+          //     end: region.end,
+          //     color: "rgba(0, 255, 0, 0.3)", // optional per-region
+          //     data: region, // store extra info if needed
+          //   });
+          // });
+
+          wavesurfers[index].instance = ws; //Added to prevent region error 
 
           // Enable drag selection with a constant color and threshold.
           const disableDragSelection = wsRegions.enableDragSelection(
@@ -634,42 +662,86 @@ const AudioPlayer: React.FC = () => {
           });
 
           wsRegions.on("region-double-clicked", (region, event) => {
-            // creates label, prompt not being supported on electron
-            // possibly replace with prompt plugin in future, change to module css
-            const input = document.createElement("input");
-            input.type = "text";
-            input.value = region.data?.label || "";
-            input.style.position = "absolute";
-            input.style.top = "0";
-            input.style.left = "0";
-            input.style.width = "100%";
-            input.style.boxSizing = "border-box";
-            input.style.textAlign = "center";
-            input.style.display = "block";
+            // Create the dropdown
+            const select = document.createElement("select");
 
-            region.element.appendChild(input);
-            input.focus();
-            input.addEventListener("blur", () => {
-              region.data = { label: input.value };
+            speciesList.forEach((sp) => {
+              const option = document.createElement("option");
+              option.value = sp.speciesId.toString();
+              option.textContent = `${sp.common} (${sp.species})`;
+              if (
+                region.data?.species &&
+                region.data.species.speciesId === sp.speciesId
+              ) {
+                option.selected = true;
+              }
+              select.appendChild(option);
+            });
+
+            // Stop region toggle on select click
+            select.addEventListener("mousedown", (e) => e.stopPropagation());
+            select.addEventListener("click", (e) => e.stopPropagation());
+
+            // When the dropdown value changes
+            select.addEventListener("change", () => {
+              const selectedId = parseInt(select.value);
+              const selectedSpecies = speciesList.find(
+                (sp) => sp.speciesId === selectedId
+              );
+              if (!selectedSpecies) return;
+
+              // Update region metadata
+              region.data = {
+                ...region.data,
+                species: selectedSpecies,
+                label: selectedSpecies.species,
+                confidence: confidence,
+              };
+
+              // Update or create label element
               let labelElem = region.element.querySelector(".region-label");
-              if (labelElem) {
-                labelElem.textContent = input.value;
-              } else {
+              if (!labelElem) {
                 labelElem = document.createElement("span");
                 labelElem.className = "region-label";
-                labelElem.textContent = input.value;
                 region.element.appendChild(labelElem);
               }
-              region.element.removeChild(input);
-            });
+              labelElem.textContent = selectedSpecies.species;
 
-            // enter to confirm label
-            input.addEventListener("keydown", (e: KeyboardEvent) => {
-              if (e.key === "Enter") {
-                input.blur();
+              // Remove dropdown
+              //document.body.removeChild(select);
+              if (document.body.contains(select)) {
+                document.body.removeChild(select);
               }
             });
+
+            // Remove on blur
+            select.addEventListener("blur", () => {
+              if (document.body.contains(select)) {
+                document.body.removeChild(select);
+              }
+            });
+
+
+            // Position the dropdown relative to the region on screen
+            const rect = region.element.getBoundingClientRect();
+            select.style.position = "absolute";
+            select.style.top = `${rect.top}px`;
+            select.style.left = `${rect.left}px`;
+            select.style.zIndex = "10000";
+            select.style.backgroundColor = "white";
+            select.style.border = "1px solid black";
+            select.style.padding = "4px";
+            select.style.boxSizing = "border-box";
+            select.style.maxHeight = "200px";
+            select.style.overflow = "auto";
+
+            // Append to body
+            document.body.appendChild(select);
+            select.focus();
           });
+
+
+
 
           document
             .getElementById(wavesurfers[index].spectrogramId)
@@ -680,7 +752,16 @@ const AudioPlayer: React.FC = () => {
             setPlaying(false);
           });
 
-          for (const r of wavesurfers[index].regions) {
+          console.log("wavesurfers[index[.region", wavesurfers[index].regions);
+          //console.log('regionsArray:', regionsArray)
+          // const regionsArray = Object.values(wavesurfers[index]?.instance?.regions?.list );
+          // console.log('regionsArray:', regionsArray)
+
+          // necessary to avoid error when no regions are present
+          const dbRegions = Array.isArray(wavesurfers[index].regions)
+          ? wavesurfers[index].regions
+          : [];
+          for (const r of dbRegions) {
             wsRegions.addRegion({
               start: r.starttime,
               end: r.endtime,
@@ -925,12 +1006,13 @@ const AudioPlayer: React.FC = () => {
               <button className={styles.regionButton} onClick={undoLastRegion}>
                 Undo
               </button>
-              <button
+              {/* Removed because saves new species to list in UI not database */}
+              {/* <button
                 className={styles.regionButton}
                 onClick={saveLabelsToSpecies}
               >
                 Save Labels
-              </button>
+              </button> */}
             </div>
 
             <label className={styles.confidenceLabel} htmlFor="confidence">

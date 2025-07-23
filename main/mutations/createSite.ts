@@ -9,31 +9,36 @@ type CreateParams = {
   elevation: number;
 };
 
-const createSite = async (
-  surveyId: number,
-  site_code: string,
-  latitude: number,
-  longitude: number,
-  elevation: number,
-): Promise<Site | undefined> => {
+const createSite  = async (params: CreateParams) => {
+  const {
+    surveyId,
+    site_code,
+    latitude,
+    longitude,
+    elevation
+  } = params;
+
   const db = getDatabase();
-  const statement = db.prepare<CreateParams, Site>(`
+  const statement = db.prepare(`
     INSERT INTO site (surveyId, site_code, latitude, longitude, elevation)
     VALUES (@surveyId, @site_code, @latitude, @longitude, @elevation)
     RETURNING *
   `);
   try {
-    const rows = statement.get({
-      surveyId,
-      site_code,
-      latitude,
-      longitude,
-      elevation,
-    })!;
-    return Promise.resolve(rows);
+    const row = statement.get({
+      surveyId: surveyId,
+      site_code: String(site_code),
+      latitude: latitude,
+      longitude: longitude,
+      elevation: elevation
+    });
+    console.log("Inserted row:", row);
+    return row;
   } catch (e) {
-    console.log("Error: failed to create site", e);
+    console.error("Error inserting site:", e);
+    throw e;
   }
 };
 
 export default createSite;
+

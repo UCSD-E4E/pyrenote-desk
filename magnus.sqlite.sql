@@ -78,7 +78,7 @@ CREATE TABLE RegionOfInterest (
     recordingId INTEGER,
     starttime REAL,
     endtime REAL,
-    FOREIGN KEY (recordingId) REFERENCES Recording (recordingId) ON DELETE CASCADE
+    FOREIGN KEY (recordingId) REFERENCES Recording (recordingId) ON DELETE CASCADE,
     UNIQUE (recordingId, starttime, endtime)
 );
 

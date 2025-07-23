@@ -8,6 +8,8 @@ import { setupQueries as queries } from "./queries";
 import { setupMutations as mutations } from "./mutations";
 import { app, ipcMain, dialog } from "electron";
 import { readFile } from "fs/promises";
+import os from "os";
+import { spawn } from "child_process";
 
 const isProd = process.env.NODE_ENV === "production";
 
@@ -294,4 +296,44 @@ ipcMain.handle('edit-database', async (_event, { oldName, newName, filepath }) =
     console.error('Error editing database:', error);
     return { success: false, error: error.message };
   }
+});
+
+
+ipcMain.handle("saveMultipleRecordings", async (_event, { files, deploymentId, driveLabel }) => {
+  //const selectedDbPath = selectedDbPath; // ← however you expose this
+  const savedIds: number[] = [];
+
+  for (const file of files) {
+    const tempPath = path.join(os.tmpdir(), file.name);
+    fs.writeFileSync(tempPath, Buffer.from(file.buffer));
+
+    const pythonScript = path.join(__dirname, "../pyfiles/script.py");
+    const args = [
+      "--save", tempPath,
+      "--deployment", deploymentId.toString(),
+      "--db", selectedDbPath
+    ];
+    if (driveLabel) args.push("--drive", driveLabel);
+
+    await new Promise<void>((resolve, reject) => {
+      const proc = spawn("python3", [pythonScript, ...args]);
+
+      proc.stdout.on("data", (data) => {
+        const match = data.toString().match(/recordingId=(\d+)/);
+        if (match) savedIds.push(Number(match[1]));
+        console.log("PYTHON STDOUT:", data.toString());
+      });
+
+      proc.stderr.on("data", (data) => {
+        console.error("PYTHON STDERR:", data.toString());
+      });
+
+      proc.on("close", (code) => {
+        if (code === 0) resolve();
+        else reject(new Error(`Python script failed with code ${code}`));
+      });
+    });
+  }
+
+  return savedIds;
 });

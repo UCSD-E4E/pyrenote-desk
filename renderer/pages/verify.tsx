@@ -56,9 +56,9 @@ const DEFAULT_SPECIES = "Default"
 // DATA STRUCTURES //
 
 enum SpectroStatus { // 3 spectrogram states (default: Unverified)
-	Unverified,
-	Valid,
-	Invalid,
+	Unverified= "UNVERIFIED",
+	Valid = "YES",
+	Invalid = "NO",
 }
 
 interface SpectroRef { // public Spectrogram properties & functions
@@ -194,7 +194,6 @@ export default function VerifyPage() {
 
 	
 	// FILE SELECTION //
-
 	async function handleFileSelection() { // selecting files from system and updating arrays
 		let processed : ProcessedAudioFile[] = [...audioFiles];
 		let spawnPage = 1;
@@ -253,6 +252,38 @@ export default function VerifyPage() {
 		setAudioFiles(processed);
 		setCurrentPage(spawnPage); // Reset to first page
 	};
+
+	async function handleFileSelectionFromDB() {
+		let processed: ProcessedAudioFile[] = [...audioFiles];
+		let spawnPage = 1;
+
+		const recordings = await window.api.listRecordings();
+
+		const tasks = recordings.map(async (rec, i) => {
+			try {
+			const audioFile = await window.ipc.invoke('read-file-for-verification', rec.url);
+			const ext = rec.url.endsWith(".mp3") ? ".mp3" : ".wav";
+			const mimeType = ext === ".mp3" ? "audio/mpeg" : "audio/wav";
+
+			const blob = new Blob([audioFile.data], { type: mimeType });
+
+			processed.push({
+				index: processed.length,
+				url: URL.createObjectURL(blob),
+				filePath: rec.url,
+				status: SpectroStatus.Unverified,
+				species: DEFAULT_SPECIES,
+			});
+			} catch (err) {
+			console.error(`Failed to read audio file at ${rec.url}:`, err);
+			}
+		});
+
+		await Promise.all(tasks);
+		setAudioFiles(processed);
+		setCurrentPage(spawnPage);
+	}
+
 
 
 	// SPECTROGRAMS //
@@ -818,9 +849,9 @@ export default function VerifyPage() {
 
 					<label className={styles.pickFiles} onClick={(e) => {
 						e.stopPropagation();
-						handleFileSelection();
+						handleFileSelectionFromDB();
 					}}>
-						<p>Select files</p>
+						<p>Import files from Database</p>
 					</label> 
 					{audioFiles.length > 0 && (
 						<>

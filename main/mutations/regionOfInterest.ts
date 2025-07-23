@@ -31,32 +31,41 @@ export const updateRegionOfInterest = async (
   }
 };
 
+//WORKS BUT UPDATEREGIONOFINTEREST AND DELETE MAY NOT. TEST THEM
 type CreateParams = {
   recordingId: number;
-  startTime: number;
-  endTime: number;
+  starttime: number;
+  endtime: number;
 };
 
 export const createRegionOfInterest = async (
   recordingId: number,
-  startTime: number,
-  endTime: number,
+  starttime: number,
+  endtime: number,
 ): Promise<RegionOfInterest | undefined> => {
   const db = getDatabase();
+  console.log("Creating region of interest with params:", {
+    recordingId,
+    starttime,
+    endtime,
+  });
   const statement = db.prepare<CreateParams, RegionOfInterest>(`
     INSERT INTO RegionOfInterest (recordingId, starttime, endtime) 
-    VALUES (@recordingId, @startTime, @endTime)
+    VALUES (@recordingId, @starttime, @endtime)
     RETURNING *
   `);
+  
   try {
-    const rows = statement.get({
-      recordingId,
-      startTime,
-      endTime,
-    })!;
-    return Promise.resolve(rows);
+    const row = statement.get({
+      recordingId: recordingId,
+      starttime: starttime,
+      endtime: endtime
+    });
+    console.log("Created region of interest:", row);
+    return row;
   } catch (e) {
-    console.log("Error: failed to create region of interest", e);
+    console.error("Error: failed to create region of interest", e);
+    throw e;
   }
 };
 

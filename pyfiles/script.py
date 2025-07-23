@@ -22,9 +22,18 @@ class DBHelper:
     def __new__(cls, db_url="pyrenoteDeskDatabase.db"):
         if cls._instance is None:
             cls._instance = super(DBHelper, cls).__new__(cls)
+            #fall back to normal DB
+            if db_url is None:
+                db_url = "pyrenoteDeskDatabase.db"
             # For the pseudo db url, using in-memory database as a placeholder
-            script_dir = os.path.dirname(os.path.abspath(__file__))
-            db_path = os.path.join(script_dir, f"../{db_url}")
+            # script_dir = os.path.dirname(os.path.abspath(__file__))
+            # db_path = os.path.join(script_dir, f"../{db_url}")
+            if not os.path.isabs(db_url):
+                script_dir = os.path.dirname(os.path.abspath(__file__))
+                db_path = os.path.join(script_dir, f"../{db_url}")
+                print("dp_path is ", db_path)
+            else:
+                db_path = db_url
             cls._instance.connection = sqlite3.connect(db_path)
             cls._instance.cursor = cls._instance.connection.cursor()
         return cls._instance
@@ -123,7 +132,7 @@ class DBHelper:
         self.connection.commit()
         return self.cursor.lastrowid
 
-    def insert_recording(self, recording_id=None, deployment_id=None, filename=None, url=None):
+    def insert_recording(self, recording_id=None, deployment_id=None, filename=None, url=None, sample_rate=None, bit_rate=None):
         """
         Parse url for drive prefix, verify and extract full path, then insert into DB.
         """
@@ -159,15 +168,15 @@ class DBHelper:
         # actual DB insert
         if recording_id is None:
             self.cursor.execute(
-                "INSERT INTO Recording (deploymentId, filename, url, datetime, duration) VALUES (?, ?, ?, ?, ?)",
-                (deployment_id, filename, url, datetime_str, duration)
+                "INSERT INTO Recording (deploymentId, filename, url, datetime, duration, samplerate, bitrate) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (deployment_id, filename, url, datetime_str, duration, sample_rate, bit_rate)
             )
             rec_id = self.cursor.lastrowid
         else:
             self.cursor.execute(
-                "INSERT OR REPLACE INTO Recording (recordingId, deploymentId, filename, url, datetime, duration)"
-                " VALUES (?, ?, ?, ?, ?, ?)",
-                (recording_id, deployment_id, filename, url, datetime_str, duration)
+                "INSERT OR REPLACE INTO Recording (recordingId, deploymentId, filename, url, datetime, duration, samplerate, bitrate)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (recording_id, deployment_id, filename, url, datetime_str, duration, sample_rate, bit_rate)
             )
             rec_id = recording_id
         self.connection.commit()
@@ -249,7 +258,7 @@ def get_dataloader_for_recordings(recording_ids, classes, cfg):
         dataloader: DataLoader object for the audio dataset
         recording_ids: The original list of recording IDs
     """
-    db_helper = DBHelper()
+    db_helper = ()
     # Fetch recording details from Recording table
     recordings = db_helper.fetch_recordings(recording_ids)
 
@@ -294,7 +303,8 @@ def process_result(result_df):
     result_df["maxProbability"] = result_df[prob_columns].max(axis=1)
     
     # Retrieve species mapping from Species table: {species_name: speciesId}
-    db_helper = DBHelper()
+    #db_helper = DBHelper()
+    db_helper= DBHelper(args.db)
     db_helper.cursor.execute("SELECT speciesId, species FROM Species")
     species_records = db_helper.cursor.fetchall()
     species_mapping = {record[1]: record[0] for record in species_records}
@@ -417,11 +427,19 @@ if __name__ == "__main__":
     parser.add_argument("--dest", help="Destination path for saving file")
     parser.add_argument("--deployment", type=int, help="Deployment ID for new recording")
     parser.add_argument("--drive", help="External drive label to save recordings on")
+    parser.add_argument("--db", type=str, help="Path to SQLite database")
     args = parser.parse_args()
 
-    db = DBHelper()
+    #db = DBHelper()
+    db=DBHelper(args.db)
     if args.save:
         audio_file = args.inputs[0]
+        audio = MutagenFile(audio_file)
+        # Sample Rate (Hz)
+        sample_rate = audio.info.sample_rate if hasattr(audio.info, "sample_rate") else None
+        # Bitrate (bps)
+        bitrate = audio.info.bitrate if hasattr(audio.info, "bitrate") else None
+
         # determine storage root
         if args.drive:
             try:
@@ -451,7 +469,7 @@ if __name__ == "__main__":
         else:
             url = saved_abs
 
-        new_id = db.insert_recording(None, dep_id, filename, url)
+        new_id = db.insert_recording(None, dep_id, filename, url, sample_rate, bitrate)
         print(f"Saved to {url}, recordingId={new_id}")
         sys.exit(0)
 
