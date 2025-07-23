@@ -56,7 +56,7 @@ const DEFAULT_SPECIES = "Default"
 // DATA STRUCTURES //
 
 enum SpectroStatus { // 3 spectrogram states (default: Unverified)
-	Unverified= "UNVERIFIED",
+	Unverified= "UNVERIFIED", //TODO: Eventually change database schema to unverified, valid and invalid rather than YES and NO
 	Valid = "YES",
 	Invalid = "NO",
 }
@@ -257,7 +257,7 @@ export default function VerifyPage() {
 		let processed: ProcessedAudioFile[] = [...audioFiles];
 		let spawnPage = 1;
 
-		const recordings = await window.api.listRecordings();
+		const recordings = await window.api.listAnnotationsRecordings();
 
 		const tasks = recordings.map(async (rec, i) => {
 			try {
@@ -271,8 +271,8 @@ export default function VerifyPage() {
 				index: processed.length,
 				url: URL.createObjectURL(blob),
 				filePath: rec.url,
-				status: SpectroStatus.Unverified,
-				species: DEFAULT_SPECIES,
+				status: SpectroStatus.Unverified, //TODO: instead of setting it to unverified off-the-bat, read from database what it should be
+				species: DEFAULT_SPECIES, //TODO: change this to the annotated species from database
 			});
 			} catch (err) {
 			console.error(`Failed to read audio file at ${rec.url}:`, err);
