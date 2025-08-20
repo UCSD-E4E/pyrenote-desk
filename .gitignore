@@ -17,3 +17,5 @@ dist
 /.recordings/
 
 /databases/*.db
+
+/renderer/public/masterdb.json
