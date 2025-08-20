@@ -62,6 +62,7 @@ CREATE TABLE Annotation (
     speciesId INTEGER,
     speciesProbability INTEGER,
     mostRecent BOOLEAN,
+    confidence INTEGER,
     FOREIGN KEY (regionId) REFERENCES RegionOfInterest (regionId) ON DELETE CASCADE
     FOREIGN KEY (labelerId) REFERENCES Labeler (labelerId),
     FOREIGN KEY (speciesId) REFERENCES Species (speciesId)

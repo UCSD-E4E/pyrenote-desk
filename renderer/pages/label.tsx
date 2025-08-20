@@ -882,7 +882,7 @@ const AudioPlayer: React.FC = () => {
         <div className={styles.main}>
           <div className={styles.header}>
             <button onClick={(_e) => importFromDB()}>Import all Recordings from DB</button>
-            <div>
+            {/* <div>
               <label htmlFor="species-names">Choose a species: </label>
               <select
                 name="Species"
@@ -905,7 +905,7 @@ const AudioPlayer: React.FC = () => {
                   </option>
                 ))}
               </select>
-            </div>
+            </div> */}
           </div>
           <div>
             {showSpec && wavesurfers.length > 0 && (
@@ -1047,7 +1047,7 @@ const AudioPlayer: React.FC = () => {
               }}
             />
           </div>
-          {showSpec && (
+          {/* {showSpec && (
             <div className={styles.annotationSection}>
               <label>
                 Zoom:{" "}
@@ -1065,7 +1065,7 @@ const AudioPlayer: React.FC = () => {
                 onChange={(e) => setNotes(e.target.value)}
               />
             </div>
-          )}
+          )} */}
         </div>
       )}
     </React.Fragment>
