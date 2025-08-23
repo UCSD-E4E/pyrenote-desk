@@ -113,6 +113,7 @@ interface ProcessedAudioFile { // Audio file information
 	filePath: string;
 	status: SpectroStatus;
 	species: string;
+	recordingId: number;
 }
 
 
@@ -208,6 +209,7 @@ export default function VerifyPage() {
 					filePath: file.filePath, 
 					status: status,
 					species: species,
+					recordingId: null,
 				});
 
 			} else if (file.extension == ".mp3") {
@@ -218,6 +220,7 @@ export default function VerifyPage() {
 					filePath: file.filePath, 
 					status: status,
 					species: species,
+					recordingId: null,
 				});
 
 			}
@@ -266,14 +269,23 @@ export default function VerifyPage() {
 			const mimeType = ext === ".mp3" ? "audio/mpeg" : "audio/wav";
 
 			const blob = new Blob([audioFile.data], { type: mimeType });
-
+				
+				const regions = await window.api.listRegionOfInterestByRecordingId(rec.recordingId);
+				let annotation = null;
+				if (regions.length > 0) {
+					const anns = await window.api.listAnnotationsByRegionId(regions[0].regionId);
+					annotation = anns.length > 0 ? anns[0] : null;
+				}
+				
 			processed.push({
 				index: processed.length,
 				url: URL.createObjectURL(blob),
 				filePath: rec.url,
-				status: SpectroStatus.Unverified, //TODO: instead of setting it to unverified off-the-bat, read from database what it should be
-				species: DEFAULT_SPECIES, //TODO: change this to the annotated species from database
+				recordingId: rec.recordingId,
+				status: annotation ? annotation.status : SpectroStatus.Unverified,
+				species: annotation ? annotation.species : DEFAULT_SPECIES,
 			});
+				
 			} catch (err) {
 			console.error(`Failed to read audio file at ${rec.url}:`, err);
 			}
@@ -602,6 +614,12 @@ export default function VerifyPage() {
 		}
 	}
 
+	const handleSaveToDB = async () => {
+		for (let i = 0; i < audioFiles.length; i++) {
+			const file = audioFiles[i];
+			await window.api.updateAnnotationVerified(file.recordingId, file.status);
+		}
+	}
 	const nextPage = useCallback(() => {
 		console.log(currentPage, totalPages);
 		if (!showModal && currentPage < totalPages) {
@@ -861,6 +879,7 @@ export default function VerifyPage() {
 								<div className={styles.save} onClick={(e) => {
 									e.stopPropagation()
 									saveToJSON()
+									handleSaveToDB()
 								}}>
 									<Image
 									src="/images/database.png"

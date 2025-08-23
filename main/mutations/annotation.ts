@@ -91,3 +91,22 @@ export const updateAnnotation = async (
     console.log("Error: failed to update annotation", e);
   }
 };
+
+// New mutation to update verified status for all annotations linked to a recordingId
+export const updateAnnotationVerified = async (
+    recordingId: number,
+    status: string,
+): Promise<void> => {
+    
+    const db = getDatabase();
+
+    const statement = db.prepare(`
+        UPDATE annotation
+        SET verified = ?
+        WHERE regionId IN
+            (SELECT regionId FROM RegionOfInterest WHERE recordingId = ?)
+    `);
+
+    const info = statement.run(status, recordingId);
+    console.log(`Updated ${info.changes} annotations for recording ${recordingId}`);
+};
