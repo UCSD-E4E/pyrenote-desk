@@ -873,6 +873,56 @@ const AudioPlayer: React.FC = () => {
               onChange={(e) => handleFiles(Array.from(e.target.files))}
             />*/
 
+  const [modalEnable, setModalEnable] = useState(false);
+
+
+	function toggleRecordingSelect() {
+	  setModalEnable(!modalEnable);
+	}
+
+	function SelectRecordings() {
+	  if (!modalEnable) {
+      return null;
+	  }
+	  return (
+      <div className={styles.modalParent}>
+        <section className={styles.selectPopup}>
+          <h1>Select Recordings</h1>
+          <p>Filter by:</p>
+          <details>
+            <summary>Sites</summary>
+          </details>
+          <details>
+            <summary>Recorders</summary>
+          </details>
+          <details>
+            <summary>Surveys</summary>
+          </details>
+          <details>
+            <summary>Deployments</summary>
+          </details>
+          <details>
+            <summary>Species</summary>
+          </details>
+          <details>
+            <summary>Verification</summary>
+            <input type="checkbox" />
+            <label>Valid</label>
+            <br />
+            <input type="checkbox" />
+            <label>Invalid</label>
+            <br />
+            <input type="checkbox" />
+            <label>Unverified</label>
+          </details>
+          <br />
+          <button onClick={toggleRecordingSelect}>Import Selected</button>
+          <button onClick={toggleRecordingSelect}>Cancel</button>
+        </section>
+		  </div>
+	  );
+	}
+
   return (
     <React.Fragment>
       <Head>
@@ -882,7 +932,9 @@ const AudioPlayer: React.FC = () => {
         <div className={styles.main}>
           <div className={styles.header}>
             <button onClick={(_e) => importFromDB()}>Import all Recordings from DB</button>
-            <div>
+            <button onClick={toggleRecordingSelect}>Select Recordings</button>
+            <SelectRecordings />
+              <div>
               <label htmlFor="species-names">Choose a species: </label>
               <select
                 name="Species"
