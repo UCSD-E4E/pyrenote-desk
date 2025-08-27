@@ -884,25 +884,88 @@ const AudioPlayer: React.FC = () => {
 	  if (!modalEnable) {
       return null;
 	  }
+
+    const [siteList, setSiteList] = useState([]);
+    const [recorderList, setRecorderList] = useState([]);
+    const [deploymentList, setDeploymentList] = useState([]);
+    const [surveyList, setSurveyList] = useState([]);
+    const [specieList, setspecieList] = useState([]);
+
+    useEffect(() => {
+      if (!modalEnable) {
+        return null;
+      }
+
+      const fetchData = async () => {
+        const sites = await window.api.listSites();
+        const recorders = await window.api.listRecorders();
+        const deployments = await window.ipc.invoke("listDeployments");
+        const surveys = await window.api.listSurveys();
+        const specie = await window.api.listSpecies();
+
+        setSiteList(sites);
+        setRecorderList(recorders);
+        setDeploymentList(deployments);
+        setSurveyList(surveys);
+        setspecieList(specie);
+      }
+
+      fetchData();
+    }, [modalEnable]);
+
 	  return (
       <div className={styles.modalParent}>
         <section className={styles.selectPopup}>
           <h1>Select Recordings</h1>
           <p>Filter by:</p>
           <details>
-            <summary>Sites</summary>
-          </details>
-          <details>
             <summary>Recorders</summary>
+            {recorderList.map((recorder) => (
+              <div>
+                <input type="checkbox" />
+                <label>Recorder {recorder.code}</label>
+                <br />
+              </div>
+            ))}
           </details>
           <details>
             <summary>Surveys</summary>
+            {surveyList.map((survey) => (
+              <div>
+                <input type="checkbox" />
+                <label>{survey.surveyname}</label>
+                <br />
+              </div>
+            ))}
+          </details>
+          <details>
+            <summary>Sites</summary>
+            {siteList.map((site) => (
+              <div>
+                <input type="checkbox" />
+                <label>{site.site_code}</label>
+                <br />
+              </div>
+            ))}
           </details>
           <details>
             <summary>Deployments</summary>
+            {deploymentList.map((deployment) => (
+              <div>
+                <input type="checkbox" />
+                <label>{deployment.deploymentID} - {deployment.note}</label>
+                <br />
+              </div>
+            ))}
           </details>
           <details>
             <summary>Species</summary>
+          {specieList.map((specie) => (
+            <div>
+              <input type="checkbox" />
+              <label>{specie.common} ({specie.species})</label>
+            </div>
+          ))}
           </details>
           <details>
             <summary>Verification</summary>
