@@ -19,3 +19,5 @@ dist
 /databases/*.db
 
 /renderer/public/masterdb.json
+
+.venv
