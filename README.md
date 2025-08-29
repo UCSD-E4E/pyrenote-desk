@@ -12,9 +12,13 @@ Welcome to Pyrenote Desktop! A web application developed by the Acoustic Species
 
 ## Setup
 
-  
+We are using `uv` as the python package manager. To install it, please follow [these instructions](https://docs.astral.sh/uv/getting-started/installation/).
 
-We are using `yarn` for this application! Please install `yarn` with `npm install -g yarn` ([tutorial](https://www.digitalocean.com/community/tutorials/how-to-install-and-use-the-yarn-package-manager-for-node-js)).
+Then, in the pyrenote-desk directory, run `uv sync`
+
+Then, activate the virtual environment using `source .venv/bin/activate`
+
+Afterwards, please install `yarn` with `npm install -g yarn` ([tutorial](https://www.digitalocean.com/community/tutorials/how-to-install-and-use-the-yarn-package-manager-for-node-js)).
 
   
 
