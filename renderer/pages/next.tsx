@@ -4,6 +4,9 @@ import Link from 'next/link'
 import Image from 'next/image'
 import styles from './next.module.css'
 
+// import data type of tables for queries
+import { tableModelAccuracyBySpecies } from "../../shared/types/tableModelAccuracyBySpecies";
+
 
 export default function databasePage() {
 
@@ -15,6 +18,28 @@ export default function databasePage() {
   const [recording, setRecording] = useState(false);
   const [speciesPage, setSpeciesPage] = useState(false);
   const [databases, setDatabases] = useState(false);
+
+  const [rows, setRows] = useState<tableModelAccuracyBySpecies[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const data = await (window as any).api.listModelAccuracyBySpecies();
+        setRows(data);
+      } catch (err) {
+        console.error('Error fetching data:', err);
+        setError('Failed to fetch data');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
 
   function toEntryForm() {
     setEntry(true);
@@ -68,16 +93,55 @@ export default function databasePage() {
     }
     return (
       <div className={styles.magnus}>
-        <h1>Database Page</h1>
-        {/* uncomment to show current db in page */}
-        {/* <p style={{ color: 'red' }}>Current Database Path: {localStorage.getItem('databasePath')}</p> */}
-        <button onClick={toDatabasesForm}>View and Edit Databases</button>
-        <button onClick={toRecorderForm}>Add Recorder</button>
-        <button onClick={toSurveyForm}>Add Survey</button>
-        <button onClick={toSiteForm}>Add Site</button>
-        <button onClick={toDeploymentForm}>Add Deployment</button>
-        <button onClick={toRecordingForm}>Add Recordings</button>
-        <button onClick={toSpeciesForm}>Add Species</button>
+        <div>
+          <h1>Database Page</h1>
+          {/* uncomment to show current db in page */}
+          {/* <p style={{ color: 'red' }}>Current Database Path: {localStorage.getItem('databasePath')}</p> */}
+          <button onClick={toDatabasesForm}>View and Edit Databases</button>
+          <button onClick={toRecorderForm}>Add Recorder</button>
+          <button onClick={toSurveyForm}>Add Survey</button>
+          <button onClick={toSiteForm}>Add Site</button>
+          <button onClick={toDeploymentForm}>Add Deployment</button>
+          <button onClick={toRecordingForm}>Add Recordings</button>
+          <button onClick={toSpeciesForm}>Add Species</button>
+        </div>
+        <div>
+          <h1>Database Analytics</h1>
+          {/* loading */}
+          {loading && <p>Loading data...</p>}
+          {/* error */}
+          {error && <p className="text-red-500">Error: {error}</p>}
+          {/* display */}
+          {!loading && !error && (
+            <table>
+            <thead>
+              <tr>
+                <th>Species</th>
+                <th>Yes</th>
+                <th>No</th>
+                <th>Unverified</th>
+                <th>Total</th>
+                <th>Accuracy</th>
+                <th>Avg Confidence</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.speciesId}>
+                  <td>{row.speciesName}</td>
+                  <td>{row.numYes}</td>
+                  <td>{row.numNo}</td>
+                  <td>{row.numUnverified}</td>
+                  <td>{row.total}</td>
+                  <td>{(row.accuracy * 100).toFixed(1)}%</td>
+                  <td>{row.avgConfidence?.toFixed(2)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          )}
+          
+        </div>
       </div>
     );
   }
