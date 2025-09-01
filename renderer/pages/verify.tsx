@@ -285,7 +285,8 @@ export default function VerifyPage() {
 				status: annotation ? annotation.status : SpectroStatus.Unverified,
 				species: annotation ? annotation.species : DEFAULT_SPECIES,
 			});
-				
+			console.log("Processed audio files:", processed);
+
 			} catch (err) {
 			console.error(`Failed to read audio file at ${rec.url}:`, err);
 			}
@@ -641,7 +642,7 @@ export default function VerifyPage() {
 	const moveSelectionRight = () => 	{ updateSelected([selected.length==0 ? 0 : Math.min(getLastSelected() + 1, numFiles-1)]); }
 	const setSpectroStatus = (status) => { 
 		for (let i = 0; i < selected.length; i++) {
-			updateAudioFile(spectrograms.current[selected[i]].fullIndex, "status", true)
+			updateAudioFile(spectrograms.current[selected[i]].fullIndex, "status", status)
 			spectrograms.current[selected[i]].setStatus(status);
 		}
 		if (showModal) {spectrograms.current[-1].setStatus(status);}
