@@ -323,6 +323,11 @@ const AudioPlayer: React.FC = () => {
       return;
     }
 
+    if (recordings.length == 0) {
+      alert("No recordings found. Try a different filter or upload recordings!");
+      return;
+    }
+
     const newWaveSurfers: WaveSurferObj[] = await Promise.all(
       recordings.map(async (rec, i) => {
         const regions = await window.api.listRegionOfInterestByRecordingId(
@@ -953,7 +958,7 @@ const AudioPlayer: React.FC = () => {
             {deploymentList.map((deployment) => (
               <div>
                 <input type="checkbox" />
-                <label>{deployment.deploymentID} - {deployment.note}</label>
+                <label>{deployment.deploymentId} - {deployment.note}</label>
                 <br />
               </div>
             ))}
@@ -980,6 +985,10 @@ const AudioPlayer: React.FC = () => {
           </details>
           <br />
           <button onClick={toggleRecordingSelect}>Import Selected</button>
+          <button onClick={() => {
+            toggleRecordingSelect();
+            importFromDB();
+          }}>Import All</button>
           <button onClick={toggleRecordingSelect}>Cancel</button>
         </section>
 		  </div>
@@ -994,7 +1003,6 @@ const AudioPlayer: React.FC = () => {
       <div className={styles.container}>
         <div className={styles.main}>
           <div className={styles.header}>
-            <button onClick={(_e) => importFromDB()}>Import all Recordings from DB</button>
             <button onClick={toggleRecordingSelect}>Select Recordings</button>
             <SelectRecordings />
               <div>
