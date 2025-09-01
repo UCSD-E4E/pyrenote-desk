@@ -849,32 +849,7 @@ export default function databasePage() {
             </div>
           )}
 
-          {editingDatabase && (
-            <div>
-              <label>Edit Database Name: </label>
-              <input
-                type="text"
-                value={editDatabaseName}
-                onChange={(e) => setEditDatabaseName(e.target.value)}
-                placeholder="Enter new name"
-              />
-              <button
-                type="button"
-                onClick={handleEditDatabase}
-              >
-                Save
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setEditingDatabase(null);
-                  setEditDatabaseName('');
-                }}
-              >
-                Cancel
-              </button>
-            </div>
-          )}
+
 
           {databaseList.length === 0 ? (
             <p>No databases found</p>
@@ -883,7 +858,40 @@ export default function databasePage() {
               {databaseList.map((db) => (
                 <li key={db.ID}>
                   <div>
-                    <strong>{db.Country}</strong>
+                    {/* if editing this database, replace name with textbot for new name */}
+                    {editingDatabase && editingDatabase.ID === db.ID ? (
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <input
+                          type="text"
+                          value={editDatabaseName}
+                          onChange={(e) => setEditDatabaseName(e.target.value)}
+                          placeholder="Enter new name"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleEditDatabase}
+                          style={{
+                            width: 100
+                          }}
+                        >
+                          Save
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingDatabase(null);
+                            setEditDatabaseName('');
+                          }}
+                          style={{
+                            width: 100
+                          }}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <strong>{db.Country}</strong>
+                    )}
                     <small>{db.filepath}</small>
                     {selectedDatabase === db.filepath && (
                       <span style={{ color: 'green'}}>✓ Currently Selected</span>

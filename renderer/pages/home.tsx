@@ -33,27 +33,26 @@ export default function HomePage() {
   return (
     <React.Fragment>
       <Head>
-        <title>Home - Magnus (basic-lang-typescript)</title>
+        <title>Home - Pyrenote Desktop</title>
       </Head>
       <div className={styles.container}>
         <div className={styles.magnus}>
           <br />
-          <h1>MagnusNote</h1>
+          <h1>Pyrenote Desktop</h1>
           <div className={styles.intro}>
             <br />
             <br />
-            <h2>Welcome to MagnusNote</h2>
+            <h2>Welcome to Pyrenote Desktop!</h2>
             <p>
-              Short Introduction or Major Features Lorem ipsum dolor sit amet,
-              consectetur adipiscing elit. Nam nisl enim, pellentesque et
-              consectetur mattis, porttitor id dui. Suspendisse neque urna,
-              ornare eget augue eget, porta auctor neque. Vivamus sit amet
-              accumsan ipsum, a vulputate lorem. In metus ligula, sodales ac
-              augue vitae, facilisis scelerisque justo. Vivamus condimentum
-              massa ex, vel posuere orci...
+              Pyrenote Desktop is a desktop application developed by students at UC San Diego's Engineers for Exploration Lab in collaboration with the San Diego Zoo Wildlife Alliance.
+              It is designed to provide a user friendly interface for labelling and running inference over large-scale bioacoustic data. 
+              The results of human labelling & model inference are stored in a database and can be retrieved or even verified later.
+            </p>
+            <p>
+              To start using Pyrenote Desktop, please navigate to the "Database" tab using the sidebar on the left & start inserting information!
             </p>
             <br />
-            <Image
+            {/* <Image
               src="/images/youtube.png"
               alt="Label image"
               width={15}
@@ -66,7 +65,7 @@ export default function HomePage() {
               className={styles.externalLink}
             >
               Learn more about Magnusnote
-            </a>
+            </a> */}
           </div>
         </div>
       </div>
