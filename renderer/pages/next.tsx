@@ -19,24 +19,26 @@ export default function databasePage() {
   const [speciesPage, setSpeciesPage] = useState(false);
   const [databases, setDatabases] = useState(false);
 
-  const [rows, setRows] = useState<tableModelAccuracyBySpecies[]>([]);
+  const [rows, setRows] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const data = await (window as any).api.listModelAccuracyBySpecies();
-        setRows(data);
-      } catch (err) {
-        console.error('Error fetching data:', err);
-        setError('Failed to fetch data');
-      } finally {
-        setLoading(false);
-      }
-    };
+  // function to fetch query result, saved to rows state
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      // change this to change what query to run
+      const data = await (window as any).api.listModelAccuracyBySpecies();
+      setRows(data);
+    } catch (err) {
+      console.error('Error fetching data:', err);
+      setError('Failed to fetch data');
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchData();
   }, []);
 
@@ -112,33 +114,39 @@ export default function databasePage() {
           {/* error */}
           {error && <p className="text-red-500">Error: {error}</p>}
           {/* display */}
-          {!loading && !error && (
+          {!loading && !error && rows.length > 0 && (
             <table>
             <thead>
               <tr>
-                <th>Species</th>
-                <th>Yes</th>
-                <th>No</th>
-                <th>Unverified</th>
-                <th>Total</th>
-                <th>Accuracy</th>
-                <th>Avg Confidence</th>
+                {Object.keys(rows[0]).map((columnName) => (
+                  <th key={columnName}>{columnName}</th>
+                ))}
               </tr>
             </thead>
             <tbody>
-              {rows.map((row) => (
-                <tr key={row.speciesId}>
-                  <td>{row.speciesName}</td>
-                  <td>{row.numYes}</td>
-                  <td>{row.numNo}</td>
-                  <td>{row.numUnverified}</td>
-                  <td>{row.total}</td>
-                  <td>{(row.accuracy * 100).toFixed(1)}%</td>
-                  <td>{row.avgConfidence?.toFixed(2)}</td>
+              {rows.map((row, rowIndex) => ( 
+                <tr key={rowIndex}> {/* better to use sql primary key as key. However, diff queries use this same generic table. Have to find a way for React to find the primary key automatically. */}
+                  {Object.values(row).map((value, colIndex) => (
+                    <td key={colIndex}>
+                    {(() => {
+                      if (typeof value === "number") {
+                        if (Number.isInteger(value)) {
+                          return value;
+                        }
+                        return value.toFixed(2);
+                      }
+                      return String(value);
+                    })()}
+                  </td>
+                  ))}
                 </tr>
               ))}
             </tbody>
           </table>
+          )}
+          {/* no data */}
+          {!loading && !error && rows.length === 0 && (
+            <p>No data available</p>
           )}
           
         </div>
@@ -796,6 +804,9 @@ export default function databasePage() {
           localStorage.setItem('databasePath', db.filepath); //maybe don't need to save to local storage every time? Only on app close.
           setSelectedDatabase(db.filepath);
           alert(`Selected database: ${db.Country}`);
+          
+          // Refresh data after selecting new database
+          fetchData();
         } else {
           alert('Error selecting database: ' + result.error);
         }
@@ -913,8 +924,6 @@ export default function databasePage() {
             </div>
           )}
 
-
-
           {databaseList.length === 0 ? (
             <p>No databases found</p>
           ) : (
@@ -922,7 +931,7 @@ export default function databasePage() {
               {databaseList.map((db) => (
                 <li key={db.ID}>
                   <div>
-                    {/* if editing this database, replace name with textbot for new name */}
+                    {/* if editing this database, replace name with textbox for new name */}
                     {editingDatabase && editingDatabase.ID === db.ID ? (
                       <div style={{ display: 'flex', gap: '8px' }}>
                         <input
