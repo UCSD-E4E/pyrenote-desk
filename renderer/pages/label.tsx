@@ -779,36 +779,99 @@ const AudioPlayer: React.FC = () => {
   // Deletes selected region
   const deleteActiveRegion = async () => {
     if (!wavesurfers[index]?.instance || !activeRegionRef.current) return;
-
+  
+    // Remove from UI
     activeRegionRef.current.remove();
+    
+    // Update state to remove the region
+    setWavesurfers(prev => {
+      const updated = [...prev];
+      if (updated[index]) {
+        updated[index].regions = updated[index].regions.filter(
+          r => r.id !== activeRegionRef.current?.id
+        );
+      }
+      return updated;
+    });
+  
     activeRegionRef.current = null;
   };
 
   // Deletes all regions
+  // const clearAllRegions = () => {
+  //   if (!wavesurfers[index]?.instance) return;
+
+  //   const regionPlugin = wavesurfers[index].instance.plugins[1];
+  //   const allRegions = regionPlugin?.wavesurfer?.plugins[2]?.regions;
+  //   if (!allRegions) return;
+
+  //   Object.keys(allRegions).forEach((r) => {
+  //     allRegions[r].remove();
+  //   });
+
+  //   regionListRef.current = [];
+  //   activeRegionRef.current = null;
+  // };
   const clearAllRegions = () => {
     if (!wavesurfers[index]?.instance) return;
-
-    const regionPlugin = wavesurfers[index].instance.plugins[1];
-    const allRegions = regionPlugin?.wavesurfer?.plugins[2]?.regions;
-    if (!allRegions) return;
-
-    Object.keys(allRegions).forEach((r) => {
-      allRegions[r].remove();
+  
+    // Clear regions from UI
+    const regionPlugin = wavesurfers[index].instance.plugins.regions;
+    if (regionPlugin) {
+      regionPlugin.clearRegions();
+    }
+  
+    // Update state to remove all regions
+    setWavesurfers(prev => {
+      const updated = [...prev];
+      if (updated[index]) {
+        updated[index].regions = [];
+      }
+      return updated;
     });
-
+  
+    // Clear references
     regionListRef.current = [];
     activeRegionRef.current = null;
   };
 
   // Delete last region
+  // const undoLastRegion = () => {
+  //   if (!wavesurfers[index]?.instance) return;
+  //   if (regionListRef.current.length === 0) return;
+
+  //   const lastRegion = regionListRef.current.pop();
+  //   lastRegion.remove();
+
+  //   // If the last region was active, reset activeRegionRef
+  //   if (activeRegionRef.current === lastRegion) {
+  //     activeRegionRef.current = null;
+  //   }
+  // };
   const undoLastRegion = () => {
-    if (!wavesurfers[index]?.instance) return;
-    if (regionListRef.current.length === 0) return;
-
-    const lastRegion = regionListRef.current.pop();
+    if (!wavesurfers[index]?.instance || !regionListRef.current.length) return;
+  
+    // Get the last region
+    const lastRegion = regionListRef.current[regionListRef.current.length - 1];
+    
+    // Remove from UI
     lastRegion.remove();
-
-    // If the last region was active, reset activeRegionRef
+    
+    // Remove from region list
+    regionListRef.current = regionListRef.current.filter(r => r !== lastRegion);
+    
+    // Update state to remove the region
+    setWavesurfers(prev => {
+      const updated = [...prev];
+      if (updated[index]) {
+        updated[index].regions = updated[index].regions.filter(
+          r => r.id !== lastRegion.id
+        );
+      }
+      return updated;
+    });
+  
+    // Reset active region if needed
     if (activeRegionRef.current === lastRegion) {
       activeRegionRef.current = null;
     }
