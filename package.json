@@ -31,7 +31,7 @@
     "@types/node": "^20.11.16",
     "@types/react": "^18.2.52",
     "css-loader": "^7.1.2",
-    "electron": "^31.0.1",
+    "electron": "^35.7.5",
     "electron-builder": "^24.13.3",
     "eslint-plugin-unused-imports": "^4.1.4",
     "jiti": "^2.4.2",
