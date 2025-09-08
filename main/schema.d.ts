@@ -20,6 +20,7 @@ export type Annotation = {
   speciesProbability: number;
   // TODO: Redundant from date?
   mostRecent: boolean;
+  confidence: number;
 };
 
 export type Deployment = {
