@@ -47,6 +47,7 @@ const exposedMutations: MutationsApi = {
   createAnnotation: invokeMutation("createAnnotation"),
   deleteAnnotation: invokeMutation("deleteAnnotation"),
   updateAnnotation: invokeMutation("updateAnnotation"),
+  updateAnnotationVerified: invokeMutation("updateAnnotationVerified"),
   // Recordings
   createRecording: (...args) => invokeMutation("createRecording", ...args),
   updateRecording: (...args) => invokeMutation("updateRecording", ...args),
