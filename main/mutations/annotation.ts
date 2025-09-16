@@ -8,6 +8,7 @@ type CreateParams = {
   speciesId: number;
   speciesProbability: number;
   mostRecent: number;
+  verified: 'YES' | 'NO' | 'UNVERIFIED';
 };
 
 export const createAnnotation = async (
@@ -16,12 +17,13 @@ export const createAnnotation = async (
   regionId: number,
   speciesId: number,
   speciesProbability: number,
+  verified: 'YES' | 'NO' | 'UNVERIFIED' = 'UNVERIFIED',
 ): Promise<Annotation | undefined> => {
   const db = getDatabase();
   // TODO: Should remove mostRecent?
   const statement = db.prepare<CreateParams, Annotation>(`
-    INSERT INTO annotation (regionId, labelerId, annotationDate, speciesId, speciesProbability, mostRecent)
-    VALUES (@regionId, @labelerId, CURRENT_TIMESTAMP, @speciesId, @speciesProbability, @mostRecent)
+    INSERT INTO annotation (regionId, labelerId, annotationDate, speciesId, speciesProbability, mostRecent, verified)
+    VALUES (@regionId, @labelerId, CURRENT_TIMESTAMP, @speciesId, @speciesProbability, @mostRecent, @verified)
     RETURNING * 
   `);
   try {
@@ -32,6 +34,7 @@ export const createAnnotation = async (
       speciesId,
       speciesProbability,
       mostRecent: 1,
+      verified,
     })!;
     return Promise.resolve(rows);
   } catch (e) {

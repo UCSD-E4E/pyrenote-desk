@@ -13,6 +13,7 @@ export type Recording = {
 
 export type Annotation = {
   annotationId: number;
+  verified: 'YES' | 'NO' | 'UNVERIFIED';
   regionId: number;
   labelerId: number;
   annotationDate: string;
