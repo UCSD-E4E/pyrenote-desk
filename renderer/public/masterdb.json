@@ -1,9 +1,0 @@
-{
-  "databases": [
-    {
-      "ID": 4,
-      "Country": "Peru",
-      "filepath": "./databases/peru.db"
-    }
-  ]
-}

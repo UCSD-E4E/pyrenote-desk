@@ -4,6 +4,10 @@ import Link from 'next/link'
 import Image from 'next/image'
 import styles from './next.module.css'
 
+// import data type of tables for queries
+import { tableModelAccuracyBySpecies } from "../../shared/types/tableModelAccuracyBySpecies";
+import { useSelectedLayoutSegment } from 'next/navigation';
+
 
 export default function databasePage() {
 
@@ -16,6 +20,46 @@ export default function databasePage() {
   const [speciesPage, setSpeciesPage] = useState(false);
   const [databases, setDatabases] = useState(false);
 
+  const [analyticsPage, setAnalyticsPage] = useState(false);
+  const [rows, setRows] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [option, setOption] = useState<"species" | "unlabeled">("species"); // default
+
+  // map of options to their label and fetch function
+  // to add a new option, you just need to add to this map and it will generate automatically in the front end
+  const optionMap = {
+    species: {
+      label: "Model Accuracy by Species",
+      fetchFn: () => (window as any).api.listModelAccuracyBySpecies(),
+    },
+    unlabeled: {
+      label: "List Unlabeled Recordings",
+      fetchFn: () => (window as any).api.listUnlabeledRecordings(),
+    },
+  } as const;
+  type OptionKey = keyof typeof optionMap;
+
+  // function to fetch query result, saved to rows state
+  const fetchData = async (selected: OptionKey) => {
+    try {
+      setLoading(true);
+      // change this to change what query to run
+      const data = await optionMap[selected].fetchFn();
+      setRows(data);
+    } catch (err) {
+      console.error('Error fetching data:', err);
+      setError('Failed to fetch data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData(option);
+  }, [option]);
+
+
   function toEntryForm() {
     setEntry(true);
     setRecorder(false);
@@ -25,6 +69,7 @@ export default function databasePage() {
     setRecording(false);
     setSpeciesPage(false);
     setDatabases(false);
+    setAnalyticsPage(false);
   }
 
   function toSpeciesForm() {
@@ -62,22 +107,31 @@ export default function databasePage() {
     setRecording(true);
   }
 
+  function toAnalyticsForm() {
+    setEntry(false);
+    setAnalyticsPage(true);
+  }
+
   function EntryHomepage() {
     if (!entry) {
       return null;
     }
     return (
       <div className={styles.magnus}>
-        <h1>Database Page</h1>
-        {/* uncomment to show current db in page */}
-        {/* <p style={{ color: 'red' }}>Current Database Path: {localStorage.getItem('databasePath')}</p> */}
-        <button onClick={toDatabasesForm}>View and Edit Databases</button>
-        <button onClick={toRecorderForm}>Add Recorder</button>
-        <button onClick={toSurveyForm}>Add Survey</button>
-        <button onClick={toSiteForm}>Add Site</button>
-        <button onClick={toDeploymentForm}>Add Deployment</button>
-        <button onClick={toRecordingForm}>Add Recordings</button>
-        <button onClick={toSpeciesForm}>Add Species</button>
+        <div>
+          <h1>Database Page</h1>
+          {/* uncomment to show current db in page */}
+          {/* <p style={{ color: 'red' }}>Current Database Path: {localStorage.getItem('databasePath')}</p> */}
+          <button onClick={toDatabasesForm}>View and Edit Databases</button>
+          <button onClick={toAnalyticsForm}>View Analytics</button>
+          <button onClick={toRecorderForm}>Add Recorder</button>
+          <button onClick={toSurveyForm}>Add Survey</button>
+          <button onClick={toSiteForm}>Add Site</button>
+          <button onClick={toDeploymentForm}>Add Deployment</button>
+          <button onClick={toRecordingForm}>Add Recordings</button>
+          <button onClick={toSpeciesForm}>Add Species</button>
+        </div>
+        
       </div>
     );
   }
@@ -732,6 +786,9 @@ export default function databasePage() {
           localStorage.setItem('databasePath', db.filepath); //maybe don't need to save to local storage every time? Only on app close.
           setSelectedDatabase(db.filepath);
           alert(`Selected database: ${db.Country}`);
+          
+          // Refresh data after selecting new database
+          fetchData();
         } else {
           alert('Error selecting database: ' + result.error);
         }
@@ -821,7 +878,6 @@ export default function databasePage() {
     return (
       <div className={styles.magnus}>
         <h1>View and Edit Databases</h1>
-        <div>
           <h2>Available Databases</h2>
           <button 
             type="button" 
@@ -849,8 +905,6 @@ export default function databasePage() {
             </div>
           )}
 
-
-
           {databaseList.length === 0 ? (
             <p>No databases found</p>
           ) : (
@@ -858,7 +912,7 @@ export default function databasePage() {
               {databaseList.map((db) => (
                 <li key={db.ID}>
                   <div>
-                    {/* if editing this database, replace name with textbot for new name */}
+                    {/* if editing this database, replace name with textbox for new name */}
                     {editingDatabase && editingDatabase.ID === db.ID ? (
                       <div style={{ display: 'flex', gap: '8px' }}>
                         <input
@@ -932,6 +986,77 @@ export default function databasePage() {
           )}
           <button type="button" onClick={toEntryForm}>Back</button>
         </div>
+    );
+  }
+
+  function AnalyticsPage() {
+    if (!analyticsPage) {
+      return null;
+    }
+    return (
+      <div className={styles.magnus}>
+        <h1>Analytics</h1>        
+          {/* Analytics Options Dropdown */}
+          <div className="mb-4">
+            <label htmlFor="analytics-select" className="block text-sm mb-2">
+              Select Analytics View:
+            </label>
+            <select 
+              id="analytics-select"
+              className="px-3 py-2 rounded-md"
+              value={option}
+              onChange={(e) => setOption(e.target.value as OptionKey)}
+            >
+              // options are generated automatically from the optionMap up above
+              {Object.entries(optionMap).map(([key, { label }]) => (
+                <option key={key} value={key}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Analytics Table */}
+          {/* loading */}
+          {loading && <p>Loading data...</p>}
+          {/* error */}
+          {error && <p className="text-red-500">Error: {error}</p>}
+          {/* display */}
+          {!loading && !error && rows.length > 0 && (
+            <table className="border-collapse mt-5 bg-white rounded-lg">
+            <thead className="bg-gray-100">
+              <tr>
+                {Object.keys(rows[0]).map((columnName) => (
+                  <th key={columnName} className="px-4 py-2 text-left">{columnName}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row, rowIndex) => ( 
+                <tr key={rowIndex} className="hover:bg-gray-50"> {/* better to use sql primary key as key. However, diff queries use this same generic table. Have to find a way for React to find the primary key automatically. */}
+                  {Object.values(row).map((value, colIndex) => (
+                    <td key={colIndex} className="px-4 py-3 border-b border-gray-200 text-gray-700 text-sm">
+                    {(() => {
+                      if (typeof value === "number") {
+                        if (Number.isInteger(value)) {
+                          return value;
+                        }
+                        return value.toFixed(2);
+                      }
+                      return String(value);
+                    })()}
+                  </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          )}
+          {/* no data */}
+          {!loading && !error && rows.length === 0 && (
+            <p>No data available</p>
+          )}
+        
       </div>
     );
   }
@@ -945,6 +1070,7 @@ export default function databasePage() {
       <div className={styles.container}>
         <div>
           <DatabasesPage />
+          <AnalyticsPage />
           <EntryHomepage />
           <RecorderEntryPage />
           <SurveyEntryPage />

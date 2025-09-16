@@ -16,7 +16,7 @@ CREATE TABLE Site (
     latitude REAL,
     longitude REAL,
     elevation REAL,
-    FOREIGN KEY (surveyId) REFERENCES Survey (surveyId)
+    FOREIGN KEY (surveyId) REFERENCES Survey (surveyId) ON DELETE CASCADE
 );
 
 CREATE TABLE Recorder (
@@ -36,8 +36,8 @@ CREATE TABLE Deployment (
     end_date DATE,
     deployed_by TEXT,
     note TEXT,
-    FOREIGN KEY (siteId) REFERENCES Site (siteId),
-    FOREIGN KEY (recorderId) REFERENCES Recorder (recorderId)
+    FOREIGN KEY (siteId) REFERENCES Site (siteId) ON DELETE CASCADE,
+    FOREIGN KEY (recorderId) REFERENCES Recorder (recorderId) ON DELETE CASCADE
 );
 
 CREATE TABLE Recording (
@@ -49,7 +49,7 @@ CREATE TABLE Recording (
     duration REAL,
     samplerate INTEGER,
     bitrate INTEGER,
-    FOREIGN KEY (deploymentId) REFERENCES Deployment (deploymentId)
+    FOREIGN KEY (deploymentId) REFERENCES Deployment (deploymentId) ON DELETE CASCADE
 );
 
 
@@ -62,9 +62,9 @@ CREATE TABLE Annotation (
     speciesId INTEGER,
     speciesProbability INTEGER,
     mostRecent BOOLEAN,
-    FOREIGN KEY (regionId) REFERENCES RegionOfInterest (regionId) ON DELETE CASCADE
-    FOREIGN KEY (labelerId) REFERENCES Labeler (labelerId),
-    FOREIGN KEY (speciesId) REFERENCES Species (speciesId)
+    FOREIGN KEY (regionId) REFERENCES RegionOfInterest (regionId) ON DELETE CASCADE,
+    FOREIGN KEY (labelerId) REFERENCES Labeler (labelerId) ON DELETE CASCADE,
+    FOREIGN KEY (speciesId) REFERENCES Species (speciesId) ON DELETE CASCADE
 );
 
 CREATE TABLE Species (
@@ -82,9 +82,19 @@ CREATE TABLE RegionOfInterest (
     UNIQUE (recordingId, starttime, endtime)
 );
 
+
 CREATE TABLE Model(
   modelId INTEGER PRIMARY KEY,
   name TEXT,
   type TEXT,
   url TEXT --maybe filepath?
+);
+
+CREATE TABLE Labeler(
+    labelerId INTEGER PRIMARY KEY,
+    name TEXT,
+    email TEXT,
+    isHuman BOOLEAN, -- stores as 1 or 0
+    modelId INTEGER,
+    FOREIGN KEY (modelId) REFERENCES Model (modelId) ON DELETE CASCADE
 );

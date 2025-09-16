@@ -10,7 +10,9 @@ import listSpecies from "./listSpecies";
 import listSites from "./listSites";
 import listRecorders from "./listRecorders"
 import listAnnotationsRecordings from "./listAnnotationsRecordings";
+import listModelAccuracyBySpecies from "./listModelAccuracyBySpecies";
 import { ApiWithoutEvent } from "../helpers/util-types";
+import listUnlabeledRecordings from "./listUnlabeledRecordings";
 
 // List of queries to expose
 export const setupQueries = {
@@ -25,7 +27,9 @@ export const setupQueries = {
   listSpecies,
   listSites,
   listRecorders,
-  listAnnotationsRecordings
+  listAnnotationsRecordings,
+  listModelAccuracyBySpecies,
+  listUnlabeledRecordings
 };
 
 export type QueriesApi = typeof setupQueries;

@@ -2,6 +2,7 @@ import {
   deleteAnnotation,
   updateAnnotation,
   createAnnotation,
+  updateAnnotationVerified
 } from "./annotation";
 import createSite from "./createSite";
 import { createRecording, deleteRecording, updateRecording } from "./recording";
@@ -19,6 +20,7 @@ import createDeployment from "./createDeployment";
 export const setupMutations = {
   createAnnotation,
   updateAnnotation,
+  updateAnnotationVerified,
   deleteAnnotation,
   createSite,
   createRecording,

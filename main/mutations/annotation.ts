@@ -8,6 +8,7 @@ type CreateParams = {
   speciesId: number;
   speciesProbability: number;
   mostRecent: number;
+  verified: 'YES' | 'NO' | 'UNVERIFIED';
 };
 
 export const createAnnotation = async (
@@ -16,12 +17,13 @@ export const createAnnotation = async (
   regionId: number,
   speciesId: number,
   speciesProbability: number,
+  verified: 'YES' | 'NO' | 'UNVERIFIED' = 'UNVERIFIED',
 ): Promise<Annotation | undefined> => {
   const db = getDatabase();
   // TODO: Should remove mostRecent?
   const statement = db.prepare<CreateParams, Annotation>(`
-    INSERT INTO annotation (regionId, labelerId, annotationDate, speciesId, speciesProbability, mostRecent)
-    VALUES (@regionId, @labelerId, CURRENT_TIMESTAMP, @speciesId, @speciesProbability, @mostRecent)
+    INSERT INTO annotation (regionId, labelerId, annotationDate, speciesId, speciesProbability, mostRecent, verified)
+    VALUES (@regionId, @labelerId, CURRENT_TIMESTAMP, @speciesId, @speciesProbability, @mostRecent, @verified)
     RETURNING * 
   `);
   try {
@@ -32,6 +34,7 @@ export const createAnnotation = async (
       speciesId,
       speciesProbability,
       mostRecent: 1,
+      verified,
     })!;
     return Promise.resolve(rows);
   } catch (e) {
@@ -90,4 +93,24 @@ export const updateAnnotation = async (
   } catch (e) {
     console.log("Error: failed to update annotation", e);
   }
+};
+
+// New mutation to update verified status for all annotations linked to a recordingId
+export const updateAnnotationVerified = async (
+    recordingId: number,
+    status: string,
+): Promise<void> => {
+    
+    const db = getDatabase();
+    const statusString = String(status);
+
+    const statement = db.prepare(`
+        UPDATE annotation
+        SET verified = ?
+        WHERE regionId IN
+            (SELECT regionId FROM RegionOfInterest WHERE recordingId = ?)
+    `);
+
+    const info = statement.run(statusString, recordingId);
+    console.log(`Updated ${info.changes} annotations for recording ${recordingId}`);
 };
