@@ -33,7 +33,8 @@ const exposedQueries: QueriesApi = {
     invokeQuery("listRecordingsBySiteId", ...args),
   listAnnotationsByRegionId: (...args) =>
     invokeQuery("listAnnotationsByRegionId", ...args),
-  listRegionOfInterestByRecordingId: (...args) => invokeQuery("listRegionOfInterestByRecordingId", ...args),
+  listRegionOfInterestByRecordingId: (...args) => 
+    invokeQuery("listRegionOfInterestByRecordingId")(...args),
   listDatabases: (...args) => invokeQuery("listDatabases", ...args),
   listModelAccuracyBySpecies: () => invokeQuery("listModelAccuracyBySpecies")(),
   listUnlabeledRecordings: () => invokeQuery("listUnlabeledRecordings")(),
