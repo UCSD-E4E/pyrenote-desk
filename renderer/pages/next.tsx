@@ -974,6 +974,10 @@ export default function databasePage() {
         label: "List Unlabeled Recordings",
         fetchFn: (p: { limit: number; offset: number }) => (window as any).api.listUnlabeledRecordings(p),
       },
+      annotationsandlabelers: {
+        label: "Annotations and Labelers",
+        fetchFn: (p: { limit: number; offset: number }) => (window as any).api.listAnnotationsandLabelers(p),
+      },
     } as const;
     type OptionKey = keyof typeof optionMap;
 
