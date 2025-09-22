@@ -5,7 +5,6 @@ import Image from 'next/image'
 import styles from './next.module.css'
 
 // import data type of tables for queries
-import { tableModelAccuracyBySpecies } from "../../shared/types/tableModelAccuracyBySpecies";
 import { useSelectedLayoutSegment } from 'next/navigation';
 
 
@@ -21,43 +20,7 @@ export default function databasePage() {
   const [databases, setDatabases] = useState(false);
 
   const [analyticsPage, setAnalyticsPage] = useState(false);
-  const [rows, setRows] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [option, setOption] = useState<"species" | "unlabeled">("species"); // default
-
-  // map of options to their label and fetch function
-  // to add a new option, you just need to add to this map and it will generate automatically in the front end
-  const optionMap = {
-    species: {
-      label: "Model Accuracy by Species",
-      fetchFn: () => (window as any).api.listModelAccuracyBySpecies(),
-    },
-    unlabeled: {
-      label: "List Unlabeled Recordings",
-      fetchFn: () => (window as any).api.listUnlabeledRecordings(),
-    },
-  } as const;
-  type OptionKey = keyof typeof optionMap;
-
-  // function to fetch query result, saved to rows state
-  const fetchData = async (selected: OptionKey) => {
-    try {
-      setLoading(true);
-      // change this to change what query to run
-      const data = await optionMap[selected].fetchFn();
-      setRows(data);
-    } catch (err) {
-      console.error('Error fetching data:', err);
-      setError('Failed to fetch data');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchData(option);
-  }, [option]);
+  
 
 
   function toEntryForm() {
@@ -787,8 +750,6 @@ export default function databasePage() {
           setSelectedDatabase(db.filepath);
           alert(`Selected database: ${db.Country}`);
           
-          // Refresh data after selecting new database
-          fetchData();
         } else {
           alert('Error selecting database: ' + result.error);
         }
@@ -993,6 +954,53 @@ export default function databasePage() {
     if (!analyticsPage) {
       return null;
     }
+    const [rows, setRows] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [option, setOption] = useState<"species" | "unlabeled">("species");
+    const [page, setPage] = useState(1);
+    const [pageSize, setPageSize] = useState(10);
+    const [total, setTotal] = useState(0);
+
+    // analytics config
+    // NOTE: any new analytics query just needs to be added to this
+    // optionMap and will be automatically added to the dropdown
+    const optionMap = {
+      species: {
+        label: "Model Accuracy by Species",
+        fetchFn: (p: { limit: number; offset: number }) => (window as any).api.listModelAccuracyBySpecies(p),
+      },
+      unlabeled: {
+        label: "List Unlabeled Recordings",
+        fetchFn: (p: { limit: number; offset: number }) => (window as any).api.listUnlabeledRecordings(p),
+      },
+    } as const;
+    type OptionKey = keyof typeof optionMap;
+
+    const fetchData = async (selected: OptionKey) => {
+      try {
+        setLoading(true);
+        const offset = (page - 1) * pageSize;
+        const { rows: fetchedRows, total: fetchedTotal } = await optionMap[selected].fetchFn({ limit: pageSize, offset });
+        setRows(fetchedRows);
+        setTotal(fetchedTotal ?? fetchedRows.length);
+      } catch (err) {
+        console.error('Error fetching data:', err);
+        setError('Failed to fetch data');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    useEffect(() => {
+      fetchData(option as OptionKey);
+    }, [option, page, pageSize]);
+
+    useEffect(() => {
+      // reset page to 1 when changing option
+      setPage(1);
+    }, [option]);
+    
     return (
       <div className={styles.magnus}>
         <h1>Analytics</h1>        
@@ -1005,7 +1013,7 @@ export default function databasePage() {
               id="analytics-select"
               className="px-3 py-2 rounded-md"
               value={option}
-              onChange={(e) => setOption(e.target.value as OptionKey)}
+              onChange={(e) => setOption(e.target.value as any)}
             >
               // options are generated automatically from the optionMap up above
               {Object.entries(optionMap).map(([key, { label }]) => (
@@ -1051,6 +1059,58 @@ export default function databasePage() {
               ))}
             </tbody>
           </table>
+          )}
+          {/* pagination controls */}
+          {!loading && !error && total > 0 && (
+            <div className="flex items-center gap-2">
+              <span className="text-sm">Rows per page:</span>
+              <select
+                value={pageSize}
+                onChange={(e) => setPageSize(Number(e.target.value))}
+              >
+                <option value={10}>10</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
+              <div className="w-1 flex items-center">
+                <button
+                  onClick={() => setPage(1)}
+                  disabled={page === 1}
+                  type="button"
+                >
+                  First
+                </button>
+                <button
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                  type="button"
+                >
+                  Prev
+                </button>
+                <span className="text-sm">
+                  Page {page} of {Math.max(1, Math.ceil(total / pageSize))}
+                </span>
+                <button
+                  onClick={() => setPage((p) => Math.min(Math.max(1, Math.ceil(total / pageSize)), p + 1))}
+                  disabled={page >= Math.ceil(total / pageSize)}
+                  type="button"
+                >
+                  Next
+                </button>
+                <button
+                  onClick={() => setPage(Math.max(1, Math.ceil(total / pageSize)))}
+                  disabled={page >= Math.ceil(total / pageSize)}
+                  type="button"
+                >
+                  Last
+                </button>
+                <span className="text-sm">
+                  Showing {(total === 0) ? 0 : (page - 1) * pageSize + 1}
+                  –{Math.min(page * pageSize, total)} of {total}
+                </span>
+              </div>
+            </div>
           )}
           {/* no data */}
           {!loading && !error && rows.length === 0 && (
