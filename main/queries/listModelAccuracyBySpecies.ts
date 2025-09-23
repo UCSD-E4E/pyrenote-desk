@@ -1,10 +1,25 @@
 import { getDatabase } from "../background";
-import { tableModelAccuracyBySpecies } from "../../shared/types/tableModelAccuracyBySpecies";
 
-const listModelAccuracyBySpecies = async (): Promise<tableModelAccuracyBySpecies[]> => {
+export type tableModelAccuracyBySpecies = {
+  speciesId: number;
+  speciesName: string;
+  numYes: number;
+  numNo: number;
+  numUnverified: number;
+  total: number;
+  accuracy: number;
+  avgConfidence: number;
+};
+
+type ListModelAccuracyBySpeciesParams = { limit: number; offset: number };
+type ListModelAccuracyBySpeciesResponse = { rows: tableModelAccuracyBySpecies[]; total: number };
+
+const listModelAccuracyBySpecies = async (
+  params: ListModelAccuracyBySpeciesParams,
+): Promise<ListModelAccuracyBySpeciesResponse> => {
   const db = getDatabase();
 
-  const statement = db.prepare<never[], tableModelAccuracyBySpecies>(`
+  const baseQuery = `
     SELECT
       s.speciesId as speciesId,
       s.species as speciesName,
@@ -19,14 +34,23 @@ const listModelAccuracyBySpecies = async (): Promise<tableModelAccuracyBySpecies
     FROM Annotation a
     LEFT JOIN Species s ON a.speciesId = s.speciesId
     GROUP BY s.speciesId, s.species
-  `);
+  `;
 
   try {
-    const rows = statement.all();
-    return rows;
+    // total number of grouped rows
+    const totalStmt = db.prepare<never[], { count: number }>(`SELECT COUNT(*) as count FROM ( ${baseQuery} ) as base`);
+    const total = totalStmt.get()?.count ?? 0;
+
+    // paged rows
+    const pagedStmt = db.prepare<[number, number], tableModelAccuracyBySpecies>(
+      `${baseQuery} LIMIT ? OFFSET ?`
+    );
+    const rows = pagedStmt.all(params.limit, params.offset);
+
+    return { rows, total };
   } catch (e) {
     console.error("Error: failed listing model accuracy by species", e);
-    return [];
+    return { rows: [], total: 0 };
   }
 };
 
