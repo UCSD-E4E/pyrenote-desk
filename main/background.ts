@@ -102,14 +102,31 @@ for (const mutation in mutations) {
 
 // Listener for running the script
 ipcMain.handle("run-script", async () => {
-  return new Promise((resolve, reject) => {
-    execFile("python", ["pyfiles/script.py"], (error, stdout, stderr) => {
-      if (error) {
-        return reject(stderr);
+  // return new Promise((resolve, reject) => {
+  //   //execFile("python", ["pyfiles/script.py"], (error, stdout, stderr) => {
+  //   execFile("python", ["pyfiles/acoustic-multiclass-training/inference.py"], (error, stdout, stderr) => {
+  //     if (error) {
+  //       return reject(stderr);
+  //     }
+  //     //Passes output back to the renderer
+  //     resolve(stdout);
+  //   });
+  // });
+
+  const python = "python"; 
+  const script = path.join(process.cwd(), "pyfiles/acoustic-multiclass-training/inference.py");
+
+  return new Promise<string>((resolve, reject) => {
+    // Pass DB path as a CLI argument
+    execFile(
+      python,
+      [script, "--db-path", selectedDbPath],
+      //{ env: { ...process.env } },  // add env if needed? would this prevent us from having to activate venv before running yarn && yarn dev?
+      (error, stdout, stderr) => {
+        if (error) return reject(stderr || error.message);
+        resolve(stdout ?? "");
       }
-      //Passes output back to the renderer
-      resolve(stdout);
-    });
+    );
   });
 });
 

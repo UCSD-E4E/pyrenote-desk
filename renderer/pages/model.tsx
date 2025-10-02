@@ -9,9 +9,10 @@ function FileUploadButton({ onClick }) {
     <button
       onClick={onClick}
       style={{
-        width: "120px",
-        height: "120px",
-        background: `url(/images/SelectFileButton.png) no-repeat center center`,
+        width: "200px",
+        height: "200px",
+        // background: `url(/images/SelectFileButton.png) no-repeat center center`,
+        background: `url(/images/run-model-button.png) no-repeat center center`,
         backgroundSize: "cover",
         cursor: "pointer",
         border: "none",
@@ -22,23 +23,23 @@ function FileUploadButton({ onClick }) {
   );
 }
 //Cancel Button appears while model is running, replacing file select button
-function CancelButton({ onClick }) {
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        width: "120px",
-        height: "120px",
-        background: `url(/images/CancelButton.png) no-repeat center center`,
-        backgroundSize: "cover",
-        cursor: "pointer",
-        border: "none",
-        margin: "1px",
-        objectFit: "contain",
-      }}
-    ></button>
-  );
-}
+// function CancelButton({ onClick }) {
+//   return (
+//     <button
+//       onClick={onClick}
+//       style={{
+//         width: "120px",
+//         height: "120px",
+//         background: `url(/images/CancelButton.png) no-repeat center center`,
+//         backgroundSize: "cover",
+//         cursor: "pointer",
+//         border: "none",
+//         margin: "1px",
+//         objectFit: "contain",
+//       }}
+//     ></button>
+//   );
+// }
 
 //button for testing purposes - HandleSuccessClick() should be called when model successfully completes
 function SuccessButton({ onClick }) {
@@ -107,19 +108,46 @@ export default function ModelPage() {
     //stop message cycle
   };
 
-  
-  function HandleClick() {
-    alert("Clicked");
-    // TODO: Add Backend Functionality Here
+
+  // function HandleClick() {
+  //   alert("Running inference script");
+  //   window.api.runScript(); //call inference script
+  //   // TODO: Add Backend Functionality Here
+  //   setIsButtonVisible(false);
+  //   setOrigionalImageVisible(false);
+  //   setOrigionalTextVisible(false);
+  //   setLoadingTextVisible(true);
+  //   setSuccessTextVisible(false);
+  //   startImageRotation();
+  // }
+  async function HandleClick() {
     setIsButtonVisible(false);
     setOrigionalImageVisible(false);
     setOrigionalTextVisible(false);
     setLoadingTextVisible(true);
     setSuccessTextVisible(false);
     startImageRotation();
+
+    try {
+      await window.api.runScript(); // resolves when Python exits (annotations inserted)
+      // success:
+      setSuccessTextVisible(true);
+    } catch (err) {
+      console.error("Inference error:", err);
+      alert("Inference failed. Check logs.");
+      // optional: revert to original UI on failure
+      setIsButtonVisible(true);
+      setOrigionalImageVisible(true);
+      setOrigionalTextVisible(true);
+      setSuccessTextVisible(false);
+    } finally {
+      setLoadingTextVisible(false);
+      stopImageRotation();
+    }
   }
 
   //defines click behavior of Cancel button
+  //TODO : implement this when model is done running 
   function HandleCancelClick() {
     alert("Canceled");
     // TODO: Add Backend Functionality Here
@@ -152,7 +180,7 @@ export default function ModelPage() {
         <div className={styles.images}>
           <div>
             {isButtonVisible && <FileUploadButton onClick={HandleClick} />}
-            {!isButtonVisible && <CancelButton onClick={HandleCancelClick} />}
+            {/* {!isButtonVisible && <CancelButton onClick={HandleCancelClick} />} */}
           </div>
 
           <div style={{ textAlign: "center" }}>
@@ -177,8 +205,7 @@ export default function ModelPage() {
             {origionalTextVisible && (
               <>
                 <p>
-                  Magnus is waiting for you to select audio clip(s) from the
-                  library.
+                  Magnus is waiting for you to run the model over all recordings in selected database.
                 </p>
                 <p>Let's get Labeling!</p>
               </>
@@ -191,7 +218,7 @@ export default function ModelPage() {
               <>
                 <p>Magnus has successfully labeled the data!</p>{" "}
                 <p>
-                  Check out the database & label tab to examine the results or
+                  Check out the database tab, then navigate to the Analytics button to examine the results or
                   upload more data for labeling.
                 </p>
               </>

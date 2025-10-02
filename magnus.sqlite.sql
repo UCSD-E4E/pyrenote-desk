@@ -45,6 +45,7 @@ CREATE TABLE Recording (
     deploymentId INTEGER,
     filename TEXT,
     url TEXT,
+    directory TEXT,
     datetime DATETIME,
     duration REAL,
     samplerate INTEGER,

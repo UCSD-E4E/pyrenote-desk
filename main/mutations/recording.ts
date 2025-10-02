@@ -5,6 +5,7 @@ type CreateParams = {
   deploymentId: number;
   filename: string;
   url: string;
+  directory: string;
   datetime: string;
   duration: number;
   samplerate: number;
@@ -15,6 +16,7 @@ export const createRecording = async (
   deploymentId: number,
   filename: string,
   url: string,
+  directory: string,
   datetime: string,
   duration: number,
   samplerate: number,
@@ -23,8 +25,8 @@ export const createRecording = async (
   const db = getDatabase();
   // TODO: test this mutation
   const statement = db.prepare<CreateParams, Recording>(`
-    INSERT INTO recording (deploymentId, filename, url, datetime, duration, samplerate, bitrate)
-    VALUES (@deploymentId, @filename, @url, @datetime, @duration, @samplerate, @bitrate)
+    INSERT INTO recording (deploymentId, filename, url, directory, datetime, duration, samplerate, bitrate)
+    VALUES (@deploymentId, @filename, @url, @directory, @datetime, @duration, @samplerate, @bitrate)
     RETURNING * 
   `);
   try {
@@ -32,6 +34,7 @@ export const createRecording = async (
       deploymentId,
       filename,
       url,
+      directory,
       datetime,
       duration,
       samplerate,
@@ -72,6 +75,7 @@ type UpdateParams = {
   deploymentId: number;
   filename: string;
   url: string;
+  directory: string;
   datetime: string;
   duration: number;
   samplerate: number;
@@ -83,6 +87,7 @@ export const updateRecording = async (
   deploymentId: number,
   filename: string,
   url: string,
+  directory: string,
   datetime: string,
   duration: number,
   samplerate: number,
@@ -96,6 +101,7 @@ export const updateRecording = async (
       deploymentId = @deploymentId,
       filename = @filename,
       url = @url,
+      directory = @directory,
       datetime = @datetime,
       duration = @duration,
       samplerate = @samplerate,
@@ -109,6 +115,7 @@ export const updateRecording = async (
       deploymentId,
       filename,
       url,
+      directory,
       datetime,
       duration,
       samplerate,
