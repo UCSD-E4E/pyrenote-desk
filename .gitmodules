@@ -1,0 +1,4 @@
+[submodule "pyfiles/acoustic-multiclass-training"]
+	path = pyfiles/acoustic-multiclass-training
+	url = git@github.com:UCSD-E4E/acoustic-multiclass-training.git
+	branch = inf-script
