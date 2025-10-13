@@ -766,13 +766,57 @@ const AudioPlayer: React.FC = () => {
           const dbRegions = Array.isArray(wavesurfers[index].regions)
           ? wavesurfers[index].regions
           : [];
+          
+        
+          let allSpecies = [];
+          try {
+            allSpecies = await window.api.listSpecies();
+          } catch (error) {
+            console.error("Failed to fetch species list:", error);
+          }
+          
+          // Create regions and fetch their species labels
           for (const r of dbRegions) {
-            wsRegions.addRegion({
+            const region = wsRegions.addRegion({
               start: r.starttime,
               end: r.endtime,
               color: "rgba(0, 255, 0, 0.3)",
               id: "imported-" + r.regionId,
             });
+            
+            // Fetch annotations for this region to get species labels
+            try {
+              const annotations = await window.api.listAnnotationsByRegionId(r.regionId);
+              if (annotations && annotations.length > 0) {
+                const annotation = annotations[annotations.length - 1]; // Use the most recent annotation
+                
+                const species = allSpecies.find(s => s.speciesId === annotation.speciesId);
+                
+                if (species) {
+                  // Add label to region after a short delay to ensure DOM is ready
+                  setTimeout(() => {
+                    const labelElem = document.createElement("span");
+                    labelElem.className = "region-label";
+                    labelElem.textContent = species.common ? `${species.common} (${species.species}) - ${annotation.verified}` : species.species;
+                    labelElem.style.position = "absolute";
+                    labelElem.style.top = "2px";
+                    labelElem.style.left = "2px";
+                    labelElem.style.backgroundColor = "rgba(255, 255, 255, 0.9)";
+                    labelElem.style.padding = "2px 6px";
+                    labelElem.style.fontSize = "11px";
+                    labelElem.style.fontWeight = "bold";
+                    labelElem.style.borderRadius = "3px";
+                    labelElem.style.border = "1px solid rgba(0, 0, 0, 0.2)";
+                    labelElem.style.color = "#333";
+                    labelElem.style.zIndex = "10001";
+                    labelElem.style.pointerEvents = "none";
+                    region.element.appendChild(labelElem);
+                  }, 150);
+                }
+              }
+            } catch (error) {
+              console.error(`Failed to fetch annotations for region ${r.regionId}:`, error);
+            }
           }
         };
 
