@@ -333,7 +333,7 @@ ipcMain.handle("saveMultipleRecordings", async (_event, { files, deploymentId, d
     if (driveLabel) args.push("--drive", driveLabel);
 
     await new Promise<void>((resolve, reject) => {
-      const proc = spawn("python3", [pythonScript, ...args]);
+      const proc = spawn(getVenvPython(), [pythonScript, ...args]);
 
       proc.stdout.on("data", (data) => {
         const match = data.toString().match(/recordingId=(\d+)/);
@@ -354,3 +354,11 @@ ipcMain.handle("saveMultipleRecordings", async (_event, { files, deploymentId, d
 
   return savedIds;
 });
+
+
+const getVenvPython = () => {
+  const base = path.join(__dirname, "../.venv");
+  return process.platform === "win32"
+    ? path.join(base, "Scripts", "python.exe")
+    : path.join(base, "bin", "python");
+};

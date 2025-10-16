@@ -261,34 +261,35 @@ export default function VerifyPage() {
 		let spawnPage = 1;
 
 		const recordings = await window.api.listAnnotationsRecordings();
+		console.log(recordings.length)
 
 		const tasks = recordings.map(async (rec, i) => {
 			try {
-			const audioFile = await window.ipc.invoke('read-file-for-verification', rec.url);
-			const ext = rec.url.endsWith(".mp3") ? ".mp3" : ".wav";
-			const mimeType = ext === ".mp3" ? "audio/mpeg" : "audio/wav";
+				const audioFile = await window.ipc.invoke('read-file-for-verification', rec.url);
+				const ext = rec.url.endsWith(".mp3") ? ".mp3" : ".wav";
+				const mimeType = ext === ".mp3" ? "audio/mpeg" : "audio/wav";
 
-			const blob = new Blob([audioFile.data], { type: mimeType });
-				
-				const regions = await window.api.listRegionOfInterestByRecordingId(rec.recordingId);
-				let annotation = null;
-				if (regions.length > 0) {
-					const anns = await window.api.listAnnotationsByRegionId(regions[0].regionId);
-					annotation = anns.length > 0 ? anns[0] : null;
-				}
-				
-			processed.push({
-				index: processed.length,
-				url: URL.createObjectURL(blob),
-				filePath: rec.url,
-				recordingId: rec.recordingId,
-				status: annotation ? annotation.status : SpectroStatus.Unverified,
-				species: annotation ? annotation.species : DEFAULT_SPECIES,
-			});
-			console.log("Processed audio files:", processed);
+				const blob = new Blob([audioFile.data], { type: mimeType });
+					
+					const regions = await window.api.listRegionOfInterestByRecordingId(rec.recordingId);
+					let annotation = null;
+					if (regions.length > 0) {
+						const anns = await window.api.listAnnotationsByRegionId(regions[0].regionId);
+						annotation = anns.length > 0 ? anns[0] : null;
+					}
+					
+				processed.push({
+					index: processed.length,
+					url: URL.createObjectURL(blob),
+					filePath: rec.url,
+					recordingId: rec.recordingId,
+					status: annotation ? annotation.status : SpectroStatus.Unverified,
+					species: annotation ? annotation.species : DEFAULT_SPECIES,
+				});
+				console.log("Processed audio files:", processed);
 
 			} catch (err) {
-			console.error(`Failed to read audio file at ${rec.url}:`, err);
+				console.error(`Failed to read audio file at ${rec.url}:`, err);
 			}
 		});
 
