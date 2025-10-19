@@ -8,7 +8,6 @@
     --bg-color: #121212;
     --text-color: #f8f9fa;
     --hover-color: #2e7d57;
-    height: 100vh;
     background-color: #374151;
 }
 
@@ -29,12 +28,12 @@
 }
 
 .sidebar {
-    position: fixed;
+    position: relative;
     display: flex;
     align-items: center;
     flex-direction: column;
 
-    padding: 10px;
+    padding: 20px;
     gap: 50px;
 }
 
@@ -54,8 +53,8 @@
 }
 
 .children {
-    flex-grow: 1;
-    width: 93%;
-    margin-left: 7%;
+	position: relative;
+	flex: 1;
+	min-height: 100%;
     color: var(--text-color);
 }

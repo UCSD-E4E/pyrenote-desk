@@ -28,10 +28,10 @@ function Layout({ children }: { children: React.ReactNode }) {
 
 	return (
 		<>
-		<div className={`${styles.theme} ${darkMode ? styles.dark : ''}`}>
-		
-			<div className="flex gap-5 p-4">
-				<div className={styles.settings} onClick={toSettings}>
+			<div className={`${styles.theme} ${darkMode ? styles.dark : ''}`}>
+			
+				<div className="flex p-0">
+					<div className={styles.settings} onClick={toSettings}>
 						<Image
 							src="/images/settingsCog.webp"
 							alt="Home image"
@@ -41,63 +41,64 @@ function Layout({ children }: { children: React.ReactNode }) {
 						<br />
 						<span className={styles.linkStyle}></span>
 					</div>
-				<div className={styles.sidebar}>
 					
-					<div className={styles.icon} onClick={toHome}>
-						<Image
-							src="/images/home.png"
-							alt="Home image"
-							width={45}
-							height={45}
-						/>
-						<br />
-						<span className={styles.linkStyle}>Home</span>
+					<div className={styles.sidebar}>
+						
+						<div className={styles.icon} onClick={toHome}>
+							<Image
+								src="/images/home.png"
+								alt="Home image"
+								width={45}
+								height={45}
+							/>
+							<br />
+							<span className={styles.linkStyle}>Home</span>
+						</div>
+						<div className={styles.icon} onClick={toData}>
+							<Image
+								src="/images/database.png"
+								alt="Database image"
+								width={45}
+								height={45}
+							/>
+							<br />
+							<span className={styles.linkStyle}>Database</span>
+						</div>
+						<div className={styles.icon} onClick={toModel}>
+							<Image
+								src="/images/model.png"
+								alt="Model image"
+								width={45}
+								height={45}
+							/>
+							<br />
+							<span className={styles.linkStyle}>Model</span>
+						</div>
+						<div className={styles.icon} onClick={toLabel}>
+							<Image
+								src="/images/tag.png"
+								alt="Label image"
+								width={45}
+								height={45}
+							/>
+							<br />
+							<span className={styles.linkStyle}>Label</span>
+						</div>
+						<div className={styles.icon} onClick={toVerify}>
+							<Image
+								src="/images/tag.png"
+								alt="Label image"
+								width={45}
+								height={45}
+							/>
+							<br />
+							<span className={styles.linkStyle}>Verify</span>
+						</div>
 					</div>
-					<div className={styles.icon} onClick={toData}>
-						<Image
-							src="/images/database.png"
-							alt="Database image"
-							width={45}
-							height={45}
-						/>
-						<br />
-						<span className={styles.linkStyle}>Database</span>
-					</div>
-					<div className={styles.icon} onClick={toModel}>
-						<Image
-							src="/images/model.png"
-							alt="Model image"
-							width={45}
-							height={45}
-						/>
-						<br />
-						<span className={styles.linkStyle}>Model</span>
-					</div>
-					<div className={styles.icon} onClick={toLabel}>
-						<Image
-							src="/images/tag.png"
-							alt="Label image"
-							width={45}
-							height={45}
-						/>
-						<br />
-						<span className={styles.linkStyle}>Label</span>
-					</div>
-					<div className={styles.icon} onClick={toVerify}>
-						<Image
-							src="/images/tag.png"
-							alt="Label image"
-							width={45}
-							height={45}
-						/>
-						<br />
-						<span className={styles.linkStyle}>Verify</span>
-					</div>
+					{/* make labelling fill out width wise */}
+					<main className={styles.children}>{children}</main>
 				</div>
-				{/* make labelling fill out width wise */}
-				<main className={styles.children}>{children}</main>
-			</div>
-		
+			
 			</div>
 		</>
 	);

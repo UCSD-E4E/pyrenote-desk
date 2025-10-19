@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, MouseEvent, useCallback, useImperativeHandle, forwardRef } from 'react'
+import React, { useState, useRef, useEffect, MouseEvent, useCallback, useImperativeHandle, forwardRef, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import Head from 'next/head'
 import Image from 'next/image'
@@ -637,10 +637,10 @@ export default function VerifyPage() {
 		}
 	}, [currentPage, totalPages, showModal]);
 
-	const moveSelectionUp = () => 		{ updateSelected([selected.length==0 ? 0 : Math.max(getLastSelected() - COLS, getLastSelected() % COLS)]); }
-	const moveSelectionDown = () => 	{ updateSelected([selected.length==0 ? 0 : Math.min(getLastSelected() + COLS, numFiles-1, numSpots-COLS+(getLastSelected() % COLS))]); }
-	const moveSelectionLeft = () => 	{ updateSelected([selected.length==0 ? 0 : Math.max(getLastSelected() - 1, 0)]); }
-	const moveSelectionRight = () => 	{ updateSelected([selected.length==0 ? 0 : Math.min(getLastSelected() + 1, numFiles-1)]); }
+	const moveSelectionUp = () => 		{ if (spectrograms.current.length == 0) return; updateSelected([selected.length==0 ? 0 : Math.max(getLastSelected() - COLS, getLastSelected() % COLS)]); }
+	const moveSelectionDown = () => 	{ if (spectrograms.current.length == 0) return; updateSelected([selected.length==0 ? 0 : Math.min(getLastSelected() + COLS, numFiles-1, numSpots-COLS+(getLastSelected() % COLS))]); }
+	const moveSelectionLeft = () => 	{ if (spectrograms.current.length == 0) return; updateSelected([selected.length==0 ? 0 : Math.max(getLastSelected() - 1, 0)]); }
+	const moveSelectionRight = () => 	{ if (spectrograms.current.length == 0) return; updateSelected([selected.length==0 ? 0 : Math.min(getLastSelected() + 1, numFiles-1)]); }
 	const setSpectroStatus = (status) => { 
 		for (let i = 0; i < selected.length; i++) {
 			updateAudioFile(spectrograms.current[selected[i]].fullIndex, "status", status)
@@ -712,37 +712,96 @@ export default function VerifyPage() {
 
 	// KEYBIND SYSTEM //
 	// print 'event.key' to get the right keycode 
-	
 	const keybinds = {
-		"w": moveSelectionUp,
-		"a": moveSelectionLeft,
-		"s": moveSelectionDown,
-		"d": moveSelectionRight,
-		"ArrowUp": moveSelectionUp,
-		"ArrowLeft": moveSelectionLeft,
-		"ArrowDown": moveSelectionDown,
-		"ArrowRight": moveSelectionRight,
-		"Tab": moveSelectionRight,
-		"z": () => {setSpectroStatus(SpectroStatus.Unverified)},
-		"x": () => {setSpectroStatus(SpectroStatus.Valid)},
-		"c": () => {setSpectroStatus(SpectroStatus.Invalid)},
-		" ": playPauseSelection,
-		",": skipBack,
-		".": skipForward,
-		"l": doubleSkipInterval,
-		"k": halveSkipInterval,
-		"m": doublePlaySpeed,
-		"n": halvePlaySpeed,
-		";": lessColumns,
-		"'": moreColumns,
-		"r": resetIncrements,
-		"o": toggleModal, // only to enable modal view, use ESC to exit out of it
-		"Backspace": deleteSelected, 
-		"Shift": startLabelingMode,
-		"Enter": isLabelingMode ? applyLabelToSelected : nextPage,
-		"\\": prevPage,
-		"Escape": () => { if (isLabelingMode) setIsLabelingMode(false); }
+		"w": {func: moveSelectionUp, label: "Move selection up"},
+		"a": {func: moveSelectionLeft, label: "Move selection left"},
+		"s": {func: moveSelectionDown, label: "Move selection down"},
+		"d": {func: moveSelectionRight, label: "Move selection right"},
+		"ArrowUp": {func: moveSelectionUp, label: "Move selection up"},
+		"ArrowLeft": {func: moveSelectionLeft, label: "Move selection left"},
+		"ArrowDown": {func: moveSelectionDown, label: "Move selection down"},
+		"ArrowRight": {func: moveSelectionRight, label: "Move selection right"},
+		"Tab": {func: moveSelectionRight, label: "Move selection right"},
+		"z": {func: () => {setSpectroStatus(SpectroStatus.Unverified)}, label: "Mark as unverified/valid/invalid"},
+		"x": {func: () => {setSpectroStatus(SpectroStatus.Valid)}, label: "Mark as unverified/valid/invalid"},
+		"c": {func: () => {setSpectroStatus(SpectroStatus.Invalid)}, label: "Mark as unverified/valid/invalid"},
+		" ": {func: playPauseSelection, label: "Play/Pause"},
+		",": {func: skipBack, label: "Skip back/forward"},
+		".": {func: skipForward, label: "Skip back/forward"},
+		"l": {func: doubleSkipInterval, label: "Double/Halve skip interval"},
+		"k": {func: halveSkipInterval, label: "Double/Halve skip interval"},
+		"m": {func: doublePlaySpeed, label: "Double/Halve playback speed"},
+		"n": {func: halvePlaySpeed, label: "Halve/Halve playback speed"},
+		";": {func: lessColumns, label: "Fewer/More columns"},
+		"'": {func: moreColumns, label: "Fewer/More columns"},
+		"r": {func: resetIncrements, label: "Reset increments"},
+		"o": {func: toggleModal, label: "Toggle detailed view"},
+		"Backspace": {func: deleteSelected, label: "Delete selected"},
+		"Shift": {func: startLabelingMode, label: "Start/Exit labeling mode"},
+		"Escape": {func: () => { if (isLabelingMode) setIsLabelingMode(false); }, label: "Start/Exit labeling mode"},
+		"Enter": {func: isLabelingMode ? applyLabelToSelected : nextPage, label: "Next/Prev page"},
+		"\\": {func: prevPage, label: "Next/Prev page"},
 	}
+
+	const functionToKeys = new Map(); // reverse mapping for keybind guide
+	Object.entries(keybinds).forEach(([key, func]) => {
+		const existing = functionToKeys.get(func) || [];
+		functionToKeys.set(func, [...existing, key]);
+	});
+
+	// Generate help tooltip content using keybinds labels
+	const getHelpContent = () => {
+		// Group keybinds by label
+		const labelToKeys = new Map();
+		Object.entries(keybinds).forEach(([key, keybind]) => {
+			const label = keybind.label;
+			if (!labelToKeys.has(label)) {
+				labelToKeys.set(label, []);
+			}
+			labelToKeys.get(label).push(key);
+		});
+
+		return (
+			<div className={styles.helpTable}>
+				<div className={styles.helpTableHeader}>KEYBOARD SHORTCUTS</div>
+				<table>
+					<thead>
+						<tr>
+							<th>Keys</th>
+							<th>Function</th>
+						</tr>
+					</thead>
+					<tbody>
+						{Array.from(labelToKeys.entries()).map(([label, keys]) => {
+							// Format key names for display
+							const formattedKeys = keys.map(key => {
+								if (key === " ") return "Space";
+								if (key === "ArrowUp") return "↑";
+								if (key === "ArrowDown") return "↓";
+								if (key === "ArrowLeft") return "←";
+								if (key === "ArrowRight") return "→";
+								if (key === "\\") return "\\";
+								return key.toUpperCase();
+							});
+							
+							return (
+								<tr key={label}>
+									<td>
+										{formattedKeys.map((key, index) => (
+											<span key={index} className={styles.helpKey}>
+												{key}
+											</span>
+										))}
+									</td>
+									<td>{label}</td>
+								</tr>
+							);
+						})}
+					</tbody>
+				</table>
+			</div>
+		);
+	};
 
 	useEffect(() => { // handle keyboard input (ADD STATES TO THE DEPENDENCY ARRAY IF RELATED TO A KEYBIND )
 		const handleKeyDown = (event) => {
@@ -770,7 +829,7 @@ export default function VerifyPage() {
 				return;
 			}
 
-			const func = keybinds[event.key];		
+			const func = keybinds[event.key]?.func;		
 			if (func) {
 				func();
 			}
@@ -981,11 +1040,23 @@ export default function VerifyPage() {
 							</button>
 						)}
 					</div>
+
+					<div>
+
+					</div>
 					{isLabelingMode && selected.length > 0 && (
 						<div className={styles.labelingIndicator}>
 							<p>Labeling: {currentLabel}</p>
 						</div>
 					)}
+					
+					{/* Help icon with tooltip */}
+					<div className={styles.helpIcon}>
+						?
+						<div className={styles.helpTooltip}>
+							{getHelpContent()}
+						</div>
+					</div>
 				</div>
 
 				{audioFiles.length > 0 && (
