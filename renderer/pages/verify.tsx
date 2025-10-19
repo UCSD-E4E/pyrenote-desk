@@ -66,7 +66,7 @@ interface SpectroRef { // public Spectrogram properties & functions
 	fullIndex: number,
 	wavesurferRef: React.RefObject<WaveSurfer>;
 	containerRef: React.RefObject<HTMLElement>;
-	status: number;
+	status: string;
 	isSelected: boolean;
 	isLoaded: boolean;
 	filePath: string;
@@ -89,7 +89,7 @@ interface SpectroProps { // Spectrogram parameters
 	id : number,
 	fullIndex : number,
 	url : string,
-	status: number,
+	status: string,
 	species: string,
 	onMouseEnter : ()=>void, 
 	onMouseLeave : ()=>void,

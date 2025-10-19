@@ -322,7 +322,7 @@ ipcMain.handle("saveMultipleRecordings", async (_event, { files, deploymentId, d
 
   for (const file of files) {
     const tempPath = path.join(os.tmpdir(), file.name);
-    fs.writeFileSync(tempPath, Buffer.from(file.buffer));
+    fs.writeFileSync(tempPath, new Uint8Array(Buffer.from(file.buffer)));
 
     const pythonScript = path.join(__dirname, "../pyfiles/script.py");
     const args = [

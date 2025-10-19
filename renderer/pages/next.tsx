@@ -788,7 +788,7 @@ export default function databasePage() {
           alert(`Selected database: ${db.Country}`);
           
           // Refresh data after selecting new database
-          fetchData();
+          fetchData("unlabeled");
         } else {
           alert('Error selecting database: ' + result.error);
         }

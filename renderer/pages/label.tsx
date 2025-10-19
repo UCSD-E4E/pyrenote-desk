@@ -341,7 +341,7 @@ const AudioPlayer: React.FC = () => {
           regions: regions || [], //ensure regions is array
           id: containerId,
           spectrogramId: spectrogramId,
-          file: new Blob([rec.fileData]),
+          file: new Blob([rec.fileData as BlobPart]),
           instance: null,
           class: "spectrogramContainer",
         };
