@@ -1,5 +1,6 @@
 import listRecordingsByDeploymentId from "./listRecordingsByDeploymentId";
 import listRecordings from "./listRecordings";
+import listRecordingsByFilters from "./listRecordingsByFilters";
 import listAnnotationsByRegionId from "./listAnnotationsByRegionId";
 import listRecordingsBySiteId from "./listRecordingsBySiteId";
 import listSurveys from "./listSurveys";
@@ -18,6 +19,7 @@ import listUnlabeledRecordings from "./listUnlabeledRecordings";
 export const setupQueries = {
   listRecordingsByDeploymentId,
   listRecordings,
+  listRecordingsByFilters,
   listAnnotationsByRegionId,
   listRecordingsBySiteId,
   listSurveys,
