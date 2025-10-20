@@ -314,8 +314,7 @@ const AudioPlayer: React.FC = () => {
     }, 500);
   }, [wavesurfers, index, isNoDisabled]);
 
-  const importFromDB = async () => {
-    const recordings = await window.api.listRecordings();
+  const importFromDB = async (recordings) => {
     console.log("recordings:", recordings);
     // Ensure it's an array
     if (!Array.isArray(recordings)) {
@@ -894,7 +893,15 @@ const AudioPlayer: React.FC = () => {
     const [recorderList, setRecorderList] = useState([]);
     const [deploymentList, setDeploymentList] = useState([]);
     const [surveyList, setSurveyList] = useState([]);
-    const [specieList, setspecieList] = useState([]);
+    const [speciesList, setspeciesList] = useState([]);
+    const verificationList = ["YES", "NO", "UNVERIFIED"]
+
+    const [selectedSites, setSelectedSites] = useState([]);
+    const [selectedRecorders, setSelectedRecorders] = useState([]);
+    const [selectedDeployments, setSelectedDeployments] = useState([]);
+    const [selectedSurveys, setSelectedSurveys] = useState([]);
+    const [selectedSpecies, setSelectedSpecies] = useState([]);
+    const [selectedVerifications, setSelectedVerifications] = useState([]);
 
     useEffect(() => {
       if (!modalEnable) {
@@ -906,13 +913,13 @@ const AudioPlayer: React.FC = () => {
         const recorders = await window.api.listRecorders();
         const deployments = await window.ipc.invoke("listDeployments");
         const surveys = await window.api.listSurveys();
-        const specie = await window.api.listSpecies();
+        const species = await window.api.listSpecies();
 
         setSiteList(sites);
         setRecorderList(recorders);
         setDeploymentList(deployments);
         setSurveyList(surveys);
-        setspecieList(specie);
+        setspeciesList(species);
       }
 
       fetchData();
@@ -926,8 +933,14 @@ const AudioPlayer: React.FC = () => {
           <details>
             <summary>Recorders</summary>
             {recorderList.map((recorder) => (
-              <div>
-                <input type="checkbox" />
+              <div key={recorder.recorderId}>
+                <input type="checkbox" onChange={(e) => {
+                  if (e.target.checked) {
+                    setSelectedRecorders([...selectedRecorders, recorder.recorderId]);
+                  } else {
+                    setSelectedRecorders(selectedRecorders.filter(val => val != recorder.recorderId));
+                  }
+                }}/>
                 <label>Recorder {recorder.code}</label>
                 <br />
               </div>
@@ -936,8 +949,14 @@ const AudioPlayer: React.FC = () => {
           <details>
             <summary>Surveys</summary>
             {surveyList.map((survey) => (
-              <div>
-                <input type="checkbox" />
+              <div key={survey.surveyId}>
+                <input type="checkbox" onChange={(e) => {
+                  if (e.target.checked) {
+                    setSelectedSurveys([...selectedSurveys, survey.surveyId]);
+                  } else {
+                    setSelectedSurveys(selectedSurveys.filter(val => val != survey.surveyId));
+                  }
+                }}/>
                 <label>{survey.surveyname}</label>
                 <br />
               </div>
@@ -946,8 +965,14 @@ const AudioPlayer: React.FC = () => {
           <details>
             <summary>Sites</summary>
             {siteList.map((site) => (
-              <div>
-                <input type="checkbox" />
+              <div key={site.siteId}>
+                <input type="checkbox" onChange={(e) => {
+                  if (e.target.checked) {
+                    setSelectedSites([...selectedSites, site.siteId]);
+                  } else {
+                    setSelectedSites(selectedSites.filter(val => val != site.siteId));
+                  }
+                }}/>
                 <label>{site.site_code}</label>
                 <br />
               </div>
@@ -956,8 +981,14 @@ const AudioPlayer: React.FC = () => {
           <details>
             <summary>Deployments</summary>
             {deploymentList.map((deployment) => (
-              <div>
-                <input type="checkbox" />
+              <div key={deployment.deploymentId}>
+                <input type="checkbox" onChange={(e) => {
+                  if (e.target.checked) {
+                    setSelectedDeployments([...selectedDeployments, deployment.deploymentId]);
+                  } else {
+                    setSelectedDeployments(selectedDeployments.filter(val => val != deployment.deploymentId));
+                  }
+                }}/>
                 <label>{deployment.deploymentId} - {deployment.note}</label>
                 <br />
               </div>
@@ -965,29 +996,51 @@ const AudioPlayer: React.FC = () => {
           </details>
           <details>
             <summary>Species</summary>
-          {specieList.map((specie) => (
-            <div>
-              <input type="checkbox" />
-              <label>{specie.common} ({specie.species})</label>
+          {speciesList.map((species) => (
+            <div key={species.speciesId}>
+               <input type="checkbox" onChange={(e) => {
+                  if (e.target.checked) {
+                    setSelectedSpecies([...selectedSpecies, species.speciesId]);
+                  } else {
+                    setSelectedDeployments(selectedSpecies.filter(val => val != species.speciesId));
+                  }
+                }}/>
+              <label>{species.common} ({species.species})</label>
             </div>
           ))}
           </details>
           <details>
             <summary>Verification</summary>
-            <input type="checkbox" />
-            <label>Valid</label>
-            <br />
-            <input type="checkbox" />
-            <label>Invalid</label>
-            <br />
-            <input type="checkbox" />
-            <label>Unverified</label>
+          {verificationList.map((verification) => (
+            <div key={verification}>
+              <input type="checkbox" onChange={(e) => {
+                if (e.target.checked) {
+                  setSelectedVerifications([...selectedVerifications, verification]);
+                } else {
+                  setSelectedVerifications(selectedVerifications.filter(val => val != verification));
+                }
+              }}/>
+              <label>{verification}</label>
+            </div>
+          ))}
           </details>
           <br />
-          <button onClick={toggleRecordingSelect}>Import Selected</button>
-          <button onClick={() => {
+          <button onClick={ async () => {
             toggleRecordingSelect();
-            importFromDB();
+            const recordings  = await window.api.listRecordingsByFilters({
+              deployments: selectedDeployments,
+              sites: selectedSites,
+              recorders: selectedRecorders,
+              surveys: selectedSurveys,
+              species: selectedSpecies,
+              verifications: selectedVerifications
+            });
+            importFromDB(recordings);
+          }}>Import Selected</button>
+          <button onClick={async () => {
+            toggleRecordingSelect();
+            const recordings = await window.api.listRecordings();
+            importFromDB(recordings);
           }}>Import All</button>
           <button onClick={toggleRecordingSelect}>Cancel</button>
         </section>
