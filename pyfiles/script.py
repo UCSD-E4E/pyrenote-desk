@@ -31,8 +31,8 @@ class DBHelper:
 			# db_path = os.path.join(script_dir, f"../{db_url}")
 			if not os.path.isabs(db_url):
 				script_dir = os.path.dirname(os.path.abspath(__file__))
-				db_path = os.path.join(script_dir, f"../{db_url}")
-				print("dp_path is ", db_path)
+				db_path = os.path.join(db_url)
+				print("db_path is ", db_path)
 			else:
 				db_path = db_url
 			cls._instance.connection = sqlite3.connect(db_path)
