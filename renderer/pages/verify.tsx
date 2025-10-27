@@ -261,7 +261,8 @@ export default function VerifyPage() {
 		let spawnPage = 1;
 
 		const recordings = await window.api.listAnnotationsRecordings();
-		console.log(recordings.length)
+
+		console.log("Got recordings: ", performance.now()/1000)
 
 		const tasks = recordings.map(async (rec, i) => {
 			try {
@@ -294,6 +295,8 @@ export default function VerifyPage() {
 		});
 
 		await Promise.all(tasks);
+
+		console.log("Populated processed array: ", performance.now()/1000);
 		setAudioFiles(processed);
 		setCurrentPage(spawnPage);
 	}
@@ -381,6 +384,8 @@ export default function VerifyPage() {
 			setStatus(_status);
 			setIsLoaded(false);
 
+			console.log("Initializing wavesurfer for spectro id: ", id, performance.now()/1000);
+
 			wavesurferRef.current = WaveSurfer.create({	
 				container: innerRef.current,
 				height: 0,
@@ -400,6 +405,8 @@ export default function VerifyPage() {
 				}),
 			)
 
+			console.log("Begin generating for spectro id: ", id, performance.now()/1000);
+
 			wavesurferRef.current.load(url).catch((e) => {
 				if (e.name === "AbortError" && isDestroyed) {
 					console.log("WaveSurfer load aborted cleanly");
@@ -411,6 +418,7 @@ export default function VerifyPage() {
 			wavesurferRef.current.on('ready', function() {
 				document.getElementById(`loading-spinner-${id}`).style.display = 'none';
 
+				console.log("FINISHED generating for spectro id: ", id, performance.now()/1000);
 				if (linkedSpectro) {
 					wavesurferRef.current.setTime(linkedSpectro.getTime());
 					wavesurferRef.current.on("timeupdate", (progress) => {
@@ -848,9 +856,10 @@ export default function VerifyPage() {
 	const [rectStart, setRectStart] = useState(null);
 	const [rect, setRect] = useState(null);
 	const containerRef = useRef(null)
+	const containerLeft = containerRef.current?.getBoundingClientRect().left ?? 0;
 
-	const handleMouseDown = (e, canSelect=true) => {
-		const x = e.clientX;
+	const handleMouseDown = (e: MouseEvent, canSelect=true) => {
+		const x = e.clientX - containerLeft;
 		const y = e.clientY;
 		setRectStart({ x, y });
 		setRect({ x, y, width: 0, height: 0 });
@@ -859,7 +868,7 @@ export default function VerifyPage() {
 	const handleMouseMove = (e) => {
 		if (!isSelecting) return;
 
-		const x = e.clientX;
+		const x = e.clientX - containerLeft;
 		const y = e.clientY;
 
 		const newRect = {
@@ -921,6 +930,22 @@ export default function VerifyPage() {
 				onMouseUp={(e) => {if (!showModal) {handleMouseUp()}}}
 				style={{ userSelect: 'none' }}
 			>
+				{isSelecting && rect && (
+					<div
+						style={{
+							position: "absolute",
+							left: rect.x,
+							top: rect.y,
+							width: rect.width,
+							height: rect.height,
+							backgroundColor: "rgba(0, 120, 215, 0.2)",
+							border: "1px solid #0078d7",
+							pointerEvents: "none",
+							zIndex: 10,
+						}}
+					/>
+				)}
+
 				<div 
 					className = {styles.verifyButtonMenu}
 					onMouseDown={(e) => {if (!showModal) {e.stopPropagation(); handleMouseDown(e, false)}}}
@@ -1118,21 +1143,7 @@ export default function VerifyPage() {
 						)}
 					
 				</>
-				{isSelecting && rect && (
-					<div
-						style={{
-							position: "absolute",
-							left: rect.x,
-							top: rect.y,
-							width: rect.width,
-							height: rect.height,
-							backgroundColor: "rgba(0, 120, 215, 0.2)",
-							border: "1px solid #0078d7",
-							pointerEvents: "none",
-							zIndex: 10,
-						}}
-					/>
-				)}
+				
 				{/* Styling for labelling modal */}
 				{isLabelingMode && selected.length > 0 && (
 				<div 
