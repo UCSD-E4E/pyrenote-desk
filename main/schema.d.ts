@@ -21,7 +21,14 @@ export type Annotation = {
   speciesProbability: number;
   // TODO: Redundant from date?
   mostRecent: boolean;
+  // Recording info
+  recordingId: number; // recording
+  url: string;  // recording
+  startOffset: number;
+  endOffset: number;
 };
+
+// 
 
 export type Deployment = {
   deploymentId: number;

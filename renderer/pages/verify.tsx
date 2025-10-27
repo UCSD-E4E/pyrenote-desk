@@ -5,6 +5,7 @@ import Image from 'next/image'
 import styles from './verify.module.css'
 import WaveSurfer from 'wavesurfer.js';
 import SpectrogramPlugin from 'wavesurfer.js/dist/plugins/spectrogram';
+import { audioBufferToWavBlob, cropAudio, decodeAudioFromUrl } from '../utils/audio-decode'
 
 // UTILS //
 // can be moved to seperate file?
@@ -89,6 +90,8 @@ interface SpectroProps { // Spectrogram parameters
 	id : number,
 	fullIndex : number,
 	url : string,
+	startOffset : number,
+	endOffset : number,
 	status: string,
 	species: string,
 	onMouseEnter : ()=>void, 
@@ -114,6 +117,8 @@ interface ProcessedAudioFile { // Audio file information
 	status: SpectroStatus;
 	species: string;
 	recordingId: number;
+	startOffset: number;
+	endOffset: number;
 }
 
 
@@ -195,72 +200,11 @@ export default function VerifyPage() {
 
 	
 	// FILE SELECTION //
-	async function handleFileSelection() { // selecting files from system and updating arrays
-		let processed : ProcessedAudioFile[] = [...audioFiles];
-		let spawnPage = 1;
-
-		// NEW AUDIO FILES ARE ADDED WITHOUT CHECKING IF THEY ARE ALREADY ON SCREEN (CHANGE THIS IN THE FUTURE)
-		async function handleAudioFile(file, species=DEFAULT_SPECIES, status=SpectroStatus.Unverified) {
-			if (file.extension == ".wav") { // audio file
-				const blob = new Blob([file.data], {type: 'audio/wav'})
-				processed.push({
-					index: processed.length, 
-					url: URL.createObjectURL(blob), 
-					filePath: file.filePath, 
-					status: status,
-					species: species,
-					recordingId: null,
-				});
-
-			} else if (file.extension == ".mp3") {
-				const blob = new Blob([file.data], {type: 'audio/mpeg'})
-				processed.push({
-					index: processed.length, 
-					url: URL.createObjectURL(blob), 
-					filePath: file.filePath, 
-					status: status,
-					species: species,
-					recordingId: null,
-				});
-
-			}
-		}
-
-		async function processInput(files) {
-			const tasks = files.map(async (file, i) => {	
-				if (file.extension == ".json") { // json file
-					const jsonString = new TextDecoder("utf-8").decode(file.data);
-					const jsonData : SaveData = JSON.parse(jsonString);
-
-					for (let j = 0; j < jsonData.spectrograms.length; j++) {
-						const entry = jsonData.spectrograms[j];
-						const audioFile = await window.ipc.invoke('read-file-for-verification', entry.filePath);
-						await handleAudioFile(audioFile, entry.species || DEFAULT_SPECIES, entry.status);
-					}
-					setCOLS(jsonData.columns);
-					spawnPage = jsonData.page
-				} else {
-					if (file.extension == ".wav" || file.extension == ".mp3") {
-						await handleAudioFile(file);
-					}
-				}
-			})
-			await Promise.all(tasks);
-			return processed;
-		}
-		
-		const files = await window.ipc.invoke('pick-files-for-verification', null);
-		
-		processed = await processInput(files);
-		setAudioFiles(processed);
-		setCurrentPage(spawnPage); // Reset to first page
-	};
-
 	async function handleFileSelectionFromDB() {
 		let processed: ProcessedAudioFile[] = [...audioFiles];
 		let spawnPage = 1;
 
-		const recordings = await window.api.listAnnotationsRecordings();
+		const recordings = await window.api.listRecordings();
 
 		console.log("Got recordings: ", performance.now()/1000)
 
@@ -268,24 +212,25 @@ export default function VerifyPage() {
 			try {
 				const audioFile = await window.ipc.invoke('read-file-for-verification', rec.url);
 				const ext = rec.url.endsWith(".mp3") ? ".mp3" : ".wav";
-				const mimeType = ext === ".mp3" ? "audio/mpeg" : "audio/wav";
 
-				const blob = new Blob([audioFile.data], { type: mimeType });
-					
-					const regions = await window.api.listRegionOfInterestByRecordingId(rec.recordingId);
-					let annotation = null;
-					if (regions.length > 0) {
-						const anns = await window.api.listAnnotationsByRegionId(regions[0].regionId);
-						annotation = anns.length > 0 ? anns[0] : null;
-					}
+				const regions = await window.api.listRegionOfInterestByRecordingId(rec.recordingId);
+				let annotation = null;
+				if (regions.length > 0) {
+					const anns = await window.api.listAnnotationsByRegionId(regions[0].regionId);
+					annotation = anns.length > 0 ? anns[0] : null;
+				}
+
+				const url = URL.createObjectURL(audioBufferToWavBlob(cropAudio(await decodeAudioFromUrl(audioFile.data), annotation.startOffset, annotation.endOffset)));
 					
 				processed.push({
 					index: processed.length,
-					url: URL.createObjectURL(blob),
+					url: url,
 					filePath: rec.url,
 					recordingId: rec.recordingId,
 					status: annotation ? annotation.status : SpectroStatus.Unverified,
 					species: annotation ? annotation.species : DEFAULT_SPECIES,
+					startOffset: annotation ? annotation.startOffset : 0,
+					endOffset: annotation ? annotation.endOffset : 0,
 				});
 				console.log("Processed audio files:", processed);
 
@@ -309,6 +254,8 @@ export default function VerifyPage() {
 		id, // -1 if modal 
 		fullIndex,
 		url: url, 
+		startOffset: startOffset,
+		endOffset: endOffset,
 		status: _status,
 		species: _species,
 		onMouseEnter, 
@@ -317,7 +264,7 @@ export default function VerifyPage() {
 		linkedSpectro=null,
 		filePath: filePath=null,
 	}, ref) => {
-		const wavesurferRef = useRef(null);
+		const wavesurferRef = useRef<WaveSurfer>(null);
 		const containerRef = useRef(null);
 		const innerRef = useRef(null);
 		const [species, setSpecies] = useState(_species || DEFAULT_SPECIES);
@@ -339,7 +286,6 @@ export default function VerifyPage() {
 				updateAudioFile(fullIndex, 'species', newSpecies);
 			}
 		};
-
 
 		const setPlaybackRate = (playSpeed) => {
 			wavesurferRef.current.setPlaybackRate(playSpeed);
@@ -482,6 +428,8 @@ export default function VerifyPage() {
 		id, // -1 if modal 
 		fullIndex=-1,
 		url, 
+		startOffset,
+		endOffset,
 		onMouseEnter, 
 		onMouseLeave,
 		onClick,
@@ -522,6 +470,8 @@ export default function VerifyPage() {
 					id={-1} 
 					fullIndex={fullIndex}
 					url={url} 
+					startOffset={startOffset}
+					endOffset={endOffset}
 					status={linkedSpectro.status}
 					species={displaySpecies}
 					onMouseEnter={onMouseEnter}
@@ -892,9 +842,9 @@ export default function VerifyPage() {
 			const box = el.getBoundingClientRect();
 
 			const relative = {
-				left: box.left,
+				left: box.left - containerLeft,
 				top: box.top,
-				right: box.right,
+				right: box.right - containerLeft,
 				bottom: box.bottom,
 			};
 
@@ -904,6 +854,8 @@ export default function VerifyPage() {
 				rect.y < relative.bottom &&
 				rect.y + rect.height > relative.top
 			);
+
+			console.log(rect.x, relative.left);
 
 			if (overlap) selection.push(spectrogram.id);
 		});
@@ -1090,13 +1042,15 @@ export default function VerifyPage() {
 							gridTemplateColumns: `repeat(${COLS}, 1fr)`,
 							gridTemplateRows: `repeat(${ROWS}, auto)`,
 						}}>
-							{currentFiles.map(({index, filePath, url, status, species}, i) => {
+							{currentFiles.map(({index, filePath, startOffset, endOffset, url, status, species}, i) => {
 								return (
 									<Spectrogram 
 										key={i}
 										id={i} 
 										fullIndex={index}
 										url={url} 
+										startOffset={startOffset}
+										endOffset={endOffset}
 										filePath={filePath}
 										species={species}
 										status={status}
@@ -1127,6 +1081,8 @@ export default function VerifyPage() {
 								key={-1}
 								id={-1} 
 								fullIndex={-1}
+								startOffset={spectrograms.current[getFirstSelected()].startOffset}
+								endOffset={spectrograms.current[getFirstSelected()].endOffset}
 								url={spectrograms.current[getFirstSelected()].url} 
 								status={spectrograms.current[getFirstSelected()].status} 
 								species={spectrograms.current[getFirstSelected()].species}
