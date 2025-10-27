@@ -653,7 +653,14 @@ export default function databasePage() {
       return null;
     }
 
-    const [files, setFiles] = useState<File[]>([]);
+    type FileInfo = {
+      absolutePath: string;
+      relativePath: string;
+      name: string;
+    };
+
+    const [files, setFiles] = useState<FileInfo[]>([]);
+    const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
     const [deploymentId, setDeploymentId] = useState<number>(0);
     const [driveLabel, setDriveLabel] = useState(""); // optional
     const [deployments, setDeployments] = useState<DeploymentOption[]>([]);
@@ -675,10 +682,21 @@ export default function databasePage() {
       fetchDeployments();
     }, []);
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      if (e.target.files) {
-        const selectedFiles = Array.from(e.target.files);
-        setFiles(selectedFiles);
+    const handleFolderSelect = async () => {
+      try {
+        const result = await window.ipc.invoke("pick-folder-for-recordings", null);
+        if (result.files && result.files.length > 0) {
+          setFiles(result.files);
+          setSelectedFolder(result.folderPath);
+          alert(`Selected ${result.files.length} audio file(s) from folder`);
+        } else if (result.folderPath === null) {
+          // User cancelled
+          return;
+        } else {
+          alert("No audio files found in selected folder");
+        }
+      } catch (err: any) {
+        alert("Failed to select folder: " + (err?.message || err));
       }
     };
 
@@ -691,25 +709,15 @@ export default function databasePage() {
 
       setLoading(true);
       try {
-        const fileBuffers = await Promise.all(
-          files.map(async (file) => {
-            const buffer = await file.arrayBuffer();
-            return {
-              name: file.name,
-              relativePath: (file as any).webkitRelativePath || file.name,
-              buffer: Array.from(new Uint8Array(buffer)),
-            };
-          })
-        );
-
         await window.ipc.invoke("saveMultipleRecordings", {
-          files: fileBuffers,
+          files,
           deploymentId,
           driveLabel: driveLabel || null,
         });
 
-        alert("All recordings saved!");
+        alert(`All ${files.length} recordings saved!`);
         setFiles([]);
+        setSelectedFolder(null);
         setDeploymentId(0);
         toEntryForm();
       } catch (err: any) {
@@ -724,8 +732,15 @@ export default function databasePage() {
         <h1>Recording Entry</h1>
         <form onSubmit={handleSubmit}>
           <label>Select Folder:</label>
-          {/* @ts-ignore */}
-          <input type="file" webkitdirectory="true" onChange={handleFileChange} />
+          <button type="button" onClick={handleFolderSelect}>
+            Choose Folder
+          </button>
+          {selectedFolder && (
+            <div>
+              <p>Selected: {selectedFolder}</p>
+              <p>{files.length} audio file(s) found</p>
+            </div>
+          )}
 
           <label>Select Deployment:</label>
           <select
@@ -1056,7 +1071,7 @@ export default function databasePage() {
           {!loading && !error && rows.length === 0 && (
             <p>No data available</p>
           )}
-        
+        <button type="button" onClick={toEntryForm}>Back</button>
       </div>
     );
   }

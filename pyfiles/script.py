@@ -20,19 +20,14 @@ import torch
 class DBHelper:
 	_instance = None
 
-	def __new__(cls, db_url="pyrenoteDeskDatabase.db"):
+	def __new__(cls, db_url):
 		if cls._instance is None:
 			cls._instance = super(DBHelper, cls).__new__(cls)
-			#fall back to normal DB
 			if db_url is None:
-				db_url = "pyrenoteDeskDatabase.db"
-			# For the pseudo db url, using in-memory database as a placeholder
-			# script_dir = os.path.dirname(os.path.abspath(__file__))
-			# db_path = os.path.join(script_dir, f"../{db_url}")
+				raise OperationalError("DB URL is required")
 			if not os.path.isabs(db_url):
 				script_dir = os.path.dirname(os.path.abspath(__file__))
 				db_path = os.path.join(db_url)
-				print("db_path is ", db_path)
 			else:
 				db_path = db_url
 			cls._instance.connection = sqlite3.connect(db_path)
@@ -71,55 +66,6 @@ class DBHelper:
 			(region_id, labeler_id, annotation_date, speciesId, speciesProbability, most_recent),
 		)
 		self.connection.commit()
-
-	def save_recording_file(self, audio_file_path, dest_path=None):
-		"""
-		Save an audio file to a specified location.
-		If dest_path is not provided, defaults to hidden .recordings directory.
-		
-		Args:
-			audio_file_path: Path to the source audio file
-			dest_path: Optional destination directory or full file path
-		Returns:
-			str: Path to the saved file
-		"""
-		# Check if source exists
-		if not os.path.exists(audio_file_path):
-			raise FileNotFoundError(f"Recording file not found: {audio_file_path}")
-		
-		# Ensure supported audio format
-		supported_ext = ['.flac', '.mp3', '.wav', '.aac', '.m4a', '.ogg']
-		ext = os.path.splitext(audio_file_path)[1].lower()
-		if ext not in supported_ext:
-			raise ValueError(f"Unsupported audio format '{ext}': {audio_file_path}")
-		
-		# Determine destination path
-		if dest_path:
-			# treat dest_path as directory if it already exists or has no file-extension
-			ext = os.path.splitext(dest_path)[1]
-			if os.path.isdir(dest_path) or ext == "":
-				os.makedirs(dest_path, exist_ok=True)
-				destination_path = os.path.join(dest_path, os.path.basename(audio_file_path))
-			else:
-				# specified as full file path
-				os.makedirs(os.path.dirname(dest_path), exist_ok=True)
-				destination_path = dest_path
-		else:
-			# default to hidden .recordings directory
-			recordings_dir = os.path.join(os.getcwd(), '.recordings')
-			os.makedirs(recordings_dir, exist_ok=True)
-			destination_path = os.path.join(recordings_dir, os.path.basename(audio_file_path))
-		
-		# Copy if new or differs
-		if not os.path.exists(destination_path) or not filecmp.cmp(audio_file_path, destination_path):
-			import shutil
-			shutil.copy2(audio_file_path, destination_path)
-			print(f"Saved recording to: {destination_path}")
-		else:
-			# BUG: Throws error if file name has characters not in pythons charmap (ex: Japanese characters)
-			print(f"Recording already exists at: {destination_path}")
-		
-		return destination_path
 
 	def insert_deployment(self, site_id=1, recorder_id=1, start_date=None, end_date=None, deployed_by='script', note=''):
 		"""Insert a new deployment record with defaults and return its ID."""
@@ -174,21 +120,12 @@ class DBHelper:
 		# actual DB insert
 		# Change I Made: saving directory in url rather than the absolute path of the audio file. You can get absolute path by concatenating url + filename instead.
 		if recording_id is None:
-			# self.cursor.execute(
-			#	 "INSERT INTO Recording (deploymentId, filename, url, datetime, duration, samplerate, bitrate) VALUES (?, ?, ?, ?, ?, ?, ?)",
-			#	 (deployment_id, filename, url, datetime_str, duration, sample_rate, bit_rate)
-			# )
 			self.cursor.execute(
 				"INSERT INTO Recording (deploymentId, filename, url, directory, datetime, duration, samplerate, bitrate) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
 				(deployment_id, filename, url, directory, datetime_str, duration, sample_rate, bit_rate)
 			)
 			rec_id = self.cursor.lastrowid
 		else:
-			# self.cursor.execute(
-			#	 "INSERT OR REPLACE INTO Recording (recordingId, deploymentId, filename, url, datetime, duration, samplerate, bitrate)"
-			#	 " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-			#	 (recording_id, deployment_id, filename, url, datetime_str, duration, sample_rate, bit_rate)
-			# )
 			self.cursor.execute(
 				"INSERT OR REPLACE INTO Recording (recordingId, deploymentId, filename, url, datetime, duration, samplerate, bitrate)"
 				" VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
@@ -422,19 +359,6 @@ def process_result(result_df):
 # sys.stdout.flush()
 
 
-def pseudo_inference(model_input):
-	"""
-	Pseudo inference function that takes model inputs and returns a simulated prediction.
-	For each input vector, if the sum is greater than a threshold, return 'Species_A', else 'Species_B'.
-	"""
-	predictions = []
-	for input_vector in model_input:
-		# Dummy inference logic
-		prediction = "Species_A" if sum(input_vector) > 1.0 else "Species_B"
-		predictions.append(prediction)
-	return predictions
-
-
 # Example usage of new functions (for debugging purposes)
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser(description="Process or save audio recordings.")
@@ -446,7 +370,6 @@ if __name__ == "__main__":
 	parser.add_argument("--db", type=str, help="Path to SQLite database")
 	args = parser.parse_args()
 
-	#db = DBHelper()
 	db=DBHelper(args.db)
 	if args.save:
 		audio_file = args.inputs[0]
@@ -467,16 +390,10 @@ if __name__ == "__main__":
 			storage_root = os.getcwd()
 			drive_label = None
 
-		# build dest_path under storage_root
-		if args.dest:
-			dest_path = args.dest if os.path.isabs(args.dest) else os.path.join(storage_root, args.dest)
-		else:
-			dest_path = os.path.join(storage_root, '.recordings')
-
 		dep_id = args.deployment or db.insert_deployment()
 
-		saved_abs = db.save_recording_file(audio_file, dest_path)
-		filename = os.path.basename(saved_abs)
+		saved_abs = audio_file
+		filename = os.path.basename(audio_file)
 
 		# prepare URL with optional drive prefix
 		if drive_label:
@@ -486,7 +403,6 @@ if __name__ == "__main__":
 			url = saved_abs 
 
 		new_id = db.insert_recording(None, dep_id, filename, url, sample_rate, bitrate)
-		print(f"Saved to {url}, recordingId={new_id}")
 		sys.exit(0)
 
 	# Get the recording ID(s) from the command line argument
@@ -530,24 +446,3 @@ if __name__ == "__main__":
 		print(f"  Recording ID(s): {batch['id']}")
 		print(f"  Audio data size(s): {[len(audio) for audio in batch['audio']]} bytes")
 	
-	# Create a dummy inference result DataFrame with the recording ID(s)
-	# For a list of IDs, create multiple rows in the result
-	if isinstance(recording_ids, list):
-		dummy_result_data = {
-			"id": recording_ids,
-			"Amabaw1_x": [0.453] * len(recording_ids),
-			"Amapyo1_y": [0.873] * len(recording_ids),  # This will be the prediction since it's higher
-		}
-	else:
-		dummy_result_data = {
-			"id": [recording_ids],
-			"Amabaw1_x": [0.453],
-			"Amapyo1_y": [0.873],
-		}
-	
-	result_df = pd.DataFrame(dummy_result_data)
-	
-	# Process inference results and save them into the Result table
-	final_predictions = process_result(result_df)
-	print("Final predictions saved to database:")
-	print(final_predictions)

@@ -7,7 +7,7 @@ import { execFile } from "child_process";
 import { setupQueries as queries } from "./queries";
 import { setupMutations as mutations } from "./mutations";
 import { app, ipcMain, dialog } from "electron";
-import { readFile } from "fs/promises";
+import { readFile, writeFile, mkdir } from "fs/promises";
 import os from "os";
 import { spawn } from "child_process";
 
@@ -316,17 +316,55 @@ ipcMain.handle('edit-database', async (_event, { oldName, newName, filepath }) =
 });
 
 
+function getAllAudioFiles(dirPath: string, fileList: string[] = []): string[] {
+  const files = fs.readdirSync(dirPath);
+  
+  for (const file of files) {
+    const filePath = path.join(dirPath, file);
+    const stat = fs.statSync(filePath);
+    
+    if (stat.isDirectory()) {
+      getAllAudioFiles(filePath, fileList);
+    } else {
+      const ext = path.extname(filePath).toLowerCase();
+      if (['.wav', '.mp3', '.m4a', '.flac'].includes(ext)) {
+        fileList.push(filePath);
+      }
+    }
+  }
+  
+  return fileList;
+}
+
+ipcMain.handle("pick-folder-for-recordings", async (_event) => {
+  const result = await dialog.showOpenDialog({
+    properties: ["openDirectory"],
+  });
+
+  if (result.canceled || !result.filePaths[0]) {
+    return { folderPath: null, files: [] };
+  }
+
+  const folderPath = result.filePaths[0];
+  const audioFiles = getAllAudioFiles(folderPath);
+
+  return {
+    folderPath,
+    files: audioFiles.map(filePath => ({
+      absolutePath: filePath,
+      relativePath: path.relative(folderPath, filePath),
+      name: path.basename(filePath),
+    })),
+  };
+});
+
 ipcMain.handle("saveMultipleRecordings", async (_event, { files, deploymentId, driveLabel }) => {
-  //const selectedDbPath = selectedDbPath; // ← however you expose this
   const savedIds: number[] = [];
 
   for (const file of files) {
-    const tempPath = path.join(os.tmpdir(), file.name);
-    fs.writeFileSync(tempPath, new Uint8Array(Buffer.from(file.buffer)));
-
     const pythonScript = path.join(__dirname, "../pyfiles/script.py");
     const args = [
-      "--save", tempPath,
+      "--save", file.absolutePath,
       "--deployment", deploymentId.toString(),
       "--db", selectedDbPath
     ];
