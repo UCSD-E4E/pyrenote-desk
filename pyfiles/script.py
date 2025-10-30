@@ -1,12 +1,10 @@
 # This file is a placeholder for the inference script. A sample dataframe is created to model the result of the inference script. Then, the script analyzes the data and inserts relevant information into the database
-import pandas as pd
 import sqlite3
 import sys
 import datetime as dt
 from datetime import datetime
 import os
 import filecmp
-from mutagen import File as MutagenFile
 import argparse
 import platform
 from pathlib import Path
@@ -30,7 +28,7 @@ class DBHelper:
 			cls._instance.cursor = cls._instance.connection.cursor()
 		return cls._instance
 
-	def insert_recording(self, recording_id=None, deployment_id=None, filename=None, url=None, sample_rate=None, bit_rate=None):
+	def insert_recording(self, recording_id=None, deployment_id=None, url=None, sample_rate=None, bit_rate=None):
 		"""
 		Parse url for drive prefix, verify and extract full path, then insert into DB.
 		"""
@@ -45,41 +43,28 @@ class DBHelper:
 		if not os.path.exists(full_path):
 			raise FileNotFoundError(f"Recording file not found: {full_path}")
 
-		# metadata extraction uses full_path
-		try:
-			audio = MutagenFile(full_path)
-			duration = audio.info.length if hasattr(audio.info, 'length') else 0.0
-			tags = getattr(audio, 'tags', {}) or {}
-			date_str = None
-			for key in ('date','TDRC','©day'):
-				if key in tags:
-					date_str = tags[key][0]; break
-			if date_str:
-				recorded_datetime = dt.datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S")
-			else:
-				recorded_datetime = dt.datetime.fromtimestamp(os.path.getmtime(full_path))
-		except Exception:
-			recorded_datetime = dt.datetime.now(); duration = 30.0
+		recorded_datetime = dt.datetime.now(); 
+		duration = 0;
 
 		datetime_str = recorded_datetime.strftime("%Y-%m-%d %H:%M:%S")
 
 		p = Path(url)
 		directory = (str(p.parent) + os.sep) if not str(p.parent).endswith(os.sep) else str(p.parent)
 
-		print(deployment_id, filename, url, directory, datetime_str, duration, sample_rate, bit_rate)
+		print(deployment_id, url, directory, datetime_str, duration, sample_rate, bit_rate)
 		# actual DB insert
 		# Change I Made: saving directory in url rather than the absolute path of the audio file. You can get absolute path by concatenating url + filename instead.
 		if recording_id is None:
 			self.cursor.execute(
-				"INSERT INTO Recording (deploymentId, filename, url, directory, datetime, duration, samplerate, bitrate) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-				(deployment_id, filename, url, directory, datetime_str, duration, sample_rate, bit_rate)
+				"INSERT INTO Recording (deploymentId, url, directory, datetime, duration, samplerate, bitrate) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+				(deployment_id, url, directory, datetime_str, duration, sample_rate, bit_rate)
 			)
 			rec_id = self.cursor.lastrowid
 		else:
 			self.cursor.execute(
-				"INSERT OR REPLACE INTO Recording (recordingId, deploymentId, filename, url, datetime, duration, samplerate, bitrate)"
+				"INSERT OR REPLACE INTO Recording (recordingId, deploymentId, url, directory, datetime, duration, samplerate, bitrate)"
 				" VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-				(recording_id, deployment_id, filename, url, directory, datetime_str, duration, sample_rate, bit_rate)
+				(recording_id, deployment_id, url, directory, datetime_str, duration, sample_rate, bit_rate)
 			)
 			rec_id = recording_id
 		self.connection.commit()
@@ -123,11 +108,11 @@ if __name__ == "__main__":
 	db=DBHelper(args.db)
 	if args.save:
 		audio_file = args.inputs[0]
-		audio = MutagenFile(audio_file)
 		# Sample Rate (Hz)
-		sample_rate = audio.info.sample_rate if hasattr(audio.info, "sample_rate") else None
+		sample_rate = 0
 		# Bitrate (bps)
-		bitrate = audio.info.bitrate if hasattr(audio.info, "bitrate") else None
+		bitrate = 0
+		# INSERTS 0 to Sample Rate and Bitrate for now
 
 		# determine storage root
 		if args.drive:
@@ -152,7 +137,7 @@ if __name__ == "__main__":
 		else:
 			url = saved_abs 
 
-		new_id = db.insert_recording(None, dep_id, filename, url, sample_rate, bitrate)
+		new_id = db.insert_recording(None, dep_id, url, sample_rate, bitrate)
 		sys.exit(0)
 
 	# Get the recording ID(s) from the command line argument

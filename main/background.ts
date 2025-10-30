@@ -23,7 +23,6 @@ let dbInstance: BetterSqlite3.Database;
 let selectedDbPath: string | null = null;
 
 export const getDatabase = () => {
-  console.log("db instance: ", dbInstance)
   return dbInstance;
 };
 
@@ -359,38 +358,48 @@ ipcMain.handle("pick-folder-for-recordings", async (_event) => {
 });
 
 ipcMain.handle("saveMultipleRecordings", async (_event, { files, deploymentId, driveLabel }) => {
-  const savedIds: number[] = [];
-
+  let db = new BetterSqlite3(selectedDbPath);
+  let url: string;
   for (const file of files) {
-    const pythonScript = path.join(__dirname, "../pyfiles/script.py");
-    const args = [
-      "--save", file.absolutePath,
-      "--deployment", deploymentId.toString(),
-      "--db", selectedDbPath
-    ];
-    if (driveLabel) args.push("--drive", driveLabel);
-
-    await new Promise<void>((resolve, reject) => {
-      const proc = spawn(getVenvPython(), [pythonScript, ...args]);
-
-      proc.stdout.on("data", (data) => {
-        const match = data.toString().match(/recordingId=(\d+)/);
-        if (match) savedIds.push(Number(match[1]));
-        console.log("PYTHON STDOUT:", data.toString());
-      });
-
-      proc.stderr.on("data", (data) => {
-        console.error("PYTHON STDERR:", data.toString());
-      });
-
-      proc.on("close", (code) => {
-        if (code === 0) resolve();
-        else reject(new Error(`Python script failed with code ${code}`));
-      });
-    });
+    url = file.absolutePath;
+    db.prepare(`INSERT INTO Recording (deploymentId, url, directory, datetime, duration, samplerate, bitrate) VALUES (?, ?, ?, ?, ?, ?, ?)`)
+      .run(deploymentId, url, file.relativePath, new Date().toISOString(), 0, 0, 0);
   }
+  db.close();
 
-  return savedIds;
+  // TODO: implement this without calling script.py
+  // const savedIds: number[] = [];
+
+  // for (const file of files) {
+  //   const pythonScript = path.join(__dirname, "../pyfiles/script.py");
+  //   const args = [
+  //     "--save", file.absolutePath,
+  //     "--deployment", deploymentId.toString(),
+  //     "--db", selectedDbPath
+  //   ];
+  //   if (driveLabel) args.push("--drive", driveLabel);
+
+  //   await new Promise<void>((resolve, reject) => {
+  //     const proc = spawn(getVenvPython(), [pythonScript, ...args]);
+
+  //     proc.stdout.on("data", (data) => {
+  //       const match = data.toString().match(/recordingId=(\d+)/);
+  //       if (match) savedIds.push(Number(match[1]));
+  //       console.log("PYTHON STDOUT:", data.toString());
+  //     });
+
+  //     proc.stderr.on("data", (data) => {
+  //       console.error("PYTHON STDERR:", data.toString());
+  //     });
+
+  //     proc.on("close", (code) => {
+  //       if (code === 0) resolve();
+  //       else reject(new Error(`Python script failed with code ${code}`));
+  //     });
+  //   });
+  // }
+
+  // return savedIds;
 });
 
 

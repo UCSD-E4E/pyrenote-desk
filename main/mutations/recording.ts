@@ -3,7 +3,6 @@ import { getDatabase } from "../background";
 
 type CreateParams = {
   deploymentId: number;
-  filename: string;
   url: string;
   directory: string;
   datetime: string;
@@ -14,7 +13,6 @@ type CreateParams = {
 
 export const createRecording = async (
   deploymentId: number,
-  filename: string,
   url: string,
   directory: string,
   datetime: string,
@@ -25,14 +23,13 @@ export const createRecording = async (
   const db = getDatabase();
   // TODO: test this mutation
   const statement = db.prepare<CreateParams, Recording>(`
-    INSERT INTO recording (deploymentId, filename, url, directory, datetime, duration, samplerate, bitrate)
-    VALUES (@deploymentId, @filename, @url, @directory, @datetime, @duration, @samplerate, @bitrate)
+    INSERT INTO recording (deploymentId, url, directory, datetime, duration, samplerate, bitrate)
+    VALUES (@deploymentId, @url, @directory, @datetime, @duration, @samplerate, @bitrate)
     RETURNING * 
   `);
   try {
     const rows = statement.get({
       deploymentId,
-      filename,
       url,
       directory,
       datetime,
@@ -73,7 +70,6 @@ export const deleteRecording = async (
 type UpdateParams = {
   recordingId: number;
   deploymentId: number;
-  filename: string;
   url: string;
   directory: string;
   datetime: string;
@@ -85,7 +81,6 @@ type UpdateParams = {
 export const updateRecording = async (
   recordingId: number,
   deploymentId: number,
-  filename: string,
   url: string,
   directory: string,
   datetime: string,
@@ -99,7 +94,6 @@ export const updateRecording = async (
     UPDATE Recording
     SET 
       deploymentId = @deploymentId,
-      filename = @filename,
       url = @url,
       directory = @directory,
       datetime = @datetime,
@@ -113,7 +107,6 @@ export const updateRecording = async (
     const rows = statement.get({
       recordingId,
       deploymentId,
-      filename,
       url,
       directory,
       datetime,

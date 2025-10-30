@@ -3,8 +3,8 @@
 export type Recording = {
   recordingId: number;
   deploymentId: number;
-  filename: string;
   url: string;
+  directory: string;
   datetime: string;
   duration: number;
   samplerate: number;
