@@ -57,9 +57,9 @@ const DEFAULT_SPECIES = "Default"
 // DATA STRUCTURES //
 
 enum SpectroStatus { // 3 spectrogram states (default: Unverified)
-	Unverified= "UNVERIFIED", //TODO: Eventually change database schema to unverified, valid and invalid rather than YES and NO
-	Valid = "YES",
-	Invalid = "NO",
+	UNVERIFIED = "UNVERIFIED", //TODO: Eventually change database schema to unverified, valid and invalid rather than YES and NO
+	YES = "YES",
+	NO = "NO",
 }
 
 interface SpectroRef { // public Spectrogram properties & functions
@@ -112,13 +112,13 @@ interface SaveData { // JSON data structure for save files
 }
 interface ProcessedAudioFile { // Audio file information
 	index: number;
-	url: string;
 	filePath: string;
 	status: SpectroStatus;
 	species: string;
 	recordingId: number;
 	startOffset: number;
 	endOffset: number;
+	url: string; // not the same as filepath, refers to the cropped audio blob in memory
 }
 
 
@@ -197,42 +197,50 @@ export default function VerifyPage() {
 	if (currentPage > totalPages) { // crucial for when # of pages decreases while on the last page
 		setCurrentPage(totalPages);
 	}
-
 	
-	// FILE SELECTION //
+	// DATA LOADING //
+
+	// initial DB load
 	async function handleFileSelectionFromDB() {
 		let processed: ProcessedAudioFile[] = [...audioFiles];
 		let spawnPage = 1;
 
 		const recordings = await window.api.listRecordings();
 
-		console.log("Got recordings: ", performance.now()/1000)
-
 		const tasks = recordings.map(async (rec, i) => {
 			try {
+				//const t1 = performance.now();
 				const audioFile = await window.ipc.invoke('read-file-for-verification', rec.url);
-				const ext = rec.url.endsWith(".mp3") ? ".mp3" : ".wav";
+				//const t2 = performance.now();
+				//console.log("Read ", i, ": ", (t2-t1)/1000)
 
 				const regions = await window.api.listRegionOfInterestByRecordingId(rec.recordingId);
-				let annotation = null;
-				if (regions.length > 0) {
+				regions.forEach(async (region) => {
 					const anns = await window.api.listAnnotationsByRegionId(regions[0].regionId);
-					annotation = anns.length > 0 ? anns[0] : null;
-				}
-
-				const url = URL.createObjectURL(audioBufferToWavBlob(cropAudio(await decodeAudioFromUrl(audioFile.data), annotation.startOffset, annotation.endOffset)));
 					
-				processed.push({
-					index: processed.length,
-					url: url,
-					filePath: rec.url,
-					recordingId: rec.recordingId,
-					status: annotation ? annotation.status : SpectroStatus.Unverified,
-					species: annotation ? annotation.species : DEFAULT_SPECIES,
-					startOffset: annotation ? annotation.startOffset : 0,
-					endOffset: annotation ? annotation.endOffset : 0,
-				});
-				console.log("Processed audio files:", processed);
+					if (!anns) {return;}
+					const subtasks = anns.map(async (annotation, i) => {
+						// it's worth checking if this is a bottleneck but i'm pretty sure it's actually not
+						const url = URL.createObjectURL(audioBufferToWavBlob(cropAudio(await decodeAudioFromUrl(audioFile.data), region.starttime, region.endtime)));
+						
+						processed.push({
+							index: processed.length,
+							url: url,
+							filePath: rec.url,
+							recordingId: rec.recordingId,
+							status: annotation ? (
+								annotation.verified == "YES" ? SpectroStatus.YES :
+								annotation.verified == "NO" ? SpectroStatus.NO : SpectroStatus.UNVERIFIED
+							) : SpectroStatus.UNVERIFIED,
+							species: annotation ? annotation.speciesId.toString() : DEFAULT_SPECIES, // NEED CLARIFICATION HERE
+							startOffset: annotation ? region.starttime : 0,
+							endOffset: annotation ? region.endtime : 0,
+						});
+					})
+					await Promise.all(subtasks);
+				})
+				
+				//console.log("Processed audio files:", processed);
 
 			} catch (err) {
 				console.error(`Failed to read audio file at ${rec.url}:`, err);
@@ -241,12 +249,10 @@ export default function VerifyPage() {
 
 		await Promise.all(tasks);
 
-		console.log("Populated processed array: ", performance.now()/1000);
+		//console.log("Populated processed array: ", performance.now()/1000);
 		setAudioFiles(processed);
 		setCurrentPage(spawnPage);
 	}
-
-
 
 	// SPECTROGRAMS //
 
@@ -330,8 +336,6 @@ export default function VerifyPage() {
 			setStatus(_status);
 			setIsLoaded(false);
 
-			console.log("Initializing wavesurfer for spectro id: ", id, performance.now()/1000);
-
 			wavesurferRef.current = WaveSurfer.create({	
 				container: innerRef.current,
 				height: 0,
@@ -351,8 +355,6 @@ export default function VerifyPage() {
 				}),
 			)
 
-			console.log("Begin generating for spectro id: ", id, performance.now()/1000);
-
 			wavesurferRef.current.load(url).catch((e) => {
 				if (e.name === "AbortError" && isDestroyed) {
 					console.log("WaveSurfer load aborted cleanly");
@@ -364,7 +366,6 @@ export default function VerifyPage() {
 			wavesurferRef.current.on('ready', function() {
 				document.getElementById(`loading-spinner-${id}`).style.display = 'none';
 
-				console.log("FINISHED generating for spectro id: ", id, performance.now()/1000);
 				if (linkedSpectro) {
 					wavesurferRef.current.setTime(linkedSpectro.getTime());
 					wavesurferRef.current.on("timeupdate", (progress) => {
@@ -395,8 +396,8 @@ export default function VerifyPage() {
 				className={`
 					${(id==-1) ? styles.waveContainerModal : styles.waveContainer} 
 					${isLoaded && (
-						(status==SpectroStatus.Valid && styles.greenOutline) || 
-						(status==SpectroStatus.Invalid && styles.redOutline)
+						(status==SpectroStatus.YES && styles.greenOutline) || 
+						(status==SpectroStatus.NO && styles.redOutline)
 					)}
 					${isLoaded && (isSelected ? styles.selectOutline : styles.unselectOutline)}
 					${isLoaded && (isHovered ? styles.hoverOutline : styles.unhoverOutline)}
@@ -581,14 +582,12 @@ export default function VerifyPage() {
 		}
 	}
 	const nextPage = useCallback(() => {
-		console.log(currentPage, totalPages);
 		if (!showModal && currentPage < totalPages) {
 			setCurrentPage((prev) => Math.min(prev + 1, totalPages));
 			setForceReloadKey((prev) => prev + 1);
 		}
 	}, [currentPage, totalPages, showModal]);
 	const prevPage = useCallback(() => {
-		console.log(currentPage, totalPages);
 		if (!showModal && currentPage > 1) {
 			setCurrentPage((prev) => Math.max(prev - 1, 1));
 			setForceReloadKey((prev) => prev + 1);
@@ -680,9 +679,9 @@ export default function VerifyPage() {
 		"ArrowDown": {func: moveSelectionDown, label: "Move selection down"},
 		"ArrowRight": {func: moveSelectionRight, label: "Move selection right"},
 		"Tab": {func: moveSelectionRight, label: "Move selection right"},
-		"z": {func: () => {setSpectroStatus(SpectroStatus.Unverified)}, label: "Mark as unverified/valid/invalid"},
-		"x": {func: () => {setSpectroStatus(SpectroStatus.Valid)}, label: "Mark as unverified/valid/invalid"},
-		"c": {func: () => {setSpectroStatus(SpectroStatus.Invalid)}, label: "Mark as unverified/valid/invalid"},
+		"z": {func: () => {setSpectroStatus(SpectroStatus.UNVERIFIED)}, label: "Mark as unverified/valid/invalid"},
+		"x": {func: () => {setSpectroStatus(SpectroStatus.YES)}, label: "Mark as unverified/valid/invalid"},
+		"c": {func: () => {setSpectroStatus(SpectroStatus.NO)}, label: "Mark as unverified/valid/invalid"},
 		" ": {func: playPauseSelection, label: "Play/Pause"},
 		",": {func: skipBack, label: "Skip back/forward"},
 		".": {func: skipForward, label: "Skip back/forward"},
@@ -854,8 +853,6 @@ export default function VerifyPage() {
 				rect.y < relative.bottom &&
 				rect.y + rect.height > relative.top
 			);
-
-			console.log(rect.x, relative.left);
 
 			if (overlap) selection.push(spectrogram.id);
 		});
