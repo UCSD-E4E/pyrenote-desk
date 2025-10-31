@@ -1060,7 +1060,7 @@ export default function VerifyPage() {
 				</div>
 
 				{audioFiles.length > 0 && (
-					<>
+					currentFiles.length > 0 ? (
 						<div id="grid" key={forceReloadKey} className={styles.grid} style={{
 							gridTemplateColumns: `repeat(${COLS}, 1fr)`,
 							gridTemplateRows: `repeat(${ROWS}, auto)`,
@@ -1094,7 +1094,11 @@ export default function VerifyPage() {
 								)
 							})}
 						</div>
-					</>
+					) : (
+						<div className={styles.noSpectrosContainer}>
+							<div className={styles.waveLoadingCircle}></div>
+						</div>
+					)
 				)}
 
 				<>
