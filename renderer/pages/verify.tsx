@@ -5,7 +5,7 @@ import Image from 'next/image'
 import styles from './verify.module.css'
 import WaveSurfer from 'wavesurfer.js';
 import SpectrogramPlugin from 'wavesurfer.js/dist/plugins/spectrogram';
-import { audioBufferToWavBlob, cropAudio, decodeAudioFromUrl } from '../utils/audio-decode'
+import { audioBufferToWavBlob, cropAudio, decodeAudio } from '../utils/audio-decode'
 
 // UTILS //
 // can be moved to seperate file?
@@ -110,7 +110,7 @@ interface SaveData { // JSON data structure for save files
 		species: string;
 	}[]
 }
-interface ProcessedAudioFile { // Audio file information
+interface ProcessedAnnotation { // Audio file information
 	index: number;
 	filePath: string;
 	status: SpectroStatus;
@@ -118,7 +118,7 @@ interface ProcessedAudioFile { // Audio file information
 	recordingId: number;
 	startOffset: number;
 	endOffset: number;
-	url: string; // not the same as filepath, refers to the cropped audio blob in memory
+	url?: string; // not the same as filepath, refers to the cropped audio blob in memory
 }
 
 
@@ -127,7 +127,7 @@ export default function VerifyPage() {
 	// DEFINITIONS //
 	
 	const spectrograms = useRef([]); // array of Spectrogram components on screen
-	const [[audioFiles, setAudioFiles], updateAudioFile] = [useState<ProcessedAudioFile[]>([]), (i, field, value) => { // array of all audio files
+	const [[audioFiles, setAudioFiles], updateAudioFile] = [useState<ProcessedAnnotation[]>([]), (i, field, value) => { // array of all audio files
 		setAudioFiles(prevItems => {
 			const newItems = [...prevItems]; // make a copy
 			newItems[i][field] = value; 
@@ -185,11 +185,11 @@ export default function VerifyPage() {
 	const [COLS, setCOLS] = useState(DEFAULT_COLUMNS);
 	const FILES_PER_PAGE = ROWS*COLS;
 
-	const [currentPage, setCurrentPage] = useState(1);
+	const [currentPage, setCurrentPage] = useState(0);
 	const [forceReloadKey, setForceReloadKey] = useState(0); // crucial for switching pages	
 	
+	const [currentFiles, setCurrentFiles] = useState<ProcessedAnnotation[]>([]); // files to be displayed on this page
 	const totalPages = Math.ceil(audioFiles.length / FILES_PER_PAGE);
-	const currentFiles = audioFiles.slice((currentPage-1)*FILES_PER_PAGE, (currentPage)*FILES_PER_PAGE); // files to be displayed on this page
 	const numFiles = currentFiles.length;
 	const numRows = Math.ceil(numFiles / COLS); 
 	const numSpots = numRows * COLS; 
@@ -202,30 +202,22 @@ export default function VerifyPage() {
 
 	// initial DB load
 	async function handleFileSelectionFromDB() {
-		let processed: ProcessedAudioFile[] = [...audioFiles];
+		let processed: ProcessedAnnotation[] = [...audioFiles];
 		let spawnPage = 1;
 
 		const recordings = await window.api.listRecordings();
 
 		const tasks = recordings.map(async (rec, i) => {
 			try {
-				//const t1 = performance.now();
-				const audioFile = await window.ipc.invoke('read-file-for-verification', rec.url);
-				//const t2 = performance.now();
-				//console.log("Read ", i, ": ", (t2-t1)/1000)
-
 				const regions = await window.api.listRegionOfInterestByRecordingId(rec.recordingId);
-				regions.forEach(async (region) => {
+
+				await Promise.all(regions.map(async (region) => {
 					const anns = await window.api.listAnnotationsByRegionId(regions[0].regionId);
-					
 					if (!anns) {return;}
-					const subtasks = anns.map(async (annotation, i) => {
-						// it's worth checking if this is a bottleneck but i'm pretty sure it's actually not
-						const url = URL.createObjectURL(audioBufferToWavBlob(cropAudio(await decodeAudioFromUrl(audioFile.data), region.starttime, region.endtime)));
-						
+
+					await Promise.all(anns.map(async (annotation, i) => {
 						processed.push({
 							index: processed.length,
-							url: url,
 							filePath: rec.url,
 							recordingId: rec.recordingId,
 							status: annotation ? (
@@ -233,15 +225,11 @@ export default function VerifyPage() {
 								annotation.verified == "NO" ? SpectroStatus.NO : SpectroStatus.UNVERIFIED
 							) : SpectroStatus.UNVERIFIED,
 							species: annotation ? annotation.speciesId.toString() : DEFAULT_SPECIES, // NEED CLARIFICATION HERE
-							startOffset: annotation ? region.starttime : 0,
-							endOffset: annotation ? region.endtime : 0,
+							startOffset: region.starttime,
+							endOffset: region.endtime,
 						});
-					})
-					await Promise.all(subtasks);
-				})
-				
-				//console.log("Processed audio files:", processed);
-
+					}))
+				}))
 			} catch (err) {
 				console.error(`Failed to read audio file at ${rec.url}:`, err);
 			}
@@ -249,10 +237,48 @@ export default function VerifyPage() {
 
 		await Promise.all(tasks);
 
-		//console.log("Populated processed array: ", performance.now()/1000);
 		setAudioFiles(processed);
 		setCurrentPage(spawnPage);
 	}
+
+	// page update
+	useEffect(() => {
+		let isCancelled = false; 
+
+		console.log(currentPage);
+		const loadFiles = async () => {
+			currentFiles.forEach(file => {
+				if (file.url) {
+					URL.revokeObjectURL(file.url);
+				}
+			});
+			setCurrentFiles([]);
+
+			const newCurrentFiles = audioFiles.slice((currentPage - 1) * FILES_PER_PAGE, Math.min(currentPage * FILES_PER_PAGE, audioFiles.length));
+
+			const processedFiles = await Promise.all(
+				newCurrentFiles.map(async file => {
+					const audioFile = await window.ipc.invoke('read-file-for-verification', file.filePath);
+					const decoded = await decodeAudio(audioFile.data);
+					const cropped = cropAudio(decoded, file.startOffset, file.endOffset, file.filePath);
+					const blob = audioBufferToWavBlob(cropped);
+					const url = URL.createObjectURL(blob);
+					return { ...file, url };
+				})
+			);
+
+			if (!isCancelled) {setCurrentFiles(processedFiles)}
+		};
+
+		loadFiles();
+
+		// cleanup function
+		return () => {
+			isCancelled = true;
+			currentFiles.forEach(file => {if (file.url) URL.revokeObjectURL(file.url);});
+		};
+	}, [currentPage]);
+
 
 	// SPECTROGRAMS //
 
@@ -279,7 +305,7 @@ export default function VerifyPage() {
 		const [isHovered, setIsHovered] = useState(false);
 		const [isLoaded, setIsLoaded] = useState(false);
 		let isDestroyed = false;
-		
+
 		useEffect(() => { // species state could be redundant if we just keep it as a prop? 
 			if (species !== _species) {
 				setSpecies(_species || DEFAULT_SPECIES);
@@ -349,7 +375,7 @@ export default function VerifyPage() {
 				SpectrogramPlugin.create({
 					colorMap: 'roseus',
 					scale: "linear",
-					fftSamples: (id==-1) ? 512 : 64, // <<< (SPECTROGRAM QUALITY)  zoomed : unzoomed
+					fftSamples: (id==-1) ? 512 : 64, // <<< (SPECTROGRAM QUALITY)	zoomed : unzoomed
 					labels: (id==-1),
 					height: (id==-1) ? 256 : 90, 
 				}),
@@ -441,12 +467,12 @@ export default function VerifyPage() {
 
 		// Update label on change
 		const [localLabel, setLocalLabel] = useState(linkedSpectro?.species || "");
-  		const [displaySpecies, setDisplaySpecies] = useState(linkedSpectro?.species || "");
+			const [displaySpecies, setDisplaySpecies] = useState(linkedSpectro?.species || "");
 		
-  		useEffect(() => {
+			useEffect(() => {
 			setLocalLabel(linkedSpectro?.species || DEFAULT_SPECIES);
 			setDisplaySpecies(linkedSpectro?.species || DEFAULT_SPECIES);
-  		}, [linkedSpectro]);
+			}, [linkedSpectro]);
 
 		const applyLabel = () => {
 			if (linkedSpectro && localLabel.trim() !== "") {
@@ -527,7 +553,7 @@ export default function VerifyPage() {
 	// MODAL SYSTEM //
 
 	const [showModal, setShowModal] = useState(false);
-	const toggleModal = useCallback(() => {  // wraps setShowModal
+	const toggleModal = useCallback(() => {	// wraps setShowModal
 		if (selected.length != 0) {
 			setShowModal((prev) => {
 				if (prev) { // EXIT MODAL
@@ -643,7 +669,7 @@ export default function VerifyPage() {
 		const fullIndexSelected = selected.map((v,_) => spectrograms.current[v]?.fullIndex)
 		const remainingFiles = audioFiles
 			.filter((_, i) => !(fullIndexSelected.includes(i)))
-  			.map((item, newIndex) => ({ ...item, index: newIndex }));
+				.map((item, newIndex) => ({ ...item, index: newIndex }));
 
 		setAudioFiles(remainingFiles);
 		updateSelected([]);

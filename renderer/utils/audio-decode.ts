@@ -1,7 +1,5 @@
-export async function decodeAudioFromUrl(audioData): Promise<AudioBuffer> {
+export async function decodeAudio(audioData: ArrayBuffer): Promise<AudioBuffer> {
 	try {
-		// Fetch the audio file
-
 		const audioContext = new AudioContext();
 		const audioBuffer = await audioContext.decodeAudioData(audioData);
 		
@@ -14,45 +12,50 @@ export async function decodeAudioFromUrl(audioData): Promise<AudioBuffer> {
 export function cropAudio(
 	audioBuffer: AudioBuffer,
 	beginOffset: number,
-	endOffset: number
+	endOffset: number,
+	filePath
 ): AudioBuffer {
-	// Validate offsets
-	if (beginOffset < 0 || endOffset > audioBuffer.duration) {
-		console.error('Offsets out of bounds, clamping to valid range');
-		beginOffset = Math.max(0, beginOffset);
-		endOffset = Math.min(audioBuffer.duration, endOffset);
-	}
-	
-	if (beginOffset >= endOffset) {
-		console.error('Begin offset must be less than end offset');
-		endOffset = beginOffset + 0.1; // Ensure at least 0.1s duration
-	}
-	
-	// Calculate sample positions
-	const sampleRate = audioBuffer.sampleRate;
-	const startSample = Math.floor(beginOffset * sampleRate);
-	const endSample = Math.floor(endOffset * sampleRate);
-	const newLength = endSample - startSample;
-	
-	// Create new audio buffer with cropped duration
-	const audioContext = new AudioContext();
-	const croppedBuffer = audioContext.createBuffer(
-		audioBuffer.numberOfChannels,
-		newLength,
-		sampleRate
-	);
-	
-	// Copy the cropped data for each channel
-	for (let channel = 0; channel < audioBuffer.numberOfChannels; channel++) {
-		const sourceData = audioBuffer.getChannelData(channel);
-		const targetData = croppedBuffer.getChannelData(channel);
-		
-		for (let i = 0; i < newLength; i++) {
-			targetData[i] = sourceData[startSample + i];
+	try {
+		// Validate offsets
+		if (beginOffset < 0 || endOffset > audioBuffer.duration) {
+			console.error('Offsets out of bounds, clamping to valid range');
+			beginOffset = Math.max(0, beginOffset);
+			endOffset = Math.min(audioBuffer.duration, endOffset);
 		}
+		
+		if (beginOffset >= endOffset) {
+			console.error('Begin offset must be less than end offset');
+			endOffset = beginOffset + 0.1; // Ensure at least 0.1s duration
+		}
+		
+		// Calculate sample positions
+		const sampleRate = audioBuffer.sampleRate;
+		const startSample = Math.floor(beginOffset * sampleRate);
+		const endSample = Math.floor(endOffset * sampleRate);
+		const newLength = endSample - startSample;
+		
+		// Create new audio buffer with cropped duration
+		const audioContext = new AudioContext();
+		const croppedBuffer = audioContext.createBuffer(
+			audioBuffer.numberOfChannels,
+			newLength,
+			sampleRate
+		);
+		
+		// Copy the cropped data for each channel
+		for (let channel = 0; channel < audioBuffer.numberOfChannels; channel++) {
+			const sourceData = audioBuffer.getChannelData(channel);
+			const targetData = croppedBuffer.getChannelData(channel);
+			
+			for (let i = 0; i < newLength; i++) {
+				targetData[i] = sourceData[startSample + i];
+			}
+		}
+		return croppedBuffer;
+	} catch (error) {
+		console.error(filePath, audioBuffer.length, beginOffset, endOffset, error);
 	}
-	
-	return croppedBuffer;
+
 }
 
 export function audioBufferToWavBlob(audioBuffer: AudioBuffer): Blob {
