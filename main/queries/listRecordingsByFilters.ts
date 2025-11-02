@@ -1,10 +1,10 @@
 import { getDatabase } from '../background';
-import { Recording } from '../schema';
+import { Recording, RecordingWithData } from '../schema';
+import fs from 'fs';
 
-const listRecordingsByFilters = async (filters): Promise<Recording[]> => {
+const listRecordingsByFilters = async (filters): Promise<RecordingWithData[]> => {
     const db = getDatabase();
 
-    // Base query with alias for clarity
     let query = `
         SELECT r.recordingId, r.deploymentId, r.filename, r.url, r.datetime,
                r.duration, r.samplerate, r.bitrate
@@ -18,31 +18,26 @@ const listRecordingsByFilters = async (filters): Promise<Recording[]> => {
     const clauses: string[] = [];
     const parameters: any[] = [];
 
-    // Deployment filter
     if (filters.deployments?.length) {
         clauses.push(`d.deploymentId IN (${filters.deployments.map(() => '?').join(',')})`);
         parameters.push(...filters.deployments);
     }
 
-    // Site filter
     if (filters.sites?.length) {
         clauses.push(`s.siteId IN (${filters.sites.map(() => '?').join(',')})`);
         parameters.push(...filters.sites);
     }
 
-    // Recorder filter
     if (filters.recorders?.length) {
         clauses.push(`rc.recorderId IN (${filters.recorders.map(() => '?').join(',')})`);
         parameters.push(...filters.recorders);
     }
 
-    // Survey filter
     if (filters.surveys?.length) {
         clauses.push(`sv.surveyId IN (${filters.surveys.map(() => '?').join(',')})`);
         parameters.push(...filters.surveys);
     }
 
-    // Species / Annotation filter
     if ((filters.species?.length) || (filters.verifications?.length)) {
         query += `
             INNER JOIN RegionOfInterest roi ON roi.recordingId = r.recordingId
@@ -61,16 +56,19 @@ const listRecordingsByFilters = async (filters): Promise<Recording[]> => {
         }
     }
 
-    // Combine WHERE clauses with OR logic
     if (clauses.length > 0) {
         query += ' WHERE ' + clauses.join(' OR ');
     }
 
-    // Prepare and execute
     const statement = db.prepare(query);
+
     try {
         const rows = statement.all(...parameters) as Recording[];
-        return rows;
+        const rowsWithData: RecordingWithData[] = rows.map((r) => ({
+            ...r,
+            fileData: new Uint8Array(fs.readFileSync(r.url)),
+        }));
+        return rowsWithData;
     } catch (e) {
         console.error("Error listing recordings by filters:", e);
         return [];
