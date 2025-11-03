@@ -6,35 +6,8 @@ import styles from './verify.module.css'
 import WaveSurfer from 'wavesurfer.js';
 import SpectrogramPlugin from 'wavesurfer.js/dist/plugins/spectrogram';
 import { audioBufferToWavBlob, cropAudio, decodeAudio } from '../utils/audio-decode'
-
-// UTILS //
-// can be moved to seperate file?
-
-function VIRIDIS_COLORMAP() { // colormap option to be used in Wavesurfer spectrograms
-	const viridisColors = [
-		[68, 1, 84], [72, 35, 116], [64, 67, 135], [52, 94, 141],
-		[41, 120, 142], [32, 144, 140], [34, 167, 132], [58, 190, 117],
-		[96, 208, 93], [140, 219, 69], [186, 226, 54], [233, 229, 42], [253, 231, 37]
-	];
-	const colorMap = [];
-	for (let i = 0; i < 256; i++) {
-		const t = i / 255;
-		const idx = Math.floor(t * (viridisColors.length - 1));
-		const nextIdx = Math.min(idx + 1, viridisColors.length - 1);
-		const mix = (t * (viridisColors.length - 1)) % 1;
-		const r = Math.floor((1 - mix) * viridisColors[idx][0] + mix * viridisColors[nextIdx][0]);
-		const g = Math.floor((1 - mix) * viridisColors[idx][1] + mix * viridisColors[nextIdx][1]);
-		const b = Math.floor((1 - mix) * viridisColors[idx][2] + mix * viridisColors[nextIdx][2]);
-		colorMap.push([r/256, g/256, b/256, 1]);
-	}
-	return colorMap;
-}
-
-function arraysEqual<T>(a: T[], b: T[]): boolean { // can be moved to a utilities file in the future
-	if (a.length !== b.length) return false;
-	return a.every((value, index) => value === b[index]);
-}
-
+import { Species } from '../../main/schema'
+import arrayEqual from 'array-equal'
 
 // CONSTANTS //
 // modification in Settings page to be implemented
@@ -51,7 +24,7 @@ const MAX_COLUMNS = 8;
 const DEFAULT_COLUMNS = 2;
 const MIN_COLUMNS = 1;
 
-const DEFAULT_SPECIES = "Default"
+const DEFAULT_SPECIES_ID = 0
 
 
 // DATA STRUCTURES //
@@ -72,8 +45,8 @@ interface SpectroRef { // public Spectrogram properties & functions
 	isLoaded: boolean;
 	filePath: string;
 	url: string;
-	species: string;
-	setSpecies: (species: string) => void;
+	speciesIndex: number;
+	setSpeciesIndex: (species: string) => void;
 	setStatus: (status) => void;
 	setIsSelected: (selected) => void;
 	setIsHovered: (hovered) => void;
@@ -93,11 +66,11 @@ interface SpectroProps { // Spectrogram parameters
 	startOffset : number,
 	endOffset : number,
 	status: string,
-	species: string,
+	speciesIndex: number,
 	onMouseEnter : ()=>void, 
 	onMouseLeave : ()=>void,
 	onClick : (e)=>void,
-	linkedSpectro : SpectroRef,
+	linkedSpectro? : SpectroRef,
 	filePath? : string,
 	// modify this when you want to add a new parameter to Spectrogram / ModalSpectrogram
 }
@@ -107,14 +80,14 @@ interface SaveData { // JSON data structure for save files
 	spectrograms: {
 		filePath: string;
 		status: SpectroStatus;
-		species: string;
+		species: number;
 	}[]
 }
 interface ProcessedAnnotation { // Audio file information
 	index: number;
 	filePath: string;
 	status: SpectroStatus;
-	species: string;
+	speciesIndex: number;
 	recordingId: number;
 	startOffset: number;
 	endOffset: number;
@@ -149,9 +122,7 @@ export default function VerifyPage() {
 	const [selected, setSelected] = useState([]); // selected spectrogram(s)
 	const updateSelected = (arr) => { // wraps setSelected
 		if (!showModal) {
-			if (arraysEqual(arr, selected)) {
-				return;
-			}
+			if (arrayEqual(arr, selected)) {return;}
 
 			for (let i = 0; i < selected.length; i++) { // deselect current
 				spectrograms.current[selected[i]].setIsSelected(false);
@@ -178,6 +149,9 @@ export default function VerifyPage() {
 	const [skipInterval, setSkipInterval] = useState(DEFAULT_SKIPINTERVAL);
 	const [playSpeed, setPlaySpeed] = useState(DEFAULT_PLAYSPEED);
 
+	const [defaultSpeciesId, setDefaultSpeciesId] = useState(DEFAULT_SPECIES_ID);
+	const [speciesList, setSpeciesList] = useState<Species[]>([]);
+
 	const [isLabelingMode, setIsLabelingMode] = useState(false);
 	const [currentLabel, setCurrentLabel] = useState("");
 
@@ -198,14 +172,30 @@ export default function VerifyPage() {
 		setCurrentPage(totalPages);
 	}
 	
-	// DATA LOADING //
+	// SETTINGS LOADING //
 
+	useEffect(() => {
+		//const verifyColorScheme_ = localStorage.getItem('verifyColorScheme');
+		const skipInterval_ = Number(localStorage.getItem('skipInterval'));
+		const playbackRate_ = Number(localStorage.getItem('playbackRate'));
+		const defaultColumns_ = Number(localStorage.getItem('defaultColumns'));
+		const defaultSpeciesId_ = Number(localStorage.getItem('defaultSpeciesId')); 
+		setSkipInterval(skipInterval_);
+		setPlaySpeed(playbackRate_);
+		setCOLS(defaultColumns_);
+		setDefaultSpeciesId(defaultSpeciesId_);
+	}, [])
+
+	// DATA LOADING //
 	// initial DB load
 	async function handleFileSelectionFromDB() {
 		let processed: ProcessedAnnotation[] = [...audioFiles];
 		let spawnPage = 1;
 
 		const recordings = await window.api.listRecordings();
+		const listOfSpecies: Species[] = await window.api.listSpecies();
+		console.log(listOfSpecies);
+		setSpeciesList(listOfSpecies);
 
 		const tasks = recordings.map(async (rec, i) => {
 			try {
@@ -220,11 +210,11 @@ export default function VerifyPage() {
 							index: processed.length,
 							filePath: rec.url,
 							recordingId: rec.recordingId,
-							status: annotation ? (
+							status: (
 								annotation.verified == "YES" ? SpectroStatus.YES :
 								annotation.verified == "NO" ? SpectroStatus.NO : SpectroStatus.UNVERIFIED
-							) : SpectroStatus.UNVERIFIED,
-							species: annotation ? annotation.speciesId.toString() : DEFAULT_SPECIES, // NEED CLARIFICATION HERE
+							),
+							speciesIndex: (annotation.speciesId ?? defaultSpeciesId)-1, // NEED CLARIFICATION HERE
 							startOffset: region.starttime,
 							endOffset: region.endtime,
 						});
@@ -289,7 +279,7 @@ export default function VerifyPage() {
 		startOffset: startOffset,
 		endOffset: endOffset,
 		status: _status,
-		species: _species,
+		speciesIndex: _speciesIndex,
 		onMouseEnter, 
 		onMouseLeave,
 		onClick,
@@ -299,21 +289,21 @@ export default function VerifyPage() {
 		const wavesurferRef = useRef<WaveSurfer>(null);
 		const containerRef = useRef(null);
 		const innerRef = useRef(null);
-		const [species, setSpecies] = useState(_species || DEFAULT_SPECIES);
+		const [speciesIndex, setSpeciesIndex] = useState(_speciesIndex);
 		const [status, setStatus] = useState(_status);
 		const [isSelected, setIsSelected] = useState(false);
 		const [isHovered, setIsHovered] = useState(false);
 		const [isLoaded, setIsLoaded] = useState(false);
 		let isDestroyed = false;
-
+		
 		useEffect(() => { // species state could be redundant if we just keep it as a prop? 
-			if (species !== _species) {
-				setSpecies(_species || DEFAULT_SPECIES);
+			if (speciesIndex !== _speciesIndex) {
+				setSpeciesIndex(_speciesIndex);
 			}
-		}, [_species]);
+		}, [_speciesIndex]);
 
 		const updateSpecies = (newSpecies) => {
-			setSpecies(newSpecies);
+			setSpeciesIndex(newSpecies);
 			if (fullIndex !== -1) {
 				updateAudioFile(fullIndex, 'species', newSpecies);
 			}
@@ -342,8 +332,8 @@ export default function VerifyPage() {
 				isLoaded,
 				filePath,
 				url,
-				species,
-				setSpecies: updateSpecies,
+				speciesIndex,
+				setSpeciesIndex: updateSpecies,
 				setStatus,
 				setIsSelected,
 				setIsHovered,
@@ -435,10 +425,9 @@ export default function VerifyPage() {
 				style={{ position: "relative" }}
 			>
 				{id!=-1 && (<div className={styles.indexOverlay}>{fullIndex+1}</div>)} 
-				{id!=-1 && (<div className={styles.filePathOverlay}>{filePath}</div>)} 
-				{species && species !== "Default" && (
-					<div className={styles.speciesOverlay}>{species}</div>
-				)}
+				{id!=-1 && (<div className={styles.filePathOverlay}>{filePath}</div>)} 	
+				<div className={styles.speciesOverlay}>{speciesList[speciesIndex].common}</div>
+				
 				
 				<div id={`loading-spinner-${id}`} className={styles.waveLoadingCircle}></div>
 				<div 
@@ -449,7 +438,7 @@ export default function VerifyPage() {
 				></div>
 			</div>	
 		)
-	}), []);
+	}), [speciesList]);
 	
 	const ModalSpectrogram = useCallback(forwardRef<SpectroRef, SpectroProps&{toggleModal:()=>void}>(({ // detailed view of single spectrogram
 		id, // -1 if modal 
@@ -460,30 +449,19 @@ export default function VerifyPage() {
 		onMouseEnter, 
 		onMouseLeave,
 		onClick,
-		linkedSpectro=spectrograms.current[getFirstSelected()], // update linked spectrogram whenever user edits the modal one
+		linkedSpectro = spectrograms.current[getFirstSelected()], // update linked spectrogram whenever user edits the modal one
 		toggleModal,
 	}, ref) => {
 		const modalRef = useRef(null);
 
 		// Update label on change
-		const [localLabel, setLocalLabel] = useState(linkedSpectro?.species || "");
-			const [displaySpecies, setDisplaySpecies] = useState(linkedSpectro?.species || "");
-		
-			useEffect(() => {
-			setLocalLabel(linkedSpectro?.species || DEFAULT_SPECIES);
-			setDisplaySpecies(linkedSpectro?.species || DEFAULT_SPECIES);
-			}, [linkedSpectro]);
-
-		const applyLabel = () => {
-			if (linkedSpectro && localLabel.trim() !== "") {
-				linkedSpectro.setSpecies(localLabel);
-				if (spectrograms.current[-1]) {
-					spectrograms.current[-1].setSpecies(localLabel);
-				}
-				setCurrentLabel(localLabel); // Update the parent component's currentLabel state
-				setDisplaySpecies(localLabel);
-			}
-		};
+		const [localLabel, setLocalLabel] = useState(speciesList[linkedSpectro.speciesIndex].common);
+		const [displaySpecies, setDisplaySpecies] = useState(speciesList[linkedSpectro.speciesIndex].common);
+	
+		useEffect(() => {
+			setLocalLabel(speciesList[linkedSpectro.speciesIndex].common);
+			setDisplaySpecies(speciesList[linkedSpectro.speciesIndex].common);
+		}, [linkedSpectro]);
 
 		return (
 			<div ref={modalRef} className={styles.modal}>
@@ -500,7 +478,7 @@ export default function VerifyPage() {
 					startOffset={startOffset}
 					endOffset={endOffset}
 					status={linkedSpectro.status}
-					species={displaySpecies}
+					speciesIndex={linkedSpectro.speciesIndex}
 					onMouseEnter={onMouseEnter}
 					onMouseLeave={onMouseLeave}
 					onClick={onClick}
@@ -519,24 +497,24 @@ export default function VerifyPage() {
 							onBlur={() => setIsModalInputFocused(false)}
 							// Add keydown event handler directly to the input
 							onKeyDown={(e) => {
-							if (e.key === "Enter") {
-								e.preventDefault();
-								
-								// Apply the label
-								if (linkedSpectro && localLabel.trim() !== "") {
-								linkedSpectro.setSpecies(localLabel);
-								if (spectrograms.current[-1]) {
-									spectrograms.current[-1].setSpecies(localLabel);
+								if (e.key === "Enter") {
+									e.preventDefault();
+									
+									// Apply the label
+									if (linkedSpectro && localLabel.trim() !== "") {
+										linkedSpectro.setSpeciesIndex(localLabel);
+										if (spectrograms.current[-1]) {
+											spectrograms.current[-1].setSpeciesIndex(localLabel);
+										}
+										setCurrentLabel(localLabel);
+										
+										// Update modal
+										toggleModal();
+										setTimeout(() => {
+											toggleModal();
+										}, 10);
+									}
 								}
-								setCurrentLabel(localLabel);
-								
-								// Update modal
-								toggleModal();
-								setTimeout(() => {
-									toggleModal();
-								}, 10);
-								}
-							}
 							}}
 						/>
 					</div>
@@ -589,7 +567,7 @@ export default function VerifyPage() {
 			const save = audioFiles[i];
 			obj.spectrograms.push({
 				filePath: save.filePath, 
-				species: save.species || DEFAULT_SPECIES,
+				species: save.speciesIndex || DEFAULT_SPECIES_ID,
 				status: save.status
 			});
 		}
@@ -686,7 +664,7 @@ export default function VerifyPage() {
 	const applyLabelToSelected = () => {
 		if (selected.length > 0 && currentLabel.trim() !== "") {
 			for (let i = 0; i < selected.length; i++) {
-				spectrograms.current[selected[i]].setSpecies(currentLabel);
+				spectrograms.current[selected[i]].setSpeciesIndex(currentLabel);
 			}
 			setIsLabelingMode(false);
 		}
@@ -1065,7 +1043,7 @@ export default function VerifyPage() {
 							gridTemplateColumns: `repeat(${COLS}, 1fr)`,
 							gridTemplateRows: `repeat(${ROWS}, auto)`,
 						}}>
-							{currentFiles.map(({index, filePath, startOffset, endOffset, url, status, species}, i) => {
+							{currentFiles.map(({index, filePath, startOffset, endOffset, url, status, speciesIndex}, i) => {
 								return (
 									<Spectrogram 
 										key={i}
@@ -1075,7 +1053,7 @@ export default function VerifyPage() {
 										startOffset={startOffset}
 										endOffset={endOffset}
 										filePath={filePath}
-										species={species}
+										speciesIndex={speciesIndex}
 										status={status}
 										onMouseEnter={() => {
 											updateHovered(i);
@@ -1112,7 +1090,7 @@ export default function VerifyPage() {
 								endOffset={spectrograms.current[getFirstSelected()].endOffset}
 								url={spectrograms.current[getFirstSelected()].url} 
 								status={spectrograms.current[getFirstSelected()].status} 
-								species={spectrograms.current[getFirstSelected()].species}
+								speciesIndex={spectrograms.current[getFirstSelected()].speciesIndex}
 								onMouseEnter={()=>{}}
 								onMouseLeave={()=>{}}
 								onClick={(e)=>{e.stopPropagation()}}

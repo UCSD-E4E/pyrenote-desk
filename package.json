@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@types/wavesurfer.js": "^6.0.12",
+    "array-equal": "^2.0.0",
     "autoprefixer": "^10.4.20",
     "better-sqlite3": "^11.10.0",
     "debounce": "^2.1.1",
