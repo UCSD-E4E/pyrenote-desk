@@ -332,6 +332,7 @@ ipcMain.handle("saveMultipleRecordings", async (_event, { files, deploymentId, d
   let url: string;
   for (const file of files) {
     url = file.absolutePath;
+    // TODO: count how many skipped over recordings due to duplicates
     db.prepare(`INSERT OR IGNORE INTO Recording (deploymentId, url, directory, datetime, duration, samplerate, bitrate) VALUES (?, ?, ?, ?, ?, ?, ?)`)
       .run(deploymentId, url, file.relativePath, new Date().toISOString(), 0, 0, 0);
   }
