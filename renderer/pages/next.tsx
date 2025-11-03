@@ -709,13 +709,16 @@ export default function databasePage() {
 
       setLoading(true);
       try {
-        await window.ipc.invoke("saveMultipleRecordings", {
+        const result = await window.ipc.invoke("saveMultipleRecordings", {
           files,
           deploymentId,
           driveLabel: driveLabel || null,
         });
-
-        alert(`All ${files.length} recordings saved! Duplicate files automatically ignored.`);
+        if (result.skippedCount > 0) {
+          alert(`All ${files.length} recordings saved! ${result.skippedCount} duplicate files automatically ignored.`);
+        } else {
+          alert(`All ${files.length} recordings saved!`);
+        }
         setFiles([]);
         setSelectedFolder(null);
         setDeploymentId(0);
