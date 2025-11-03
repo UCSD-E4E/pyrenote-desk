@@ -160,15 +160,15 @@ ipcMain.handle(
   async (_event, filePath: string) => {
     try {
       const buffer = await readFile(filePath); // or no encoding for Buffer
-      const transportedBuffer = buffer.buffer.slice(
+      const arrayBuffer = buffer.buffer.slice(
         buffer.byteOffset,
-        buffer.byteOffset + buffer.byteLength,
+        buffer.byteOffset + buffer.byteLength
       );
       return {
         name: path.basename(filePath), // get filename only
         extension: path.extname(filePath),
         filePath: filePath,
-        data: transportedBuffer,
+        data: arrayBuffer,
       };
     } catch (_err) {
       return {};

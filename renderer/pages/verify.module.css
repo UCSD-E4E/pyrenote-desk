@@ -334,3 +334,13 @@
 	opacity: 1;
 	transform: translateY(0);
 }
+
+
+.noSpectrosContainer {
+	display: flex;
+	flex: 1 0;
+	width: 50%; /* has to be 50% for the loading screen to be centered */
+	height: 100%;
+	align-items: center;
+	justify-content: center;
+}
