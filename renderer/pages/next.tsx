@@ -715,7 +715,7 @@ export default function databasePage() {
           driveLabel: driveLabel || null,
         });
 
-        alert(`All ${files.length} recordings saved!`);
+        alert(`All ${files.length} recordings saved! Duplicate files automatically ignored.`);
         setFiles([]);
         setSelectedFolder(null);
         setDeploymentId(0);

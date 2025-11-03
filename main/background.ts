@@ -99,36 +99,6 @@ for (const mutation in mutations) {
 //   }
 // });
 
-// Listener for running the script
-ipcMain.handle("run-script", async () => {
-  // return new Promise((resolve, reject) => {
-  //   //execFile("python", ["pyfiles/script.py"], (error, stdout, stderr) => {
-  //   execFile("python", ["pyfiles/acoustic-multiclass-training/inference.py"], (error, stdout, stderr) => {
-  //     if (error) {
-  //       return reject(stderr);
-  //     }
-  //     //Passes output back to the renderer
-  //     resolve(stdout);
-  //   });
-  // });
-
-  const python = "python"; 
-  const script = path.join(process.cwd(), "pyfiles/acoustic-multiclass-training/inference.py");
-
-  return new Promise<string>((resolve, reject) => {
-    // Pass DB path as a CLI argument
-    execFile(
-      python,
-      [script, "--db-path", selectedDbPath],
-      //{ env: { ...process.env } },  // add env if needed? would this prevent us from having to activate venv before running yarn && yarn dev?
-      (error, stdout, stderr) => {
-        if (error) return reject(stderr || error.message);
-        resolve(stdout ?? "");
-      }
-    );
-  });
-});
-
 ipcMain.on("message", async (event, arg) => {
   event.reply("message", `${arg} World!`);
 });
@@ -362,44 +332,10 @@ ipcMain.handle("saveMultipleRecordings", async (_event, { files, deploymentId, d
   let url: string;
   for (const file of files) {
     url = file.absolutePath;
-    db.prepare(`INSERT INTO Recording (deploymentId, url, directory, datetime, duration, samplerate, bitrate) VALUES (?, ?, ?, ?, ?, ?, ?)`)
+    db.prepare(`INSERT OR IGNORE INTO Recording (deploymentId, url, directory, datetime, duration, samplerate, bitrate) VALUES (?, ?, ?, ?, ?, ?, ?)`)
       .run(deploymentId, url, file.relativePath, new Date().toISOString(), 0, 0, 0);
   }
   db.close();
-
-  // TODO: implement this without calling script.py
-  // const savedIds: number[] = [];
-
-  // for (const file of files) {
-  //   const pythonScript = path.join(__dirname, "../pyfiles/script.py");
-  //   const args = [
-  //     "--save", file.absolutePath,
-  //     "--deployment", deploymentId.toString(),
-  //     "--db", selectedDbPath
-  //   ];
-  //   if (driveLabel) args.push("--drive", driveLabel);
-
-  //   await new Promise<void>((resolve, reject) => {
-  //     const proc = spawn(getVenvPython(), [pythonScript, ...args]);
-
-  //     proc.stdout.on("data", (data) => {
-  //       const match = data.toString().match(/recordingId=(\d+)/);
-  //       if (match) savedIds.push(Number(match[1]));
-  //       console.log("PYTHON STDOUT:", data.toString());
-  //     });
-
-  //     proc.stderr.on("data", (data) => {
-  //       console.error("PYTHON STDERR:", data.toString());
-  //     });
-
-  //     proc.on("close", (code) => {
-  //       if (code === 0) resolve();
-  //       else reject(new Error(`Python script failed with code ${code}`));
-  //     });
-  //   });
-  // }
-
-  // return savedIds;
 });
 
 
