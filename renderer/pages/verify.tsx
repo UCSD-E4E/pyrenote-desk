@@ -9,6 +9,7 @@ import { audioBufferToWavBlob, cropAudio, decodeAudio } from '../utils/audio-dec
 import { Species } from '../../main/schema'
 import arrayEqual from 'array-equal'
 import { createContext } from 'react'
+import { ModalSpectrogram, Spectrogram } from './verify.spectrogram'
 
 // CONSTANTS //
 // modification in Settings page to be implemented
@@ -95,6 +96,11 @@ interface ProcessedAnnotation { // Audio file information
 
 interface VerifyContextValue {
 	audioFiles: ProcessedAnnotation[];
+	updateAudioFile: <K extends keyof ProcessedAnnotation>(
+        i: number, 
+        field: K, 
+        value: ProcessedAnnotation[K]
+    ) => void;
 	audioURLs: Readonly<React.MutableRefObject<Record<number, string>>>;
 	selected: number[];
 	updateSelected: (arr: number[]) => number[] | void;
@@ -104,6 +110,10 @@ interface VerifyContextValue {
 	setPlaySpeed: (upd: number | ((prev: number) => number)) => void;
 	speciesList: Species[];
 	toggleModal: () => void;
+	isModalInputFocused: boolean;
+	setIsModalInputFocused: (upd: boolean | ((prev: boolean) => boolean)) => void;
+	currentLabel: string;
+	setCurrentLabel: (upd: string | ((prev: string) => string)) => void;
 }
 
 export const VerifyContext = createContext<VerifyContextValue | null>(null);
@@ -114,9 +124,9 @@ export default function VerifyPage() {
 	//// STATE
 	
 	// Recordkeeping
-	const spectrograms = useRef<SpectroRef[]>([]); // array of Spectrogram components on screen
 	const [audioFiles, setAudioFiles] = useState<ProcessedAnnotation[]>([]); // all audio files retrieved from database
 	const audioURLs = useRef<Record<number, string>>({})
+	const spectrograms = useRef<SpectroRef[]>([]); // array of Spectrogram components on screen
 
 	// Select & Hover
 	const [selected, _setSelected] = useState([]); // selected spectrogram(s), currentFiles indices
@@ -232,19 +242,23 @@ export default function VerifyPage() {
 
 
 	const contextValue: VerifyContextValue = useMemo(() => ({
-		audioFiles, audioURLs,
+		audioFiles, updateAudioFile, audioURLs,
 		selected, updateSelected,
 		hovered, updateHovered,
 		playSpeed, setPlaySpeed,
 		speciesList,
-		toggleModal
+		toggleModal,
+		isModalInputFocused, setIsModalInputFocused,
+		currentLabel, setCurrentLabel,
 	}), [
-		audioFiles, audioURLs,
+		audioFiles, updateAudioFile, audioURLs,
 		selected, updateSelected,
 		hovered, updateHovered,
 		playSpeed, setPlaySpeed,
 		speciesList,
-		toggleModal
+		toggleModal,
+		isModalInputFocused, setIsModalInputFocused,
+		currentLabel, setCurrentLabel,
 	])
 
 
@@ -267,21 +281,27 @@ export default function VerifyPage() {
 		const loadFiles = async () => {
 			Object.entries(audioURLs.current).forEach(([fullIndex, url]) => {
 				URL.revokeObjectURL(url);
-				delete audioURLs[fullIndex];
+				delete audioURLs.current[fullIndex];
 			})
 
-			const newUrls = await Promise.all(
-				currentFiles.map(async file => {
+			// Build URLs and Record in one step
+			const newAudioURLs: Record<number, string> = {};
+			await Promise.all(
+				currentFiles.map(async (file, index) => {
 					const audioFile = await window.ipc.invoke('read-file-for-verification', file.filePath);
 					const decoded = await decodeAudio(audioFile.data);
 					const cropped = cropAudio(decoded, file.startOffset, file.endOffset, file.filePath);
 					const blob = audioBufferToWavBlob(cropped);
 					const url = URL.createObjectURL(blob);
-					return url;
+					
+					const fullIndex = file.index;
+					newAudioURLs[fullIndex] = url;
 				})
 			);
 
-			if (!isCancelled) {audioURLs.current = newUrls}
+			if (!isCancelled) {
+				audioURLs.current = newAudioURLs;
+			}
 		};
 
 		loadFiles();
@@ -291,7 +311,7 @@ export default function VerifyPage() {
 			isCancelled = true;
 			Object.entries(audioURLs.current).forEach(([fullIndex, url]) => {
 				URL.revokeObjectURL(url);
-				delete audioURLs[fullIndex];
+				delete audioURLs.current[fullIndex];
 			})
 		};
 	}, [currentFiles]);
@@ -364,7 +384,7 @@ export default function VerifyPage() {
 	}
 
 	// SPECTROGRAMS //
-
+	/*
 	const Spectrogram = useCallback(forwardRef<SpectroRef, SpectroProps>(({ 
 		id, // -1 if modal 
 		fullIndex,
@@ -611,7 +631,7 @@ export default function VerifyPage() {
 			</div>
 		);
 	}), [selected, currentLabel, setCurrentLabel]); // Add dependencies to ensure callback updates	
-
+	*/
 
 	//// ================================================================================================================
 	//// CONTROLS
@@ -1095,27 +1115,12 @@ export default function VerifyPage() {
 							}}>
 								{currentFiles.map(({index, filePath, url, status, speciesIndex}, i) => {
 									return (
-										<Spectrogram 
+										<Spectrogram
 											key={i}
 											id={i} 
 											fullIndex={index}
-											url={url} 
-											filePath={filePath}
-											speciesIndex={speciesIndex}
-											status={status}
-											onMouseEnter={() => {
-												updateHovered(i);
-											}}
-											onMouseLeave={() => {
-												updateHovered(null);
-											}}
-											onClick={(e) => {
-												e.stopPropagation();
-											}}
 											linkedSpectro={null}
-											ref={(el) => {
-												if (el) spectrograms.current[i] = el; // Populate dynamically
-											}}
+
 										/>
 									)
 								})}
@@ -1134,17 +1139,7 @@ export default function VerifyPage() {
 									key={-1}
 									id={-1} 
 									fullIndex={-1}
-									url={spectrograms.current[firstSelected].url} 
-									status={spectrograms.current[firstSelected].status} 
-									speciesIndex={spectrograms.current[firstSelected].speciesIndex}
-									onMouseEnter={()=>{}}
-									onMouseLeave={()=>{}}
-									onClick={(e)=>{e.stopPropagation()}}
 									linkedSpectro={spectrograms.current[firstSelected]}
-									ref={(el) => {
-										if (el) spectrograms.current[-1] = el; // Populate dynamically
-									}}
-									toggleModal={toggleModal}
 								/>,
 								document.body
 							)}

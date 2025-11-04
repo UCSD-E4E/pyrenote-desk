@@ -5,18 +5,21 @@ import WaveSurfer from "wavesurfer.js";
 import SpectrogramPlugin from "wavesurfer.js/dist/plugins/spectrogram";
 
 export function Spectrogram({
-	id, // index in currentFiles
-	fullIndex, // index in audioFiles
+	id, // index in currentFiles (in-page index)
+	fullIndex, // index in audioFiles (global index)
 	linkedSpectro,
 }) {
 	const context = useContext(VerifyContext);
-	
 	const {
-		audioFiles, audioURLs,
+		audioFiles, updateAudioFile,
+		audioURLs,
 		selected, updateSelected,
 		hovered, updateHovered,
 		playSpeed, setPlaySpeed,
-		speciesList
+		speciesList,
+		toggleModal,
+		isModalInputFocused, setIsModalInputFocused,
+		currentLabel, setCurrentLabel,
 	} = context;
 
 	const wavesurferRef = useRef<WaveSurfer>(null);
@@ -131,4 +134,86 @@ export function Spectrogram({
 			></div>
 		</div>	
 	)
+}
+
+export function ModalSpectrogram({
+	id, // index in currentFiles (in-page index)
+	fullIndex, // index in audioFiles (global index)
+	linkedSpectro,
+}) {
+	const context = useContext(VerifyContext);
+	const {
+		audioFiles, updateAudioFile,
+		audioURLs,
+		selected, updateSelected,
+		hovered, updateHovered,
+		playSpeed, setPlaySpeed,
+		speciesList,
+		toggleModal,
+		isModalInputFocused, setIsModalInputFocused,
+		currentLabel, setCurrentLabel,
+	} = context;
+
+	const modalRef = useRef(null);
+
+	// Update label on change
+	const [localLabel, setLocalLabel] = useState(speciesList[linkedSpectro.speciesIndex].common);
+	const [displaySpecies, setDisplaySpecies] = useState(speciesList[linkedSpectro.speciesIndex].common);
+
+	useEffect(() => {
+		setLocalLabel(speciesList[linkedSpectro.speciesIndex].common);
+		setDisplaySpecies(speciesList[linkedSpectro.speciesIndex].common);
+	}, [linkedSpectro]);
+
+	return (
+		<div ref={modalRef} className={styles.modal}>
+			<div className={styles.modalHeader}>
+				<div>ID: {linkedSpectro?.fullIndex + 1}</div>
+				<div>File Path: {linkedSpectro?.filePath}</div>
+				<div>Species: {displaySpecies}</div>
+			</div>		
+
+			<Spectrogram 
+				id={-1} 
+				fullIndex={fullIndex}
+				linkedSpectro={linkedSpectro}
+			/>
+			
+			<div className={styles.modalControls}>
+				<div>
+					<input 
+						type="text" 
+						value={localLabel}
+						onChange={(e) => setLocalLabel(e.target.value)}
+						placeholder="Enter label"
+						onFocus={() => setIsModalInputFocused(true)}
+						onBlur={() => setIsModalInputFocused(false)}
+						// Add keydown event handler directly to the input
+						onKeyDown={(e) => {
+							if (e.key === "Enter") {
+								e.preventDefault();
+								
+								// Apply the label
+								if (linkedSpectro && localLabel.trim() !== "") {
+									linkedSpectro.setSpeciesIndex(localLabel);
+									updateAudioFile(fullIndex, 'speciesIndex', Number(localLabel)); // figure out what to do here
+									setCurrentLabel(localLabel);
+									
+									// Update modal
+									toggleModal();
+									setTimeout(() => {
+										toggleModal();
+									}, 10);
+								}
+							}
+						}}
+					/>
+				</div>
+				<button onClick={(e)=>{
+					toggleModal();
+					e.stopPropagation();
+				}}>Close</button>
+			</div>
+		</div>
+	);
 }
