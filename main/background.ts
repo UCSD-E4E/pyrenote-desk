@@ -330,13 +330,22 @@ ipcMain.handle("pick-folder-for-recordings", async (_event) => {
 ipcMain.handle("saveMultipleRecordings", async (_event, { files, deploymentId, driveLabel }) => {
   let db = new BetterSqlite3(selectedDbPath);
   let url: string;
+  let skippedCount = 0;
   for (const file of files) {
     url = file.absolutePath;
-    // TODO: count how many skipped over recordings due to duplicates
-    db.prepare(`INSERT OR IGNORE INTO Recording (deploymentId, url, directory, datetime, duration, samplerate, bitrate) VALUES (?, ?, ?, ?, ?, ?, ?)`)
+    try {
+      db.prepare(`INSERT INTO Recording (deploymentId, url, directory, datetime, duration, samplerate, bitrate) VALUES (?, ?, ?, ?, ?, ?, ?)`)
       .run(deploymentId, url, file.relativePath, new Date().toISOString(), 0, 0, 0);
+    } catch (err: any) {
+      if (err.code === "SQLITE_CONSTRAINT_UNIQUE") {
+        skippedCount++;
+      } else {
+        throw err; // rethrow unknown errors
+      }
+    }
   }
   db.close();
+  return { skippedCount };
 });
 
 

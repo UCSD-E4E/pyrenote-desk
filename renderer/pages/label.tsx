@@ -1088,7 +1088,7 @@ const AudioPlayer: React.FC = () => {
               <div className={styles.audioInfo}>
                 <p>
                   File {index + 1} of {wavesurfers.length}:{" "}
-                  {wavesurfers[index]?.recording.filename}
+                  {wavesurfers[index]?.recording.url}
                 </p>
               </div>
             )}

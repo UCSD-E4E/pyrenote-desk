@@ -6,7 +6,7 @@ const listRecordingsByFilters = async (filters): Promise<RecordingWithData[]> =>
     const db = getDatabase();
 
     let query = `
-        SELECT r.recordingId, r.deploymentId, r.filename, r.url, r.datetime,
+        SELECT r.recordingId, r.deploymentId, r.url, r.datetime,
                r.duration, r.samplerate, r.bitrate
         FROM Recording r
         INNER JOIN Deployment d ON r.deploymentId = d.deploymentId
