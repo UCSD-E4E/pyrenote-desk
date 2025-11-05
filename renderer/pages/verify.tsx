@@ -8,6 +8,7 @@ import { Species } from '../../main/schema'
 import arrayEqual from 'array-equal'
 import { createContext } from 'react'
 import { ModalSpectrogram, Spectrogram, SpectroRef } from './verify.spectrogram'
+import { KeybindGuide } from './verify.keybind-guide'
 
 // CONSTANTS //
 // modification in Settings page to be implemented
@@ -59,9 +60,9 @@ export interface ProcessedAnnotation { // Audio file information
 interface VerifyContextValue {
 	audioFiles: ProcessedAnnotation[];
 	updateAudioFile: <K extends keyof ProcessedAnnotation>(
-				i: number, 
-				field: K, 
-				value: ProcessedAnnotation[K]
+			i: number, 
+			field: K, 
+			value: ProcessedAnnotation[K]
 		) => void;
 	audioURLs: Record<number, string>;
 	selected: number[];
@@ -452,66 +453,6 @@ export default function VerifyPage() {
 		"\\": {func: prevPage, label: "Next/Prev page"},
 	}
 
-	const functionToKeys = new Map(); // reverse mapping for keybind guide
-	Object.entries(keybinds).forEach(([key, func]) => {
-		const existing = functionToKeys.get(func) || [];
-		functionToKeys.set(func, [...existing, key]);
-	});
-
-	// Generate help tooltip content using keybinds labels
-	const getHelpContent = useCallback(() => {
-		// Group keybinds by label
-		const labelToKeys = new Map();
-		Object.entries(keybinds).forEach(([key, keybind]) => {
-			const label = keybind.label;
-			if (!labelToKeys.has(label)) {
-				labelToKeys.set(label, []);
-			}
-			labelToKeys.get(label).push(key);
-		});
-
-		return (
-			<div className={styles.helpTable}>
-				<div className={styles.helpTableHeader}>KEYBOARD SHORTCUTS</div>
-				<table>
-					<thead>
-						<tr>
-							<th>Keys</th>
-							<th>Function</th>
-						</tr>
-					</thead>
-					<tbody>
-						{Array.from(labelToKeys.entries()).map(([label, keys]) => {
-							// Format key names for display
-							const formattedKeys = keys.map(key => {
-								if (key === " ") return "Space";
-								if (key === "ArrowUp") return "↑";
-								if (key === "ArrowDown") return "↓";
-								if (key === "ArrowLeft") return "←";
-								if (key === "ArrowRight") return "→";
-								if (key === "\\") return "\\";
-								return key.toUpperCase();
-							});
-							
-							return (
-								<tr key={label}>
-									<td>
-										{formattedKeys.map((key, index) => (
-											<span key={index} className={styles.helpKey}>
-												{key}
-											</span>
-										))}
-									</td>
-									<td>{label}</td>
-								</tr>
-							);
-						})}
-					</tbody>
-				</table>
-			</div>
-		);
-	}, []);
-
 	// handle keyboard input (ADD STATES TO THE DEPENDENCY ARRAY IF RELATED TO A KEYBIND )
 	useEffect(() => { 
 		const handleKeyDown = (event) => {
@@ -765,7 +706,7 @@ export default function VerifyPage() {
 						<div className={styles.helpIcon}>
 							?
 							<div className={styles.helpTooltip}>
-								{getHelpContent()}
+								<KeybindGuide keybinds={keybinds} />
 							</div>
 						</div>
 					</div>
