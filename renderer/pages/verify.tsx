@@ -9,6 +9,7 @@ import arrayEqual from 'array-equal'
 import { createContext } from 'react'
 import { ModalSpectrogram, Spectrogram, SpectroRef } from './verify.spectrogram'
 import { KeybindGuide } from './verify.keybind-guide'
+import { useBoxSelection } from './verify.box-select'
 
 // CONSTANTS //
 // modification in Settings page to be implemented
@@ -485,66 +486,13 @@ export default function VerifyPage() {
 	//// ================================================================================================================
 	//// BOX SELECTION SYSTEM
 
-	const [isSelecting, setIsSelecting] = useState(false);
-	const [rectStart, setRectStart] = useState(null);
-	const [rect, setRect] = useState(null);
 	const containerRef = useRef(null)
-	const containerLeft = containerRef.current?.getBoundingClientRect().left ?? 0;
-
-	const handleMouseDown = (e: MouseEvent, canSelect=true) => {
-		const x = e.clientX - containerLeft;
-		const y = e.clientY;
-		setRectStart({ x, y });
-		setRect({ x, y, width: 0, height: 0 });
-		setIsSelecting(canSelect);
-	};
-	const handleMouseMove = (e) => {
-		if (!isSelecting) return;
-
-		const x = e.clientX - containerLeft;
-		const y = e.clientY;
-
-		const newRect = {
-			x: Math.min(rectStart.x, x),
-			y: Math.min(rectStart.y, y),
-			width: Math.abs(x - rectStart.x),
-			height: Math.abs(y - rectStart.y),
-		};
-
-		setRect(newRect);
-	};
-	const handleMouseUp = () => {
-		if (!rect) return;
-		let selection = [];
-
-		spectrograms.current.forEach((spectrogram) => {
-			const el = spectrogram.containerRef.current;
-			if (!el) {
-				return;
-			}
-			const box = el.getBoundingClientRect();
-
-			const relative = {
-				left: box.left - containerLeft,
-				top: box.top,
-				right: box.right - containerLeft,
-				bottom: box.bottom,
-			};
-
-			const overlap = (
-				rect.x < relative.right &&
-				rect.x + rect.width > relative.left &&
-				rect.y < relative.bottom &&
-				rect.y + rect.height > relative.top
-			);
-
-			if (overlap) selection.push(spectrogram.id);
+	const { isSelecting, rect, handleMouseDown, handleMouseMove, handleMouseUp } =
+		useBoxSelection({
+			containerRef,
+			spectrograms,
+			updateSelected,
 		});
-
-		updateSelected(selection)
-		setIsSelecting(false);
-		setRect(null);
-	};
 
 	
 	//// ================================================================================================================
