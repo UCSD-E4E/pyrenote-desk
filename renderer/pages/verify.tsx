@@ -59,10 +59,10 @@ export interface ProcessedAnnotation { // Audio file information
 interface VerifyContextValue {
 	audioFiles: ProcessedAnnotation[];
 	updateAudioFile: <K extends keyof ProcessedAnnotation>(
-        i: number, 
-        field: K, 
-        value: ProcessedAnnotation[K]
-    ) => void;
+				i: number, 
+				field: K, 
+				value: ProcessedAnnotation[K]
+		) => void;
 	audioURLs: Record<number, string>;
 	selected: number[];
 	updateSelected: (arr: number[]) => number[] | void;
@@ -74,8 +74,6 @@ interface VerifyContextValue {
 	toggleModal: () => void;
 	isModalInputFocused: boolean;
 	setIsModalInputFocused: (upd: boolean | ((prev: boolean) => boolean)) => void;
-	currentLabel: string;
-	setCurrentLabel: (upd: string | ((prev: string) => string)) => void;
 }
 
 export const VerifyContext = createContext<VerifyContextValue | null>(null);
@@ -109,10 +107,6 @@ export default function VerifyPage() {
 	const [defaultSpeciesId, setDefaultSpeciesId] = useState(DEFAULT_SPECIES_ID);
 	const [speciesList, setSpeciesList] = useState<Species[]>([]);
 
-	// Labeling
-	const [isLabelingMode, setIsLabelingMode] = useState(false);
-	const [currentLabel, setCurrentLabel] = useState("");
-
 	// Page
 	const [currentPage, setCurrentPage] = useState(0);
 	const [forceReloadKey, setForceReloadKey] = useState(0); // crucial for switching pages	
@@ -133,11 +127,25 @@ export default function VerifyPage() {
 
 	// Wrapped Setters
 
-	const updateAudioFile = useCallback((i: number, field: keyof ProcessedAnnotation, value: any) => {
-		setAudioFiles(prevItems =>
-			prevItems.map((item, index) => index === i ? { ...item, [field]: value } : item)
-		);
-	}, []);
+	const updateAudioFile = useCallback(
+		<K extends keyof ProcessedAnnotation>(
+			i: number,
+			field: K,
+			value: ProcessedAnnotation[K] | ((prev: ProcessedAnnotation[K]) => ProcessedAnnotation[K])
+		) => {
+			setAudioFiles(prevItems =>
+				prevItems.map((item, index) => {
+					if (index !== i) return item;
+					const newValue =
+						typeof value === 'function'
+							? (value as (prev: ProcessedAnnotation[K]) => ProcessedAnnotation[K])(item[field])
+							: value;
+					return { ...item, [field]: newValue };
+				})
+			);
+		},
+		[]
+	);
 
 	const updateSelected = useCallback((arr) => { // wraps setSelected
 		if (!isModalInputFocused) {
@@ -200,7 +208,6 @@ export default function VerifyPage() {
 		speciesList,
 		toggleModal,
 		isModalInputFocused, setIsModalInputFocused,
-		currentLabel, setCurrentLabel,
 	}), [
 		audioFiles, updateAudioFile, audioURLs,
 		selected, updateSelected,
@@ -209,7 +216,6 @@ export default function VerifyPage() {
 		speciesList,
 		toggleModal,
 		isModalInputFocused, setIsModalInputFocused,
-		currentLabel, setCurrentLabel,
 	])
 
 
@@ -379,7 +385,7 @@ export default function VerifyPage() {
 	const moveSelectionDown = () => 	{ if (spectrograms.current.length == 0) return; updateSelected([selected.length==0 ? 0 : Math.min(lastSelected + COLS, numFiles-1, numSpots-COLS+(lastSelected % COLS))]); }
 	const moveSelectionLeft = () => 	{ if (spectrograms.current.length == 0) return; updateSelected([selected.length==0 ? 0 : Math.max(lastSelected - 1, 0)]); }
 	const moveSelectionRight = () => 	{ if (spectrograms.current.length == 0) return; updateSelected([selected.length==0 ? 0 : Math.min(lastSelected + 1, numFiles-1)]); }
-	const setSpectroStatus = (status) => { selected.forEach((i) => {updateAudioFile(spectrograms.current[i].fullIndex, "status", status);})}
+	const setSpectroStatus = (status) => { selected.forEach((i) => {updateAudioFile(spectrograms.current[i].fullIndex, "status", status);}) }
 	const playPauseSelection = () => { 
 		if (selected.length == 0) { return }; // null
 		if (currentlyPlayingIndex.current != null && currentlyPlayingIndex.current != firstSelected) { spectrograms.current[currentlyPlayingIndex.current].pause(); }; // pause existing
@@ -410,24 +416,7 @@ export default function VerifyPage() {
 		setAudioFiles(remainingFiles);
 		updateSelected([]);
 	}
-
-
-	//// ================================================================================================================
-	//// LABELLING SYSTEM (WIP?)
-	
-	const startLabelingMode = () => { // Direct labeling function (WIP)
-		setIsLabelingMode(true);
-		setCurrentLabel(""); 
-	};
-
-	const applyLabelToSelected = () => {
-		if (selected.length > 0 && currentLabel.trim() !== "") {
-			for (let i = 0; i < selected.length; i++) {
-				updateAudioFile(spectrograms.current[selected[i]].fullIndex, "speciesIndex", currentLabel)
-			}
-			setIsLabelingMode(false);
-		}
-	};
+	const switchSpeciesOfSelected = () => { selected.forEach((i) => { updateAudioFile(spectrograms.current[i].fullIndex, "speciesIndex", (prev)=>((prev+1) % speciesList.length)); }) }
 
 
 	//// ================================================================================================================
@@ -459,9 +448,7 @@ export default function VerifyPage() {
 		"r": {func: resetIncrements, label: "Reset increments"},
 		"o": {func: toggleModal, label: "Toggle detailed view"},
 		"Backspace": {func: deleteSelected, label: "Delete selected"},
-		"Shift": {func: startLabelingMode, label: "Start/Exit labeling mode"},
-		"Escape": {func: () => { if (isLabelingMode) setIsLabelingMode(false); }, label: "Start/Exit labeling mode"},
-		"Enter": {func: isLabelingMode ? applyLabelToSelected : nextPage, label: "Next/Prev page"},
+		"Shift": {func: switchSpeciesOfSelected, label: "Start/Exit labeling mode"},
 		"\\": {func: prevPage, label: "Next/Prev page"},
 	}
 
@@ -537,19 +524,8 @@ export default function VerifyPage() {
 					}
 					return; 
 				} else {
-					if (isModalInputFocused) {
-						return;
-					}
+					if (isModalInputFocused) {return;}
 				}
-			}
-
-			if (isLabelingMode && event.key !== "Escape" && event.key !== "Enter" && event.key !== "Shift") {
-				if (event.key === "Backspace") {
-					setCurrentLabel(prev => prev.slice(0, -1));
-				} else if (event.key.length === 1) {
-					setCurrentLabel(prev => prev + event.key);
-				}
-				return;
 			}
 
 			const func = keybinds[event.key]?.func;		
@@ -562,7 +538,7 @@ export default function VerifyPage() {
 		return () => {
 			window.removeEventListener("keydown", handleKeyDown);
 		};
-	}, [selected, currentlyPlayingIndex, playSpeed, skipInterval, currentPage, totalPages, isLabelingMode, currentLabel, showModal, isModalInputFocused, toggleModal]);
+	}, [selected, currentlyPlayingIndex, playSpeed, skipInterval, currentPage, totalPages, showModal, isModalInputFocused, toggleModal]);
 
 
 	//// ================================================================================================================
@@ -784,12 +760,6 @@ export default function VerifyPage() {
 								</button>
 							)}
 						</div>
-
-						{isLabelingMode && selected.length > 0 && (
-							<div className={styles.labelingIndicator}>
-								<p>Labeling: {currentLabel}</p>
-							</div>
-						)}
 						
 						{/* Help icon with tooltip */}
 						<div className={styles.helpIcon}>
@@ -843,26 +813,6 @@ export default function VerifyPage() {
 							)}
 						
 					</>
-					
-					{/* Styling for labelling modal */}
-					{isLabelingMode && selected.length > 0 && (
-					<div 
-						className={styles.floatingLabel}
-						style={{
-							position: 'fixed',
-							top: '50%',
-							left: '50%',
-							transform: 'translate(-50%, -50%)',
-							backgroundColor: 'rgba(0, 0, 0, 0.7)',
-							color: 'white',
-							padding: '10px 20px',
-							zIndex: 1000,
-						}}
-					>
-						<p>Typing: {currentLabel}</p>
-						<p className={styles.labelTip}>Press Enter to apply, Esc to cancel</p>
-					</div>
-				)}
 				</div>
 			</VerifyContext.Provider>
 		</React.Fragment>

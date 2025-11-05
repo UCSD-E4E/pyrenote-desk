@@ -44,7 +44,6 @@ export function Spectrogram({
 		speciesList,
 		toggleModal,
 		isModalInputFocused, setIsModalInputFocused,
-		currentLabel, setCurrentLabel,
 	} = context;
 
 	const wavesurferRef = useRef<WaveSurfer>(null);
@@ -124,7 +123,6 @@ export function Spectrogram({
 	}, [audioUrl]);
 
 	const playPause = () => {
-		console.log("playpause")
 		wavesurferRef.current.setPlaybackRate(playSpeed);
 		wavesurferRef.current.playPause();
 		return wavesurferRef.current.isPlaying();
@@ -199,19 +197,12 @@ export function ModalSpectrogram({
 		speciesList,
 		toggleModal,
 		isModalInputFocused, setIsModalInputFocused,
-		currentLabel, setCurrentLabel,
 	} = context;
 
 	const modalRef = useRef(null);
 
-	// Update label on change
-	const [localLabel, setLocalLabel] = useState(speciesList[audioFile.speciesIndex].common);
-	const [displaySpecies, setDisplaySpecies] = useState(speciesList[audioFile.speciesIndex].common);
-
-	useEffect(() => {
-		setLocalLabel(speciesList[audioFile.speciesIndex].common);
-		setDisplaySpecies(speciesList[audioFile.speciesIndex].common);
-	}, [linkedSpectro]);
+	const speciesIndex = audioFile.speciesIndex;
+	const [displaySpecies, setDisplaySpecies] = useState(speciesList[speciesIndex].common);
 
 	return (
 		<div ref={modalRef} className={styles.modal}>
@@ -232,32 +223,18 @@ export function ModalSpectrogram({
 			
 			<div className={styles.modalControls}>
 				<div>
-					<input 
-						type="text" 
-						value={localLabel}
-						onChange={(e) => setLocalLabel(e.target.value)}
-						placeholder="Enter label"
-						onFocus={() => setIsModalInputFocused(true)}
-						onBlur={() => setIsModalInputFocused(false)}
-						// Add keydown event handler directly to the input
-						onKeyDown={(e) => {
-							if (e.key === "Enter") {
-								e.preventDefault();
-								
-								// Apply the label
-								if (linkedSpectro && localLabel.trim() !== "") {
-									updateAudioFile(fullIndex, 'speciesIndex', Number(localLabel)); // figure out what to do here
-									setCurrentLabel(localLabel);
-									
-									// Update modal
-									toggleModal();
-									setTimeout(() => {
-										toggleModal();
-									}, 10);
-								}
-							}
-						}}
-					/>
+					<select
+						id="species-select"
+						value={speciesIndex}
+						onChange={(event) => updateAudioFile(fullIndex, "speciesIndex", Number(event.target.value))}
+					>
+						<option value="">--Please choose an option--</option>
+						{speciesList.map((species, index) => (
+						<option key={index} value={index}>
+							{species.common}
+						</option>
+						))}
+					</select>
 				</div>
 				<button onClick={(e)=>{
 					toggleModal();
