@@ -88,6 +88,7 @@ export default function VerifyPage() {
 	// Recordkeeping
 	const [audioFiles, setAudioFiles] = useState<ProcessedAnnotation[]>([]); // all audio files retrieved from database
 	const [audioURLs, setAudioURLs] = useState<Record<number, string>>({}) // uses audioFiles index as key
+	const [preloadedAudioURLs, setPreloadedAudioURLs] = useState<Record<number, string>>({}) // uses audioFiles index as key
 	const spectrograms = useRef<SpectroRef[]>([]); // uses currentFiles index
 
 	// Select & Hover
@@ -122,6 +123,10 @@ export default function VerifyPage() {
 	const currentFiles = useMemo(
 		() => audioFiles.slice((currentPage - 1) * FILES_PER_PAGE, Math.min(currentPage * FILES_PER_PAGE, audioFiles.length)
 	), [currentPage, FILES_PER_PAGE]);
+	const nextFiles = useMemo( // specifically for pre-decoding audio files on the next page in the background
+		() => audioFiles.slice(Math.min(currentPage * FILES_PER_PAGE, audioFiles.length), Math.min((currentPage+1) * FILES_PER_PAGE, audioFiles.length)
+	), [currentPage, FILES_PER_PAGE]);
+
 	const numFiles = currentFiles.length;
 	const numRows = Math.ceil(numFiles / COLS); 
 	const numSpots = numRows * COLS; 
@@ -188,7 +193,6 @@ export default function VerifyPage() {
 		_setPlaySpeed((prev) => {
 			const newSpeed = typeof upd === 'function' ? upd(prev) : upd;
 
-			console.log(currentlyPlayingIndex.current);
 			if (currentlyPlayingIndex.current != null) {
 				spectrograms.current[currentlyPlayingIndex.current].setPlaybackRate(newSpeed);
 
@@ -200,7 +204,6 @@ export default function VerifyPage() {
 			return newSpeed;
 		});
 	}, []);
-
 
 	const contextValue: VerifyContextValue = useMemo(() => ({
 		audioFiles, updateAudioFile, audioURLs,
@@ -240,24 +243,54 @@ export default function VerifyPage() {
 		const loadFiles = async () => {
 			Object.entries(audioURLs).forEach(([fullIndex, url]) => {
 				URL.revokeObjectURL(url);
+				delete audioURLs[fullIndex];
 			})
 
-			const newAudioURLs: Record<number, string> = {};
+			const newAudioURLs: Record<number, string> = { ...preloadedAudioURLs };
 			setAudioURLs(newAudioURLs);
 
 			await Promise.all(
 				currentFiles.map(async (file, index) => {
+					const fullIndex = file.index;
+					if (newAudioURLs[fullIndex]) {
+						//console.log(fullIndex, "file was preloaded");
+						return;
+					}; 
+
 					const audioFile = await window.ipc.invoke('read-file-for-verification', file.filePath);
 					const decoded = await decodeAudio(audioFile.data);
 					const cropped = cropAudio(decoded, file.startOffset, file.endOffset, file.filePath);
 					const blob = audioBufferToWavBlob(cropped);
 					const url = URL.createObjectURL(blob);
-					
-					const fullIndex = file.index;
-					newAudioURLs[fullIndex] = url;
 
 					if (!isCancelled) {
-						setAudioURLs(newAudioURLs);
+						setAudioURLs((prev) => {
+							prev[fullIndex] = url;
+							return prev;
+						});
+					}
+				})
+			);
+
+			const newPreloadedAudioURLs: Record<number, string> = {};
+			setPreloadedAudioURLs(newPreloadedAudioURLs);
+
+			await Promise.all(
+				nextFiles.map(async (file, index) => {
+					const fullIndex = file.index;
+					//if (newPreloadedAudioURLs[fullIndex]) return;
+
+					const audioFile = await window.ipc.invoke('read-file-for-verification', file.filePath);
+					const decoded = await decodeAudio(audioFile.data);
+					const cropped = cropAudio(decoded, file.startOffset, file.endOffset, file.filePath);
+					const blob = audioBufferToWavBlob(cropped);
+					const url = URL.createObjectURL(blob);
+
+					if (!isCancelled) {
+						setPreloadedAudioURLs((prev) => {
+							prev[fullIndex] = url;
+							return prev;
+						});
 					}
 				})
 			);
