@@ -3,13 +3,11 @@ import { createPortal } from 'react-dom'
 import Head from 'next/head'
 import Image from 'next/image'
 import styles from './verify.module.css'
-import WaveSurfer from 'wavesurfer.js';
-import SpectrogramPlugin from 'wavesurfer.js/dist/plugins/spectrogram';
 import { audioBufferToWavBlob, cropAudio, decodeAudio } from '../utils/audio-decode'
 import { Species } from '../../main/schema'
 import arrayEqual from 'array-equal'
 import { createContext } from 'react'
-import { ModalSpectrogram, Spectrogram } from './verify.spectrogram'
+import { ModalSpectrogram, Spectrogram, SpectroRef } from './verify.spectrogram'
 
 // CONSTANTS //
 // modification in Settings page to be implemented
@@ -36,43 +34,7 @@ export enum SpectroStatus { // 3 spectrogram states (default: Unverified)
 	YES = "YES",
 	NO = "NO",
 }
-interface SpectroRef { // public Spectrogram properties & functions
-	id: number,
-	fullIndex: number,
-	wavesurferRef: React.RefObject<WaveSurfer>;
-	containerRef: React.RefObject<HTMLElement>;
-	status: string;
-	isSelected: boolean;
-	isLoaded: boolean;
-	filePath: string;
-	url: string;
-	speciesIndex: number;
-	setSpeciesIndex: (species: string) => void;
-	setStatus: (status) => void;
-	setIsSelected: (selected) => void;
-	setIsHovered: (hovered) => void;
-	playPause: () => boolean;
-	setPlaybackRate: (number) => void;
-	play: () => void;
-	pause: () => void;
-	setTime: (number) => void;
-	getTime: () => number;
-	skip: (number) => void;
-	// add properties and functions here if you want them to be accessible from outside the Spectrogram
-}
-interface SpectroProps { // Spectrogram parameters
-	id : number,
-	fullIndex : number,
-	url : string,
-	status: string,
-	speciesIndex: number,
-	onMouseEnter : ()=>void, 
-	onMouseLeave : ()=>void,
-	onClick : (e)=>void,
-	linkedSpectro? : SpectroRef,
-	filePath? : string,
-	// modify this when you want to add a new parameter to Spectrogram / ModalSpectrogram
-}
+
 interface SaveData { // JSON data structure for save files
 	page: number,
 	columns: number,
@@ -82,7 +44,7 @@ interface SaveData { // JSON data structure for save files
 		species: number;
 	}[]
 }
-interface ProcessedAnnotation { // Audio file information
+export interface ProcessedAnnotation { // Audio file information
 	index: number;
 	filePath: string;
 	status: SpectroStatus;
@@ -101,11 +63,11 @@ interface VerifyContextValue {
         field: K, 
         value: ProcessedAnnotation[K]
     ) => void;
-	audioURLs: Readonly<React.MutableRefObject<Record<number, string>>>;
+	audioURLs: Record<number, string>;
 	selected: number[];
 	updateSelected: (arr: number[]) => number[] | void;
 	hovered: number | null;
-	updateHovered: (i: number | null) => number | null;
+	setHovered: (upd: number | ((prev: number) => number)) => void;
 	playSpeed: number;
 	setPlaySpeed: (upd: number | ((prev: number) => number)) => void;
 	speciesList: Species[];
@@ -125,12 +87,12 @@ export default function VerifyPage() {
 	
 	// Recordkeeping
 	const [audioFiles, setAudioFiles] = useState<ProcessedAnnotation[]>([]); // all audio files retrieved from database
-	const audioURLs = useRef<Record<number, string>>({})
-	const spectrograms = useRef<SpectroRef[]>([]); // array of Spectrogram components on screen
+	const [audioURLs, setAudioURLs] = useState<Record<number, string>>({}) // uses audioFiles index as key
+	const spectrograms = useRef<SpectroRef[]>([]); // uses currentFiles index
 
 	// Select & Hover
 	const [selected, _setSelected] = useState([]); // selected spectrogram(s), currentFiles indices
-	const [hovered, _setHovered] = useState(null); // hovered spectrogram, currentFiles indices
+	const [hovered, setHovered] = useState(null); // hovered spectrogram, currentFiles indices
 	const firstSelected = selected[0];
 	const lastSelected = selected[selected.length-1];
 	
@@ -139,7 +101,7 @@ export default function VerifyPage() {
 	const [isModalInputFocused, setIsModalInputFocused] = useState(false);
 
 	// Playback
-	const currentlyPlayingIndex = useRef(null); // spectrogram that is currently playing sound
+	const currentlyPlayingIndex = useRef(null); // spectrogram that is currently playing sound (currentFiles index)
 	const [skipInterval, setSkipInterval] = useState(DEFAULT_SKIPINTERVAL);
 	const [playSpeed, _setPlaySpeed] = useState(DEFAULT_PLAYSPEED);
 
@@ -160,8 +122,10 @@ export default function VerifyPage() {
 	const [COLS, setCOLS] = useState(DEFAULT_COLUMNS);
 	const FILES_PER_PAGE = ROWS*COLS;
 	const totalPages = Math.ceil(audioFiles.length / FILES_PER_PAGE);
-	// Dimensions (this page)
-	const currentFiles = audioFiles.slice((currentPage - 1) * FILES_PER_PAGE, Math.min(currentPage * FILES_PER_PAGE, audioFiles.length));
+
+	const currentFiles = useMemo(
+		() => audioFiles.slice((currentPage - 1) * FILES_PER_PAGE, Math.min(currentPage * FILES_PER_PAGE, audioFiles.length)
+	), [currentPage, FILES_PER_PAGE]);
 	const numFiles = currentFiles.length;
 	const numRows = Math.ceil(numFiles / COLS); 
 	const numSpots = numRows * COLS; 
@@ -169,28 +133,21 @@ export default function VerifyPage() {
 
 	// Wrapped Setters
 
-	const updateAudioFile = useCallback((i, field, value) => {
-		setAudioFiles(prevItems => {
-			const newItems = [...prevItems]; // make a copy
-			newItems[i][field] = value; 
-			return newItems;				 // set new array
-		});
-	}, [])
+	const updateAudioFile = useCallback((i: number, field: keyof ProcessedAnnotation, value: any) => {
+		setAudioFiles(prevItems =>
+			prevItems.map((item, index) => index === i ? { ...item, [field]: value } : item)
+		);
+	}, []);
 
 	const updateSelected = useCallback((arr) => { // wraps setSelected
 		if (!isModalInputFocused) {
 			if (arrayEqual(arr, selected)) {return;}
 
 			for (let i = 0; i < selected.length; i++) { // deselect current
-				spectrograms.current[selected[i]].setIsSelected(false);
 				spectrograms.current[selected[i]].pause();
 			}
 			
 			_setSelected(arr);
-
-			for (let i = 0; i < arr.length; i++) {
-				spectrograms.current[arr[i]].setIsSelected(true);
-			}
 			
 			if (arr.length == 1 && showModal) { // reselect using arrow keys during modal
 				toggleModal();
@@ -200,16 +157,6 @@ export default function VerifyPage() {
 			return arr;
 		}
 	}, [isModalInputFocused, showModal, selected]);
-
-	const updateHovered = useCallback((i) => { // wraps setHovered
-		if (!showModal) {
-			if (hovered != null) { spectrograms.current[hovered].setIsHovered(false); }
-			_setHovered(i);
-			if (i != null && i >= 0) { spectrograms.current[i].setIsHovered(true); }
-			
-			return i;
-		}
-	}, [hovered, spectrograms]);
 
 	const toggleModal = useCallback(() => {	// wraps setShowModal
 		if (selected.length != 0) {
@@ -230,10 +177,14 @@ export default function VerifyPage() {
 	const setPlaySpeed = useCallback((upd) => {
 		_setPlaySpeed((prev) => {
 			const newSpeed = typeof upd === 'function' ? upd(prev) : upd;
-			
-			// update currently playing spectrogram
+
+			console.log(currentlyPlayingIndex.current);
 			if (currentlyPlayingIndex.current != null) {
-				spectrograms.current[currentlyPlayingIndex.current].wavesurferRef.current.setPlaybackRate(newSpeed);
+				spectrograms.current[currentlyPlayingIndex.current].setPlaybackRate(newSpeed);
+
+				if (showModal) {
+					spectrograms.current[-1].setPlaybackRate(newSpeed);
+				}
 			}
 		
 			return newSpeed;
@@ -244,7 +195,7 @@ export default function VerifyPage() {
 	const contextValue: VerifyContextValue = useMemo(() => ({
 		audioFiles, updateAudioFile, audioURLs,
 		selected, updateSelected,
-		hovered, updateHovered,
+		hovered, setHovered,
 		playSpeed, setPlaySpeed,
 		speciesList,
 		toggleModal,
@@ -253,7 +204,7 @@ export default function VerifyPage() {
 	}), [
 		audioFiles, updateAudioFile, audioURLs,
 		selected, updateSelected,
-		hovered, updateHovered,
+		hovered, setHovered,
 		playSpeed, setPlaySpeed,
 		speciesList,
 		toggleModal,
@@ -276,16 +227,16 @@ export default function VerifyPage() {
 
 	// decode new audio files on page update
 	useEffect(() => {
-		let isCancelled = false; 
+		let isCancelled = false;
 
 		const loadFiles = async () => {
-			Object.entries(audioURLs.current).forEach(([fullIndex, url]) => {
+			Object.entries(audioURLs).forEach(([fullIndex, url]) => {
 				URL.revokeObjectURL(url);
-				delete audioURLs.current[fullIndex];
 			})
 
-			// Build URLs and Record in one step
 			const newAudioURLs: Record<number, string> = {};
+			setAudioURLs(newAudioURLs);
+
 			await Promise.all(
 				currentFiles.map(async (file, index) => {
 					const audioFile = await window.ipc.invoke('read-file-for-verification', file.filePath);
@@ -296,12 +247,12 @@ export default function VerifyPage() {
 					
 					const fullIndex = file.index;
 					newAudioURLs[fullIndex] = url;
+
+					if (!isCancelled) {
+						setAudioURLs(newAudioURLs);
+					}
 				})
 			);
-
-			if (!isCancelled) {
-				audioURLs.current = newAudioURLs;
-			}
 		};
 
 		loadFiles();
@@ -309,9 +260,9 @@ export default function VerifyPage() {
 		// cleanup function
 		return () => {
 			isCancelled = true;
-			Object.entries(audioURLs.current).forEach(([fullIndex, url]) => {
+			Object.entries(audioURLs).forEach(([fullIndex, url]) => {
 				URL.revokeObjectURL(url);
-				delete audioURLs.current[fullIndex];
+				delete audioURLs[fullIndex];
 			})
 		};
 	}, [currentFiles]);
@@ -319,7 +270,7 @@ export default function VerifyPage() {
 	// update currently playing spectrogram's playSpeed
 	useEffect(() => {
 		if (currentlyPlayingIndex.current != null) {
-			spectrograms.current[currentlyPlayingIndex.current].wavesurferRef.current.setPlaybackRate(playSpeed);
+			spectrograms.current[currentlyPlayingIndex.current].setPlaybackRate(playSpeed);
 		}
 	}, [playSpeed])
 
@@ -383,255 +334,6 @@ export default function VerifyPage() {
 		setCurrentPage(spawnPage);
 	}
 
-	// SPECTROGRAMS //
-	/*
-	const Spectrogram = useCallback(forwardRef<SpectroRef, SpectroProps>(({ 
-		id, // -1 if modal 
-		fullIndex,
-		url: url, 
-		status: _status,
-		speciesIndex: _speciesIndex,
-		onMouseEnter, 
-		onMouseLeave,
-		onClick,
-		linkedSpectro=null,
-		filePath: filePath=null,
-	}, ref) => {
-		const wavesurferRef = useRef<WaveSurfer>(null);
-		const containerRef = useRef(null);
-		const innerRef = useRef(null);
-		const [speciesIndex, setSpeciesIndex] = useState(_speciesIndex);
-		const [status, setStatus] = useState(_status);
-		const [isSelected, setIsSelected] = useState(false);
-		const [isHovered, setIsHovered] = useState(false);
-		const [isLoaded, setIsLoaded] = useState(false);
-		let isDestroyed = false;
-		
-		useEffect(() => { // species state could be redundant if we just keep it as a prop? 
-			if (speciesIndex !== _speciesIndex) {
-				setSpeciesIndex(_speciesIndex);
-			}
-		}, [_speciesIndex]);
-
-		const updateSpecies = (newSpecies) => {
-			setSpeciesIndex(newSpecies);
-			if (fullIndex !== -1) {
-				updateAudioFile(fullIndex, 'species', newSpecies);
-			}
-		};
-
-		const setPlaybackRate = (playSpeed) => {
-			wavesurferRef.current.setPlaybackRate(playSpeed);
-		}
-		
-		const playPause = () => {
-			setPlaybackRate(playSpeed)
-			wavesurferRef.current.playPause();
-			return wavesurferRef.current.isPlaying();
-		}
-
-		useImperativeHandle(ref, ()=>{ // exposed functions
-			return { // SpectroRef
-				id,
-				fullIndex,
-				wavesurferRef,
-				containerRef,
-				status,
-				isSelected,
-				isLoaded,
-				filePath,
-				url,
-				speciesIndex,
-				setSpeciesIndex: updateSpecies,
-				setStatus,
-				setIsSelected,
-				setIsHovered,
-				toggleSelected: (S) => { setIsSelected(S); },
-				setPlaybackRate,
-				playPause,
-				play : () => { wavesurferRef.current.play(); },
-				pause : () => { wavesurferRef.current.pause(); },
-				setTime: (time) => { wavesurferRef.current.setTime(time) },
-				getTime: () => { return wavesurferRef.current.getCurrentTime() },
-				skip: (time) => {wavesurferRef.current.skip(time) },
-			}
-		});
-
-		useEffect(() => { // initialize
-			setStatus(_status);
-			setIsLoaded(false);
-
-			wavesurferRef.current = WaveSurfer.create({	
-				container: innerRef.current,
-				height: 0,
-				fillParent: true,
-				progressColor: 'white',
-				cursorColor: 'yellow',
-				cursorWidth: 2,
-				sampleRate: 16000,
-			});
-			wavesurferRef.current.registerPlugin(
-				SpectrogramPlugin.create({
-					colorMap: 'roseus',
-					scale: "linear",
-					fftSamples: (id==-1) ? 512 : 64, // <<< (SPECTROGRAM QUALITY)	zoomed : unzoomed
-					labels: (id==-1),
-					height: (id==-1) ? 256 : 90, 
-				}),
-			)
-
-			wavesurferRef.current.load(url).catch((e) => {
-				if (e.name === "AbortError" && isDestroyed) {
-					console.log("WaveSurfer load aborted cleanly");
-				} else {
-					console.error("WaveSurfer load failed:", e);
-				}
-			});
-
-			wavesurferRef.current.on('ready', function() {
-				document.getElementById(`loading-spinner-${id}`).style.display = 'none';
-
-				if (linkedSpectro) {
-					wavesurferRef.current.setTime(linkedSpectro.getTime());
-					wavesurferRef.current.on("timeupdate", (progress) => {
-						linkedSpectro.setTime(progress);
-					});
-				}
-				setIsLoaded(true);
-			});
-			
-			return () => { 
-				isDestroyed = true;
-				wavesurferRef.current.unAll();
-				try {
-					wavesurferRef.current?.destroy();
-				} catch (e) {
-					if (e instanceof DOMException && e.name === "AbortError") {
-						console.warn("WaveSurfer load aborted cleanly");
-					} else {
-						console.error("WaveSurfer destroy failed:", e);
-					}
-				}
-			};
-		}, [url]);
-	
-		return (
-			<div 
-				key={id} 
-				className={`
-					${(id==-1) ? styles.waveContainerModal : styles.waveContainer} 
-					${isLoaded && (
-						(status==SpectroStatus.YES && styles.greenOutline) || 
-						(status==SpectroStatus.NO && styles.redOutline)
-					)}
-					${isLoaded && (isSelected ? styles.selectOutline : styles.unselectOutline)}
-					${isLoaded && (isHovered ? styles.hoverOutline : styles.unhoverOutline)}
-				`}
-				ref={containerRef}
-				onMouseEnter={onMouseEnter}
-				onMouseLeave={onMouseLeave}
-				onClick={onClick}
-				style={{ position: "relative" }}
-			>
-				{id!=-1 && (<div className={styles.indexOverlay}>{fullIndex+1}</div>)} 
-				{id!=-1 && (<div className={styles.filePathOverlay}>{filePath}</div>)} 	
-				<div className={styles.speciesOverlay}>{speciesList[speciesIndex].common}</div>
-				
-				
-				<div id={`loading-spinner-${id}`} className={styles.waveLoadingCircle}></div>
-				<div 
-					id={`waveform-${id}`} 
-					ref={innerRef}
-					style={{ width: "100%", height: "256px"}}
-					onContextMenu={(e) => { e.preventDefault(); if (isSelected) playPause(); }}
-				></div>
-			</div>	
-		)
-	}), [speciesList]);
-	
-	const ModalSpectrogram = useCallback(forwardRef<SpectroRef, SpectroProps&{toggleModal:()=>void}>(({ // detailed view of single spectrogram
-		id, // -1 if modal 
-		fullIndex=-1,
-		url, 
-		onMouseEnter, 
-		onMouseLeave,
-		onClick,
-		linkedSpectro = spectrograms.current[firstSelected], // update linked spectrogram whenever user edits the modal one
-		toggleModal,
-	}, ref) => {
-		const modalRef = useRef(null);
-
-		// Update label on change
-		const [localLabel, setLocalLabel] = useState(speciesList[linkedSpectro.speciesIndex].common);
-		const [displaySpecies, setDisplaySpecies] = useState(speciesList[linkedSpectro.speciesIndex].common);
-	
-		useEffect(() => {
-			setLocalLabel(speciesList[linkedSpectro.speciesIndex].common);
-			setDisplaySpecies(speciesList[linkedSpectro.speciesIndex].common);
-		}, [linkedSpectro]);
-
-		return (
-			<div ref={modalRef} className={styles.modal}>
-				<div className={styles.modalHeader}>
-					<div>ID: {linkedSpectro?.fullIndex + 1}</div>
-					<div>File Path: {linkedSpectro?.filePath}</div>
-					<div>Species: {displaySpecies}</div>
-				</div>		
-
-				<Spectrogram 
-					id={-1} 
-					fullIndex={fullIndex}
-					url={url} 
-					status={linkedSpectro.status}
-					speciesIndex={linkedSpectro.speciesIndex}
-					onMouseEnter={onMouseEnter}
-					onMouseLeave={onMouseLeave}
-					onClick={onClick}
-					linkedSpectro={linkedSpectro}
-					ref={ref}
-				/>
-				
-				<div className={styles.modalControls}>
-					<div>
-						<input 
-							type="text" 
-							value={localLabel}
-							onChange={(e) => setLocalLabel(e.target.value)}
-							placeholder="Enter label"
-							onFocus={() => setIsModalInputFocused(true)}
-							onBlur={() => setIsModalInputFocused(false)}
-							// Add keydown event handler directly to the input
-							onKeyDown={(e) => {
-								if (e.key === "Enter") {
-									e.preventDefault();
-									
-									// Apply the label
-									if (linkedSpectro && localLabel.trim() !== "") {
-										linkedSpectro.setSpeciesIndex(localLabel);
-										if (spectrograms.current[-1]) {
-											spectrograms.current[-1].setSpeciesIndex(localLabel);
-										}
-										setCurrentLabel(localLabel);
-										
-										// Update modal
-										toggleModal();
-										setTimeout(() => {
-											toggleModal();
-										}, 10);
-									}
-								}
-							}}
-						/>
-					</div>
-					<button onClick={(e)=>{
-						toggleModal();
-						e.stopPropagation();
-					}}>Close</button>
-				</div>
-			</div>
-		);
-	}), [selected, currentLabel, setCurrentLabel]); // Add dependencies to ensure callback updates	
-	*/
 
 	//// ================================================================================================================
 	//// CONTROLS
@@ -677,20 +379,14 @@ export default function VerifyPage() {
 	const moveSelectionDown = () => 	{ if (spectrograms.current.length == 0) return; updateSelected([selected.length==0 ? 0 : Math.min(lastSelected + COLS, numFiles-1, numSpots-COLS+(lastSelected % COLS))]); }
 	const moveSelectionLeft = () => 	{ if (spectrograms.current.length == 0) return; updateSelected([selected.length==0 ? 0 : Math.max(lastSelected - 1, 0)]); }
 	const moveSelectionRight = () => 	{ if (spectrograms.current.length == 0) return; updateSelected([selected.length==0 ? 0 : Math.min(lastSelected + 1, numFiles-1)]); }
-	const setSpectroStatus = (status) => { 
-		for (let i = 0; i < selected.length; i++) {
-			updateAudioFile(spectrograms.current[selected[i]].fullIndex, "status", status)
-			spectrograms.current[selected[i]].setStatus(status);
-		}
-		if (showModal) {spectrograms.current[-1].setStatus(status);}
-	}
+	const setSpectroStatus = (status) => { selected.forEach((i) => {updateAudioFile(spectrograms.current[i].fullIndex, "status", status);})}
 	const playPauseSelection = () => { 
 		if (selected.length == 0) { return }; // null
-		if (currentlyPlayingIndex.current != null && currentlyPlayingIndex.current != selected[0]) { spectrograms.current[currentlyPlayingIndex.current].pause(); }; // pause existing
-		const id = showModal ? -1 : selected[0];
+		if (currentlyPlayingIndex.current != null && currentlyPlayingIndex.current != firstSelected) { spectrograms.current[currentlyPlayingIndex.current].pause(); }; // pause existing
+		const id = showModal ? -1 : firstSelected;
 
 		const isPlaying = spectrograms.current[id].playPause(); // play/pause selected
-		currentlyPlayingIndex.current = (isPlaying ? selected : null);
+		currentlyPlayingIndex.current = (isPlaying ? id : null);
 	}
 	const skipBack = () => { if (selected.length != 0) {spectrograms.current[showModal ? -1 : selected[0]].skip(-skipInterval);}; }
 	const skipForward = () => { if (selected.length != 0) {spectrograms.current[showModal ? -1 : selected[0]].skip(skipInterval);}; } 
@@ -727,7 +423,7 @@ export default function VerifyPage() {
 	const applyLabelToSelected = () => {
 		if (selected.length > 0 && currentLabel.trim() !== "") {
 			for (let i = 0; i < selected.length; i++) {
-				spectrograms.current[selected[i]].setSpeciesIndex(currentLabel);
+				updateAudioFile(spectrograms.current[selected[i]].fullIndex, "speciesIndex", currentLabel)
 			}
 			setIsLabelingMode(false);
 		}
@@ -1089,9 +785,6 @@ export default function VerifyPage() {
 							)}
 						</div>
 
-						<div>
-
-						</div>
 						{isLabelingMode && selected.length > 0 && (
 							<div className={styles.labelingIndicator}>
 								<p>Labeling: {currentLabel}</p>
@@ -1109,18 +802,20 @@ export default function VerifyPage() {
 
 					{audioFiles.length > 0 && (
 						currentFiles.length > 0 ? (
-							<div id="grid" key={forceReloadKey} className={styles.grid} style={{
+							<div id="grid" key={forceReloadKey} className=	{styles.grid} style={{
 								gridTemplateColumns: `repeat(${COLS}, 1fr)`,
 								gridTemplateRows: `repeat(${ROWS}, auto)`,
 							}}>
-								{currentFiles.map(({index, filePath, url, status, speciesIndex}, i) => {
+								{currentFiles.map(({index}, i) => {
 									return (
 										<Spectrogram
 											key={i}
 											id={i} 
 											fullIndex={index}
+											audioUrl={audioURLs[index]}
+											audioFile={audioFiles[index]}
 											linkedSpectro={null}
-
+											ref={(el) => { if (el) spectrograms.current[i] = el; }}
 										/>
 									)
 								})}
@@ -1138,8 +833,11 @@ export default function VerifyPage() {
 								<ModalSpectrogram
 									key={-1}
 									id={-1} 
-									fullIndex={-1}
+									fullIndex={spectrograms.current[firstSelected].fullIndex}
+									audioUrl={audioURLs[spectrograms.current[firstSelected].fullIndex]}
+									audioFile={audioFiles[spectrograms.current[firstSelected].fullIndex]}
 									linkedSpectro={spectrograms.current[firstSelected]}
+									ref={(el) => { if (el) spectrograms.current[-1] = el; }}
 								/>,
 								document.body
 							)}

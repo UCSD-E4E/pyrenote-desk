@@ -1,20 +1,45 @@
 import styles from './verify.module.css'
-import { useContext, useEffect, useRef, useState } from "react";
-import { SpectroStatus, VerifyContext } from "./verify";
+import { memo, Ref, useContext, useEffect, useImperativeHandle, useRef, useState } from "react";
+import { ProcessedAnnotation, SpectroStatus, VerifyContext } from "./verify";
 import WaveSurfer from "wavesurfer.js";
 import SpectrogramPlugin from "wavesurfer.js/dist/plugins/spectrogram";
+
+export interface SpectroRef { // public Spectrogram properties & functions
+	id: number,
+	fullIndex: number,
+	containerRef: React.RefObject<HTMLElement>,
+	playPause: () => boolean,
+	pause: () => void,
+	setPlaybackRate: (number) => void,
+	skip: (number) => void,
+	setTime: (number) => void,
+	getTime: () => number,
+	// add properties and functions here if you want them to be accessible from outside the Spectrogram
+}
+
+export interface SpectroProps {
+	id: number,
+	fullIndex: number,
+	audioFile: ProcessedAnnotation,
+	audioUrl: string,
+	linkedSpectro: SpectroRef,
+	ref: any, 
+}
 
 export function Spectrogram({
 	id, // index in currentFiles (in-page index)
 	fullIndex, // index in audioFiles (global index)
+	audioFile,
+	audioUrl,
 	linkedSpectro,
-}) {
+	ref,
+}: SpectroProps) {
 	const context = useContext(VerifyContext);
 	const {
 		audioFiles, updateAudioFile,
 		audioURLs,
 		selected, updateSelected,
-		hovered, updateHovered,
+		hovered, setHovered,
 		playSpeed, setPlaySpeed,
 		speciesList,
 		toggleModal,
@@ -26,25 +51,21 @@ export function Spectrogram({
 	const containerRef = useRef(null);
 	const innerRef = useRef(null);
 
-	const me = audioFiles[fullIndex];
-	const url = audioURLs[fullIndex];
-	const speciesIndex = me.speciesIndex;
-	const status = me.status;
-	const filePath = me.filePath;
-	const isSelected = (selected == id);
+	const speciesIndex = audioFile.speciesIndex;
+	const status = audioFile.status;
+	const filePath = audioFile.filePath;
+	const isSelected = (selected.includes(id));
 	const isHovered = (hovered == id);
 
 	let isDestroyed = false;
 	const [isLoaded, setIsLoaded] = useState(false);
 
-	const playPause = () => {
-		wavesurferRef.current.setPlaybackRate(playSpeed);
-		wavesurferRef.current.playPause();
-		return wavesurferRef.current.isPlaying();
-	}
-
 	useEffect(() => { // initialize
 		setIsLoaded(false);
+
+		if (!audioUrl) {
+			return;
+		}
 
 		wavesurferRef.current = WaveSurfer.create({	
 			container: innerRef.current,
@@ -66,7 +87,7 @@ export function Spectrogram({
 		)
 
 		// on load
-		wavesurferRef.current.load(url).catch((e) => {
+		wavesurferRef.current.load(audioUrl).catch((e) => {
 			if (e.name === "AbortError" && isDestroyed) {
 				console.log("WaveSurfer load aborted cleanly");
 			} else {
@@ -100,7 +121,31 @@ export function Spectrogram({
 				}
 			}
 		};
-	}, [url]);
+	}, [audioUrl]);
+
+	const playPause = () => {
+		console.log("playpause")
+		wavesurferRef.current.setPlaybackRate(playSpeed);
+		wavesurferRef.current.playPause();
+		return wavesurferRef.current.isPlaying();
+	}
+	const pause = () => { wavesurferRef.current.pause(); }
+	const skip = (i) => { wavesurferRef.current.skip(i); }
+	const setPlaybackRate = (i) => { wavesurferRef.current.setPlaybackRate(i); }
+
+	useImperativeHandle(ref, () => {
+		return {
+			id,
+			fullIndex,
+			containerRef, // for box selection
+			playPause,
+			pause,
+			skip,
+			setPlaybackRate,
+			setTime: (time) => { wavesurferRef.current.setTime(time) },
+			getTime: () => { return wavesurferRef.current.getCurrentTime() },
+		}
+	});
 	
 	return (
 		<div 
@@ -115,8 +160,8 @@ export function Spectrogram({
 				${isLoaded && (isHovered ? styles.hoverOutline : styles.unhoverOutline)}
 			`}
 			ref={containerRef}
-			onMouseEnter={() => updateHovered(id)}
-			onMouseLeave={() => updateHovered(null)}
+			onMouseEnter={() => setHovered(id)}
+			onMouseLeave={() => setHovered(null)}
 			onClick={(e) => e.stopPropagation()}
 			style={{ position: "relative" }}
 		>
@@ -139,14 +184,17 @@ export function Spectrogram({
 export function ModalSpectrogram({
 	id, // index in currentFiles (in-page index)
 	fullIndex, // index in audioFiles (global index)
+	audioFile,
+	audioUrl,
 	linkedSpectro,
-}) {
+	ref,
+}: SpectroProps) {
 	const context = useContext(VerifyContext);
 	const {
 		audioFiles, updateAudioFile,
 		audioURLs,
 		selected, updateSelected,
-		hovered, updateHovered,
+		hovered, setHovered,
 		playSpeed, setPlaySpeed,
 		speciesList,
 		toggleModal,
@@ -157,26 +205,29 @@ export function ModalSpectrogram({
 	const modalRef = useRef(null);
 
 	// Update label on change
-	const [localLabel, setLocalLabel] = useState(speciesList[linkedSpectro.speciesIndex].common);
-	const [displaySpecies, setDisplaySpecies] = useState(speciesList[linkedSpectro.speciesIndex].common);
+	const [localLabel, setLocalLabel] = useState(speciesList[audioFile.speciesIndex].common);
+	const [displaySpecies, setDisplaySpecies] = useState(speciesList[audioFile.speciesIndex].common);
 
 	useEffect(() => {
-		setLocalLabel(speciesList[linkedSpectro.speciesIndex].common);
-		setDisplaySpecies(speciesList[linkedSpectro.speciesIndex].common);
+		setLocalLabel(speciesList[audioFile.speciesIndex].common);
+		setDisplaySpecies(speciesList[audioFile.speciesIndex].common);
 	}, [linkedSpectro]);
 
 	return (
 		<div ref={modalRef} className={styles.modal}>
 			<div className={styles.modalHeader}>
-				<div>ID: {linkedSpectro?.fullIndex + 1}</div>
-				<div>File Path: {linkedSpectro?.filePath}</div>
+				<div>ID: {fullIndex + 1}</div>
+				<div>File Path: {audioFile?.filePath}</div>
 				<div>Species: {displaySpecies}</div>
 			</div>		
 
 			<Spectrogram 
 				id={-1} 
 				fullIndex={fullIndex}
+				audioUrl={audioUrl}
+				audioFile={audioFile}
 				linkedSpectro={linkedSpectro}
+				ref={ref}
 			/>
 			
 			<div className={styles.modalControls}>
@@ -195,7 +246,6 @@ export function ModalSpectrogram({
 								
 								// Apply the label
 								if (linkedSpectro && localLabel.trim() !== "") {
-									linkedSpectro.setSpeciesIndex(localLabel);
 									updateAudioFile(fullIndex, 'speciesIndex', Number(localLabel)); // figure out what to do here
 									setCurrentLabel(localLabel);
 									
