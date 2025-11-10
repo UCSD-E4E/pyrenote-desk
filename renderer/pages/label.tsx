@@ -314,7 +314,7 @@ const AudioPlayer: React.FC = () => {
     }, 500);
   }, [wavesurfers, index, isNoDisabled]);
 
-  const importFromDB = async (recordings) => {
+  const importFromDB = async (recordings, skippedCount = 0) => {
     console.log("recordings:", recordings);
     // Ensure it's an array
     if (!Array.isArray(recordings)) {
@@ -323,8 +323,15 @@ const AudioPlayer: React.FC = () => {
     }
 
     if (recordings.length == 0) {
-      alert("No recordings found. Try a different filter or upload recordings!");
+      const message = skippedCount > 0 
+        ? `No recordings found. ${skippedCount} file(s) were skipped due to missing or unreadable files. Maybe you forgot to plug in an external drive or the drive label changed from last time?`
+        : "No recordings found. Try a different filter or upload recordings!";
+      alert(message);
       return;
+    }
+
+    if (skippedCount > 0) {
+      alert(`Warning: ${skippedCount} file(s) were skipped due to missing or unreadable files. Maybe you forgot to plug in an external drive or the drive label changed from last time? Loaded ${recordings.length} recording(s).`);
     }
 
     const newWaveSurfers: WaveSurferObj[] = await Promise.all(
@@ -1027,7 +1034,7 @@ const AudioPlayer: React.FC = () => {
           <br />
           <button onClick={ async () => {
             toggleRecordingSelect();
-            const recordings  = await window.api.listRecordingsByFilters({
+            const result  = await window.api.listRecordingsByFilters({
               deployments: selectedDeployments,
               sites: selectedSites,
               recorders: selectedRecorders,
@@ -1035,7 +1042,7 @@ const AudioPlayer: React.FC = () => {
               species: selectedSpecies,
               verifications: selectedVerifications
             });
-            importFromDB(recordings);
+            importFromDB(result.recordings, result.skippedCount);
           }}>Import Selected</button>
           <button onClick={async () => {
             toggleRecordingSelect();
