@@ -694,7 +694,7 @@ export default function VerifyPage() {
 
 					{audioFiles.length > 0 && (
 						currentFiles.length > 0 ? (
-							<div id="grid" key={forceReloadKey} className=	{styles.grid} style={{
+							<div id="grid" key={forceReloadKey} className={styles.grid} style={{
 								gridTemplateColumns: `repeat(${COLS}, 1fr)`,
 								gridTemplateRows: `repeat(${ROWS}, auto)`,
 							}}>
