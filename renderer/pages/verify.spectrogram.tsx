@@ -126,6 +126,7 @@ function SpectrogramComponent({
 	}, [audioUrl]);
 
 	const playPause = () => {
+		console.log(wavesurferRef.current.isPlaying())
 		wavesurferRef.current.setPlaybackRate(playSpeed);
 		wavesurferRef.current.playPause();
 		return wavesurferRef.current.isPlaying();
@@ -163,7 +164,6 @@ function SpectrogramComponent({
 			ref={containerRef}
 			onMouseEnter={() => setHovered(id)}
 			onMouseLeave={() => setHovered(null)}
-			onClick={(e) => e.stopPropagation()}
 			style={{ position: "relative" }}
 		>
 			{id!=-1 && (<div className={styles.indexOverlay}>{fullIndex+1}</div>)} 
@@ -271,7 +271,7 @@ const dropdownStyles: StylesConfig<any, false, GroupBase<any>> = {
 		...base,
 		position: "absolute",
 		top: "4px",
-		right: "6px",
+		left: "40px",
 		zIndex: "10",
 		backgroundColor: "rgba(0, 0, 0, 0.2)",
 		":hover": {
@@ -284,6 +284,16 @@ const dropdownStyles: StylesConfig<any, false, GroupBase<any>> = {
 		minWidth: "50%",
 		maxHeight: "20px",
 		minHeight: "20px",
+	}),
+	menu: (base: any) => ({
+		...base,
+		zIndex: "1000",
+		borderRadius: "8px",
+		backgroundColor: "rgba(0, 0, 0, 0.8)",
+		color: "white",
+		marginTop: '24px',
+		width: '50%',
+		left: '40px',
 	}),
 	option: (base: any, state: any) => ({
 		...base,
@@ -299,16 +309,6 @@ const dropdownStyles: StylesConfig<any, false, GroupBase<any>> = {
 		fontSize: '12px',
 		height: '20px',
 		justifyContent: 'center',
-	}),
-	menu: (base: any) => ({
-		...base,
-		zIndex: "1000",
-		borderRadius: "8px",
-		backgroundColor: "rgba(0, 0, 0, 0.8)",
-		color: "white",
-		marginTop: '24px',
-		width: '50%',
-		right: '6px',
 	}),
 	singleValue: (base: any) => ({
 		...base,

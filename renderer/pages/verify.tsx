@@ -544,7 +544,7 @@ export default function VerifyPage() {
 					className={styles.container} 
 					ref={containerRef}
 					onMouseMove={(e) => {if (!showModal) {handleMouseMove(e)}}}
-					onMouseDown={(e) => {if (!showModal) {e.preventDefault(); handleMouseDown(e)}}}
+					onMouseDown={(e) => {if (!showModal) {handleMouseDown(e)}}}
 					onMouseUp={(e) => {if (!showModal) {handleMouseUp()}}}
 					style={{ userSelect: 'none' }}
 				>
@@ -716,7 +716,7 @@ export default function VerifyPage() {
 											audioFile={audioFiles[index]}
 											linkedSpectro={null}
 											ref={refCallbacks[i]}
-											isHovered={hovered == index}
+											isHovered={hovered == i}
 										/>
 									)
 								})}
