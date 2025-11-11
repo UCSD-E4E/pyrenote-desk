@@ -29,7 +29,7 @@ export interface SpectroProps {
 	isHovered: boolean,
 }
 
-export function Spectrogram({
+function SpectrogramComponent({
 	id, // index in currentFiles (in-page index)
 	fullIndex, // index in audioFiles (global index)
 	audioFile,
@@ -49,8 +49,6 @@ export function Spectrogram({
 		toggleModal,
 		isModalInputFocused, setIsModalInputFocused,
 	} = context;
-
-	console.log("changed")
 
 	const wavesurferRef = useRef<WaveSurfer>(null);
 	const containerRef = useRef(null);
@@ -188,6 +186,22 @@ export function Spectrogram({
 		</div>	
 	)
 }
+
+export const Spectrogram = memo(SpectrogramComponent, (prev, next) => {
+	// Only rerender when rendering-relevant props change. Ignore `ref` prop identity.
+	if (prev.id !== next.id) return false;
+	if (prev.fullIndex !== next.fullIndex) return false;
+	if (prev.audioUrl !== next.audioUrl) return false;
+	if (prev.isHovered !== next.isHovered) return false;
+	if (prev.linkedSpectro !== next.linkedSpectro) return false;
+	// Compare used fields of audioFile
+	const p = prev.audioFile;
+	const n = next.audioFile;
+	if (p.speciesIndex !== n.speciesIndex) return false;
+	if (p.status !== n.status) return false;
+	if (p.filePath !== n.filePath) return false;
+	return true;
+});
 
 export function ModalSpectrogram({
 	id, // index in currentFiles (in-page index)

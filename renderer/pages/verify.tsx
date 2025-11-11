@@ -700,6 +700,13 @@ export default function VerifyPage() {
 								gridTemplateRows: `repeat(${ROWS}, auto)`,
 							}}>
 								{currentFiles.map(({index}, i) => {
+									if (!(spectrograms as any)._refCallbacks) {
+										(spectrograms as any)._refCallbacks = {};
+									}
+									const refCallbacks = (spectrograms as any)._refCallbacks as Record<number, (el: any) => void>;
+									if (!refCallbacks[i]) {
+										refCallbacks[i] = (el) => { if (el) spectrograms.current[i] = el; };
+									}
 									return (
 										<Spectrogram
 											key={i}
@@ -708,7 +715,7 @@ export default function VerifyPage() {
 											audioUrl={audioURLs[index]}
 											audioFile={audioFiles[index]}
 											linkedSpectro={null}
-											ref={(el) => { if (el) spectrograms.current[i] = el; }}
+											ref={refCallbacks[i]}
 											isHovered={hovered == index}
 										/>
 									)
