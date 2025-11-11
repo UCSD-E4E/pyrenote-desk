@@ -62,7 +62,7 @@ function createDatabase() {
   } else {
     const port = process.argv[2];
     await mainWindow.loadURL(`http://localhost:${port}/home`);
-    //mainWindow.webContents.openDevTools(); //ensure that developer console opens on startup
+    mainWindow.webContents.openDevTools(); //ensure that developer console opens on startup
   }
 })();
 
@@ -346,6 +346,25 @@ ipcMain.handle("saveMultipleRecordings", async (_event, { files, deploymentId, d
   }
   db.close();
   return { skippedCount };
+});
+
+ipcMain.handle("run-script", async () => {
+
+  const python = "python"; 
+  const script = path.join(process.cwd(), "pyfiles/acoustic-multiclass-training/inference.py");
+
+  return new Promise<string>((resolve, reject) => {
+    // Pass DB path as a CLI argument
+    execFile(
+      python,
+      [script, "--db-path", selectedDbPath],
+      //{ env: { ...process.env } },  // add env if needed? would this prevent us from having to activate venv before running yarn && yarn dev?
+      (error, stdout, stderr) => {
+        if (error) return reject(stderr || error.message);
+        resolve(stdout ?? "");
+      }
+    );
+  });
 });
 
 
