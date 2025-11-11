@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 
 // custom hook to be used in verify page
 
@@ -18,44 +18,76 @@ interface UseBoxSelectionProps {
 	containerRef: React.RefObject<HTMLElement>;
 	spectrograms: React.MutableRefObject<SpectrogramItem[]>;
 	updateSelected: (selectedIds: number[]) => void;
+	selectionRectRef: React.RefObject<HTMLDivElement>;
 }
 
 export function useBoxSelection({
 	containerRef,
 	spectrograms,
 	updateSelected,
+	selectionRectRef,
 }: UseBoxSelectionProps) {
-	const [isSelecting, setIsSelecting] = useState(false);
-	const [rectStart, setRectStart] = useState<{ x: number; y: number } | null>(null);
-	const [rect, setRect] = useState<Rect | null>(null);
-
-	const containerLeft = containerRef.current?.getBoundingClientRect().left ?? 0;
+	const isSelectingRef = useRef(false);
+	const rectStartRef = useRef<{ x: number; y: number } | null>(null);
+	const currentRectRef = useRef<Rect | null>(null);
 
 	const handleMouseDown = useCallback((e: React.MouseEvent, canSelect = true) => {
-		const x = e.clientX - containerLeft;
-		const y = e.clientY;
-		setRectStart({ x, y });
-		setRect({ x, y, width: 0, height: 0 });
-		setIsSelecting(canSelect);
-	}, [containerLeft]);
+		const containerBox = containerRef.current?.getBoundingClientRect();
+		if (!containerBox) return;
+		const x = e.clientX - containerBox.left;
+		const y = e.clientY - containerBox.top;
+		rectStartRef.current = { x, y };
+		currentRectRef.current = { x, y, width: 0, height: 0 };
+		isSelectingRef.current = canSelect;
+
+		if (selectionRectRef.current) {
+			const el = selectionRectRef.current;
+			el.style.display = canSelect ? "block" : "none";
+			el.style.left = `${x}px`;
+			el.style.top = `${y}px`;
+			el.style.width = `0px`;
+			el.style.height = `0px`;
+		}
+	}, [containerRef, selectionRectRef]);
 
 	const handleMouseMove = useCallback((e: React.MouseEvent) => {
-		if (!isSelecting || !rectStart) return;
+		if (!isSelectingRef.current || !rectStartRef.current) return;
 
-		console.log("moving mouse")
-		const x = e.clientX - containerLeft;
-		const y = e.clientY;
+		const containerBox = containerRef.current?.getBoundingClientRect();
+		if (!containerBox) return;
+		const x = e.clientX - containerBox.left;
+		const y = e.clientY - containerBox.top;
 
-		setRect({
-			x: Math.min(rectStart.x, x),
-			y: Math.min(rectStart.y, y),
-			width: Math.abs(x - rectStart.x),
-			height: Math.abs(y - rectStart.y),
-		});
-	}, [isSelecting, rectStart, containerLeft]);
+		const x0 = rectStartRef.current.x;
+		const y0 = rectStartRef.current.y;
+		const rect: Rect = {
+			x: Math.min(x0, x),
+			y: Math.min(y0, y),
+			width: Math.abs(x - x0),
+			height: Math.abs(y - y0),
+		};
+		currentRectRef.current = rect;
+
+		if (selectionRectRef.current) {
+			const el = selectionRectRef.current;
+			el.style.left = `${rect.x}px`;
+			el.style.top = `${rect.y}px`;
+			el.style.width = `${rect.width}px`;
+			el.style.height = `${rect.height}px`;
+		}
+	}, [containerRef, selectionRectRef]);
 
 	const handleMouseUp = useCallback(() => {
-		if (!rect) return;
+		const rect = currentRectRef.current;
+		const containerBox = containerRef.current?.getBoundingClientRect();
+		if (!rect || !containerBox) {
+			// cleanup only
+			if (selectionRectRef.current) selectionRectRef.current.style.display = "none";
+			isSelectingRef.current = false;
+			rectStartRef.current = null;
+			currentRectRef.current = null;
+			return;
+		}
 
 		const selection: number[] = [];
 
@@ -65,10 +97,10 @@ export function useBoxSelection({
 
 			const box = el.getBoundingClientRect();
 			const relative = {
-				left: box.left - containerLeft,
-				top: box.top,
-				right: box.right - containerLeft,
-				bottom: box.bottom,
+				left: box.left - containerBox.left,
+				top: box.top - containerBox.top,
+				right: box.right - containerBox.left,
+				bottom: box.bottom - containerBox.top,
 			};
 
 			const overlap =
@@ -81,14 +113,13 @@ export function useBoxSelection({
 		});
 
 		updateSelected(selection);
-		setIsSelecting(false);
-		setRect(null);
-		setRectStart(null);
-	}, [rect, containerLeft, spectrograms, updateSelected]);
+		isSelectingRef.current = false;
+		rectStartRef.current = null;
+		currentRectRef.current = null;
+		if (selectionRectRef.current) selectionRectRef.current.style.display = "none";
+	}, [containerRef, spectrograms, updateSelected, selectionRectRef]);
 
 	return {
-		isSelecting,
-		rect,
 		handleMouseDown,
 		handleMouseMove,
 		handleMouseUp,

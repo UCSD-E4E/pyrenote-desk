@@ -68,7 +68,6 @@ interface VerifyContextValue {
 	audioURLs: Record<number, string>;
 	selected: number[];
 	updateSelected: (arr: number[]) => number[] | void;
-	hovered: number | null;
 	setHovered: (upd: number | ((prev: number) => number)) => void;
 	playSpeed: number;
 	setPlaySpeed: (upd: number | ((prev: number) => number)) => void;
@@ -208,7 +207,7 @@ export default function VerifyPage() {
 	const contextValue: VerifyContextValue = useMemo(() => ({
 		audioFiles, updateAudioFile, audioURLs,
 		selected, updateSelected,
-		hovered, setHovered,
+		setHovered,
 		playSpeed, setPlaySpeed,
 		speciesList,
 		toggleModal,
@@ -216,7 +215,7 @@ export default function VerifyPage() {
 	}), [
 		audioFiles, updateAudioFile, audioURLs,
 		selected, updateSelected,
-		hovered, setHovered,
+		setHovered,
 		playSpeed, setPlaySpeed,
 		speciesList,
 		toggleModal,
@@ -520,11 +519,13 @@ export default function VerifyPage() {
 	//// BOX SELECTION SYSTEM
 
 	const containerRef = useRef(null)
-	const { isSelecting, rect, handleMouseDown, handleMouseMove, handleMouseUp } =
+	const selectionRectRef = useRef<HTMLDivElement>(null)
+	const { handleMouseDown, handleMouseMove, handleMouseUp } =
 		useBoxSelection({
 			containerRef,
 			spectrograms,
 			updateSelected,
+			selectionRectRef,
 		});
 
 	
@@ -547,21 +548,21 @@ export default function VerifyPage() {
 					onMouseUp={(e) => {if (!showModal) {handleMouseUp()}}}
 					style={{ userSelect: 'none' }}
 				>
-					{isSelecting && rect && (
-						<div
-							style={{
-								position: "absolute",
-								left: rect.x,
-								top: rect.y,
-								width: rect.width,
-								height: rect.height,
-								backgroundColor: "rgba(0, 120, 215, 0.2)",
-								border: "1px solid #0078d7",
-								pointerEvents: "none",
-								zIndex: 10,
-							}}
-						/>
-					)}
+					<div
+						ref={selectionRectRef}
+						style={{
+							position: "absolute",
+							left: 0,
+							top: 0,
+							width: 0,
+							height: 0,
+							backgroundColor: "rgba(0, 120, 215, 0.2)",
+							border: "1px solid #0078d7",
+							pointerEvents: "none",
+							zIndex: 10,
+							display: "none",
+						}}
+					/>
 
 					<div 
 						className = {styles.verifyButtonMenu}
@@ -708,6 +709,7 @@ export default function VerifyPage() {
 											audioFile={audioFiles[index]}
 											linkedSpectro={null}
 											ref={(el) => { if (el) spectrograms.current[i] = el; }}
+											isHovered={hovered == index}
 										/>
 									)
 								})}
@@ -730,6 +732,7 @@ export default function VerifyPage() {
 									audioFile={audioFiles[spectrograms.current[firstSelected].fullIndex]}
 									linkedSpectro={spectrograms.current[firstSelected]}
 									ref={(el) => { if (el) spectrograms.current[-1] = el; }}
+									isHovered={false}
 								/>,
 								document.body
 							)}

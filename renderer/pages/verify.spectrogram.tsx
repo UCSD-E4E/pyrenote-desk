@@ -26,6 +26,7 @@ export interface SpectroProps {
 	audioUrl: string,
 	linkedSpectro: SpectroRef,
 	ref: any, 
+	isHovered: boolean,
 }
 
 export function Spectrogram({
@@ -35,13 +36,14 @@ export function Spectrogram({
 	audioUrl,
 	linkedSpectro,
 	ref,
+	isHovered,
 }: SpectroProps) {
 	const context = useContext(VerifyContext);
 	const {
 		audioFiles, updateAudioFile,
 		audioURLs,
 		selected, updateSelected,
-		hovered, setHovered,
+		setHovered,
 		playSpeed, setPlaySpeed,
 		speciesList,
 		toggleModal,
@@ -58,7 +60,6 @@ export function Spectrogram({
 	const status = audioFile.status;
 	const filePath = audioFile.filePath;
 	const isSelected = (selected.includes(id));
-	const isHovered = (hovered == id);
 
 	let isDestroyed = false;
 	const [isLoaded, setIsLoaded] = useState(false);
@@ -195,13 +196,14 @@ export function ModalSpectrogram({
 	audioUrl,
 	linkedSpectro,
 	ref,
+	isHovered,
 }: SpectroProps) {
 	const context = useContext(VerifyContext);
 	const {
 		audioFiles, updateAudioFile,
 		audioURLs,
 		selected, updateSelected,
-		hovered, setHovered,
+		setHovered,
 		playSpeed, setPlaySpeed,
 		speciesList,
 		toggleModal,
@@ -228,6 +230,7 @@ export function ModalSpectrogram({
 				audioFile={audioFile}
 				linkedSpectro={linkedSpectro}
 				ref={ref}
+				isHovered
 			/>
 			
 			<div className={styles.modalControls}>
