@@ -3,6 +3,8 @@ import { memo, Ref, useContext, useEffect, useImperativeHandle, useRef, useState
 import { ProcessedAnnotation, SpectroStatus, VerifyContext } from "./verify";
 import WaveSurfer from "wavesurfer.js";
 import SpectrogramPlugin from "wavesurfer.js/dist/plugins/spectrogram";
+import Select, { GroupBase, StylesConfig } from 'react-select';
+import { SingleValue } from 'react-select';
 
 export interface SpectroRef { // public Spectrogram properties & functions
 	id: number,
@@ -45,6 +47,8 @@ export function Spectrogram({
 		toggleModal,
 		isModalInputFocused, setIsModalInputFocused,
 	} = context;
+
+	console.log("changed")
 
 	const wavesurferRef = useRef<WaveSurfer>(null);
 	const containerRef = useRef(null);
@@ -144,7 +148,7 @@ export function Spectrogram({
 			getTime: () => { return wavesurferRef.current.getCurrentTime() },
 		}
 	});
-	
+
 	return (
 		<div 
 			key={id} 
@@ -164,9 +168,14 @@ export function Spectrogram({
 			style={{ position: "relative" }}
 		>
 			{id!=-1 && (<div className={styles.indexOverlay}>{fullIndex+1}</div>)} 
-			{id!=-1 && (<div className={styles.filePathOverlay}>{filePath}</div>)} 	
-			<div className={styles.speciesOverlay}>{speciesList[speciesIndex].common}</div>
-			
+			{id!=-1 && (<div className={styles.filePathOverlay}>{filePath}</div>)} 		
+			<SpeciesDropdown
+				speciesList={speciesList}
+				speciesIndex={speciesIndex}
+				fullIndex={fullIndex}
+				updateAudioFile={updateAudioFile}
+				styles={dropdownStyles}
+			/>
 			
 			<div id={`loading-spinner-${id}`} className={styles.waveLoadingCircle}></div>
 			<div 
@@ -223,24 +232,154 @@ export function ModalSpectrogram({
 			
 			<div className={styles.modalControls}>
 				<div>
-					<select
-						id="species-select"
-						value={speciesIndex}
-						onChange={(event) => updateAudioFile(fullIndex, "speciesIndex", Number(event.target.value))}
-					>
-						<option value="">--Please choose an option--</option>
-						{speciesList.map((species, index) => (
-						<option key={index} value={index}>
-							{species.common}
-						</option>
-						))}
-					</select>
+					<SpeciesDropdown
+						speciesList={speciesList}
+						speciesIndex={speciesIndex}
+						fullIndex={fullIndex}
+						updateAudioFile={updateAudioFile}
+					/>
 				</div>
 				<button onClick={(e)=>{
 					toggleModal();
 					e.stopPropagation();
 				}}>Close</button>
 			</div>
+		</div>
+	);
+}
+
+
+const dropdownStyles: StylesConfig<any, false, GroupBase<any>> = {
+	control: (base: any) => ({
+		...base,
+		position: "absolute",
+		top: "4px",
+		right: "6px",
+		zIndex: "10",
+		backgroundColor: "rgba(0, 0, 0, 0.2)",
+		":hover": {
+			backgroundColor: "rgba(0, 0, 0, 0.8)"
+		},
+		padding: "0px 0px 0px 4px",
+		margin: "0px 0px",
+		borderRadius: "4px",
+		maxWidth: "50%",
+		minWidth: "50%",
+		maxHeight: "20px",
+		minHeight: "20px",
+	}),
+	option: (base: any, state: any) => ({
+		...base,
+		display: "flex",
+		flexDirection: "column",
+		zIndex: "1000",
+		padding: "0px 15px",  // padding inside each option
+		color: "white",
+		":hover": {
+			backgroundColor: "rgba(255, 255, 255, 0.5)"
+		},
+		backgroundColor: state.selected ? "rgba(0,0,255,0.3)" : "transparent",
+		fontSize: '12px',
+		height: '20px',
+		justifyContent: 'center',
+	}),
+	menu: (base: any) => ({
+		...base,
+		zIndex: "1000",
+		borderRadius: "8px",
+		backgroundColor: "rgba(0, 0, 0, 0.8)",
+		color: "white",
+		marginTop: '24px',
+		width: '50%',
+		right: '6px',
+	}),
+	singleValue: (base: any) => ({
+		...base,
+		fontSize: "12px",
+		color: "white",
+		padding: "0px",
+		margin: "0px",
+	}),
+	indicatorSeparator: (base: any) => ({
+		...base,
+		marginBottom: "4px",
+		marginTop: "4px",
+		flex: "1",
+	}),
+	dropdownIndicator: (base: any) => ({
+		...base,
+		padding: "0px",
+		margin: "0px",
+		width: '20px',
+		height: '20px',
+		flex: "0",
+	}),
+	valueContainer: (base: any) => ({
+		...base,
+		margin: '0 0',
+		padding: '0 0',
+	}),
+	input: (base: any) => ({
+		...base,
+		margin: '0 0',
+		padding: '0 0',
+		color: 'white',
+		fontSize: '12px',
+	})
+}
+
+type SpeciesOption = {
+	value: number;
+	label: string;
+};
+
+type SpeciesDropdownProps = {
+	speciesList: { common: string }[];
+	speciesIndex: number | "";
+	fullIndex: number;
+	updateAudioFile: (fullIndex: number, key: string, value: number | "") => void;
+	styles?: StylesConfig<any, false, GroupBase<any>>;
+};
+
+export default function SpeciesDropdown({
+	speciesList,
+	speciesIndex,
+	fullIndex,
+	updateAudioFile,
+	styles,
+}: SpeciesDropdownProps) {
+	const speciesOptions: SpeciesOption[] = speciesList.map((s, index) => ({
+		value: index,
+		label: s.common,
+	}));
+
+	const [inputValue, setInputValue] = useState("");
+
+	return (
+		<div className="w-64">
+			<Select
+				value={speciesOptions[speciesIndex] ?? null}
+				onChange={(selectedOption: SingleValue<SpeciesOption>) =>
+					updateAudioFile(
+						fullIndex,
+						"speciesIndex",
+						selectedOption?.value ?? ""
+					)
+				}
+				styles={styles}
+				options={speciesOptions}
+				isClearable={false}
+				placeholder="Select a species..."
+				isSearchable
+				inputValue={inputValue}
+				onInputChange={(newValue) => setInputValue(newValue)}
+				onKeyDown={(e) => e.stopPropagation()} // prevent global keybinds
+				onMenuOpen={() => {}} // satisfy TS
+        		onMenuClose={() => {}} // satisfy TS
+				filterOption={(option, rawInput) =>
+					option.label.toLowerCase().includes(rawInput.toLowerCase())
+				}>
+			</Select>
 		</div>
 	);
 }

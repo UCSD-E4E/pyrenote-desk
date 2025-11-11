@@ -42,6 +42,7 @@ export function useBoxSelection({
 	const handleMouseMove = useCallback((e: React.MouseEvent) => {
 		if (!isSelecting || !rectStart) return;
 
+		console.log("moving mouse")
 		const x = e.clientX - containerLeft;
 		const y = e.clientY;
 
