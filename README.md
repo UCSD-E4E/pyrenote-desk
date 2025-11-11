@@ -14,6 +14,8 @@ Welcome to Pyrenote Desktop! A web application developed by the Acoustic Species
 
 We are using `uv` as the python package manager. To install it, please follow [these instructions](https://docs.astral.sh/uv/getting-started/installation/).
 
+Then, clone the repo. Once cloned, in the "pyrenote-desk" directory, enter this command: `git submodule update --init --recursive`
+
 Then, in the pyrenote-desk directory, run `uv sync`
 
 Then, activate the virtual environment using `source .venv/bin/activate`
