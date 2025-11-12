@@ -10,6 +10,8 @@ import { createContext } from 'react'
 import { ModalSpectrogram, Spectrogram, SpectroRef } from './verify.spectrogram'
 import { KeybindGuide } from './verify.keybind-guide'
 import { useBoxSelection } from './verify.box-select'
+import WaveSurfer from "wavesurfer.js";
+import SpectrogramPlugin from "wavesurfer.js/dist/plugins/spectrogram";
 
 // CONSTANTS //
 // modification in Settings page to be implemented
@@ -66,6 +68,8 @@ interface VerifyContextValue {
 			value: ProcessedAnnotation[K]
 		) => void;
 	audioURLs: Record<number, string>;
+	preloadedWavesurfers: Record<number, WaveSurfer>;
+	preloadedContainers: Record<number, HTMLDivElement>;
 	selected: number[];
 	updateSelected: (arr: number[]) => number[] | void;
 	setHovered: (upd: number | ((prev: number) => number)) => void;
@@ -88,6 +92,8 @@ export default function VerifyPage() {
 	const [audioFiles, setAudioFiles] = useState<ProcessedAnnotation[]>([]); // all audio files retrieved from database
 	const [audioURLs, setAudioURLs] = useState<Record<number, string>>({}) // uses audioFiles index as key
 	const [preloadedAudioURLs, setPreloadedAudioURLs] = useState<Record<number, string>>({}) // uses audioFiles index as key
+	const [preloadedWavesurfers, setPreloadedWavesurfers] = useState<Record<number, WaveSurfer>>({}) // uses audioFiles index as key
+	const preloadedContainersRef = useRef<Record<number, HTMLDivElement>>({}) // hidden containers for preloaded wavesurfers
 	const spectrograms = useRef<Record<number, SpectroRef>>({});
 
 	// Select & Hover
@@ -154,18 +160,10 @@ export default function VerifyPage() {
 	);
 
 	const updateSelected = useCallback((arr: number[]): number[] | void => { // wraps setSelected
-		if (isModalInputFocused) {
-			return;
-		}
-		
-		if (arrayEqual(arr as any, selected as any)) {
-			return;
-		}
+		if (isModalInputFocused) {return;}
+		if (arrayEqual(arr as any, selected as any)) {return;}
 
-		for (let i = 0; i < selected.length; i++) { // deselect current
-			spectrograms.current[selected[i]].pause();
-		}
-		
+		spectrograms.current[currentlyPlayingIndex.current]?.pause()
 		_setSelected(arr);
 		
 		if (arr.length == 1 && showModal) { // reselect using arrow keys during modal
@@ -184,9 +182,7 @@ export default function VerifyPage() {
 					currentlyPlayingIndex.current = null;
 					return false;
 				} else { // SHOW MODAL
-					if (currentlyPlayingIndex.current != null) {
-						spectrograms.current[currentlyPlayingIndex.current].pause();
-					}
+					spectrograms.current[currentlyPlayingIndex.current]?.pause();
 					return true;
 				}
 			});
@@ -211,6 +207,7 @@ export default function VerifyPage() {
 
 	const contextValue: VerifyContextValue = useMemo(() => ({
 		audioFiles, updateAudioFile, audioURLs,
+		preloadedWavesurfers, preloadedContainers: preloadedContainersRef.current,
 		selected, updateSelected,
 		setHovered,
 		playSpeed, setPlaySpeed,
@@ -219,6 +216,7 @@ export default function VerifyPage() {
 		isModalInputFocused, setIsModalInputFocused,
 	}), [
 		audioFiles, updateAudioFile, audioURLs,
+		preloadedWavesurfers,
 		selected, updateSelected,
 		setHovered,
 		playSpeed, setPlaySpeed,
@@ -240,19 +238,48 @@ export default function VerifyPage() {
 		else { document.getElementById("container").classList.remove(styles.noInteraction); }
 	}, [showModal]);
 
-	// decode new audio files on page update
+	// decode new audio files and prerenders new Wavesurfer objects on page update
 	useEffect(() => {
 		let isCancelled = false;
 
 		const loadFiles = async () => {
+			// clean up old audio URLs and wavesurfers
 			Object.entries(audioURLs).forEach(([index, url]) => {
 				URL.revokeObjectURL(url);
 				delete audioURLs[index];
 			})
 
-			const newAudioURLs: Record<number, string> = { ...preloadedAudioURLs };
-			setAudioURLs(newAudioURLs);
+			// clean up preloaded wavesurfers that are no longer needed (not in currentFiles or nextFiles)
+			Object.entries(preloadedWavesurfers).forEach(([index, ws]) => {
+				const indexNum = Number(index);
+				const isInCurrent = currentFiles.find(f => f.index === indexNum);
+				const isInNext = nextFiles.find(f => f.index === indexNum);
+				
+				if (!isInCurrent && !isInNext) {
+					try {
+						ws.unAll();
+						ws.destroy();
+					} catch (e) {
+						console.warn("Error destroying preloaded wavesurfer:", e);
+					}
+					delete preloadedWavesurfers[index];
+					if (preloadedContainersRef.current[index]) {
+						// Only remove if container is still in hidden location (not moved to component)
+						const container = preloadedContainersRef.current[index];
+						if (container.parentElement === document.body || container.style.left === '-9999px') {
+							container.remove();
+						}
+						delete preloadedContainersRef.current[index];
+					}
+				}
+			});
 
+			const newAudioURLs: Record<number, string> = { ...preloadedAudioURLs };
+			const newPreloadedWavesurfers: Record<number, WaveSurfer> = { ...preloadedWavesurfers };
+			setAudioURLs(newAudioURLs);
+			setPreloadedWavesurfers(newPreloadedWavesurfers);
+
+			// pre-generate audio URLs
 			await Promise.all(
 				currentFiles.map(async (file, _) => {
 					const index = file.index;
@@ -279,10 +306,15 @@ export default function VerifyPage() {
 			const newPreloadedAudioURLs: Record<number, string> = {};
 			setPreloadedAudioURLs(newPreloadedAudioURLs);
 
+			// create wavesurfers for next page
+			// TODO: keep audio in decoded form so we don't need to decode-encode-decode
 			await Promise.all(
 				nextFiles.map(async (file, _) => {
 					const index = file.index;
-					//if (newPreloadedAudioURLs[index]) return;
+					if (preloadedWavesurfers[index]) {
+						//console.log(index, "wavesurfer was preloaded");
+						return;
+					}; 
 
 					const audioFile = await window.ipc.invoke('read-file-for-verification', file.filePath);
 					const decoded = await decodeAudio(audioFile.data);
@@ -295,6 +327,49 @@ export default function VerifyPage() {
 							prev[index] = url;
 							return prev;
 						});
+
+						// create hidden container for preloaded wavesurfer
+						const hiddenContainer = document.createElement('div');
+						hiddenContainer.style.position = 'absolute';
+						hiddenContainer.style.left = '-9999px';
+						hiddenContainer.style.top = '-9999px';
+						hiddenContainer.style.width = '256px';
+						hiddenContainer.style.height = '256px';
+						hiddenContainer.id = `preload-wavesurfer-${index}`;
+						document.body.appendChild(hiddenContainer);
+						preloadedContainersRef.current[index] = hiddenContainer;
+
+						const ws = WaveSurfer.create({
+							container: hiddenContainer,
+							height: 0,
+							fillParent: true,
+							progressColor: 'white',
+							cursorColor: 'yellow',
+							cursorWidth: 2,
+							sampleRate: 16000,
+						});
+						ws.registerPlugin(
+							SpectrogramPlugin.create({
+								colorMap: 'roseus',
+								scale: "linear",
+								fftSamples: 64, // unzoomed quality for preload
+								labels: false,
+								height: 90,
+							})
+						);
+
+						ws.load(url).catch((e) => {
+							if (!isCancelled) {
+								console.error("Preloaded WaveSurfer load failed:", e);
+							}
+						});
+
+						if (!isCancelled) {
+							setPreloadedWavesurfers((prev) => {
+								prev[index] = ws;
+								return prev;
+							});
+						}
 					}
 				})
 			);
@@ -305,10 +380,26 @@ export default function VerifyPage() {
 		// cleanup function
 		return () => {
 			isCancelled = true;
+
+			// cleanup audioURLs
 			Object.entries(audioURLs).forEach(([fullIndex, url]) => {
 				URL.revokeObjectURL(url);
 				delete audioURLs[fullIndex];
-			})
+			});
+
+			// clean up preloaded wavesurfers on unmount
+			Object.entries(preloadedWavesurfers).forEach(([index, ws]) => {
+				try {
+					ws.unAll();
+					ws.destroy();
+				} catch (e) {
+					console.warn("Error destroying preloaded wavesurfer on cleanup:", e);
+				}
+				if (preloadedContainersRef.current[index]) {
+					preloadedContainersRef.current[index].remove();
+					delete preloadedContainersRef.current[index];
+				}
+			});
 		};
 	}, [currentFiles]);
 
@@ -427,7 +518,7 @@ export default function VerifyPage() {
 	const setSpectroStatus = (status) => { selected.forEach((i) => {updateAudioFile(spectrograms.current[i].index, "status", status);}) }
 	const playPauseSelection = () => { 
 		if (selected.length == 0) { return }; // null
-		if (currentlyPlayingIndex.current != null && currentlyPlayingIndex.current != firstSelected) { spectrograms.current[currentlyPlayingIndex.current].pause(); }; // pause existing
+		if (currentlyPlayingIndex.current != null && currentlyPlayingIndex.current != firstSelected && !showModal) { spectrograms.current[currentlyPlayingIndex.current].pause(); }; // pause existing
 		const id = showModal ? -1 : firstSelected;
 
 		const isPlaying = spectrograms.current[id].playPause(); // play/pause selected
@@ -718,7 +809,7 @@ export default function VerifyPage() {
 											index={index}
 											audioUrl={audioURLs[index]}
 											audioFile={audioFiles[index]}
-											linkedSpectro={null}
+											syncedSpectro={null}
 											ref={refCallbacks[index]}
 											isHovered={hovered == index}
 										/>
@@ -733,21 +824,26 @@ export default function VerifyPage() {
 					)}
 
 					<>
-						{showModal && firstSelected != null &&	
-							createPortal(
+						{showModal && firstSelected != null && (() => {
+							const refCallbacks = (spectrograms as any)._refCallbacks as Record<number, (el: any) => void>;
+							if (!refCallbacks[-1]) {
+								refCallbacks[-1] = (el) => { if (el) spectrograms.current[-1] = el; };
+							}
+							return createPortal(
 								<ModalSpectrogram
 									key={-1}
 									id={-1} 
 									index={firstSelected}
 									audioUrl={audioURLs[firstSelected]}
 									audioFile={audioFiles[firstSelected]}
-									linkedSpectro={spectrograms.current[firstSelected]}
-									ref={(el) => { if (el) spectrograms.current[-1] = el; }}
+									syncedSpectro={spectrograms.current[firstSelected]}
+									spectroRef={refCallbacks[-1]}
 									isHovered={false}
 								/>,
 								document.body
-							)}
-						
+							)
+						})()}
+							
 					</>
 				</div>
 			</VerifyContext.Provider>
