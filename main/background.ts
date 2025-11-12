@@ -321,7 +321,7 @@ ipcMain.handle("pick-folder-for-recordings", async (_event) => {
     folderPath,
     files: audioFiles.map(filePath => ({
       absolutePath: filePath,
-      relativePath: path.relative(folderPath, filePath),
+      folderPath: folderPath,
       name: path.basename(filePath),
     })),
   };
@@ -335,7 +335,7 @@ ipcMain.handle("saveMultipleRecordings", async (_event, { files, deploymentId, d
     url = file.absolutePath;
     try {
       db.prepare(`INSERT INTO Recording (deploymentId, url, directory, datetime, duration, samplerate, bitrate) VALUES (?, ?, ?, ?, ?, ?, ?)`)
-      .run(deploymentId, url, file.relativePath, new Date().toISOString(), 0, 0, 0);
+      .run(deploymentId, url, file.folderPath, new Date().toISOString(), 0, 0, 0);
     } catch (err: any) {
       if (err.code === "SQLITE_CONSTRAINT_UNIQUE") {
         skippedCount++;

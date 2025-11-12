@@ -2,7 +2,7 @@ import { getDatabase } from '../background';
 import { Recording, RecordingWithData } from '../schema';
 import fs from 'fs';
 
-const listRecordingsByFilters = async (filters): Promise<RecordingWithData[]> => {
+const listRecordingsByFilters = async (filters): Promise<{ recordings: RecordingWithData[], skippedCount: number }> => {
     const db = getDatabase();
 
     let query = `
@@ -62,17 +62,34 @@ const listRecordingsByFilters = async (filters): Promise<RecordingWithData[]> =>
 
     const statement = db.prepare(query);
 
-    try {
-        const rows = statement.all(...parameters) as Recording[];
-        const rowsWithData: RecordingWithData[] = rows.map((r) => ({
-            ...r,
-            fileData: new Uint8Array(fs.readFileSync(r.url)),
-        }));
-        return rowsWithData;
-    } catch (e) {
-        console.error("Error listing recordings by filters:", e);
-        return [];
+    const rows = statement.all(...parameters) as Recording[];
+    let skippedCount = 0;
+        
+    const rowsWithData: RecordingWithData[] = rows.reduce<RecordingWithData[]>((acc, r) => {
+        try {
+            acc.push({
+                ...r,
+                fileData: new Uint8Array(fs.readFileSync(r.url)),
+            });
+        } catch (e: any) {
+            //keep track of ENOENT (file not found) errors and skip
+            if (e.code === 'ENOENT') {
+                skippedCount++;
+                console.warn(`File not found, skipping: ${r.url}`);
+            } else {
+                console.error(`Error reading file ${r.url}:`, e);
+                return [];
+            }
+        }
+        return acc;
+    }, []);
+    
+    if (skippedCount > 0) {
+        console.log(`Skipped ${skippedCount} missing or unreadable file(s) out of ${rows.length} total recording(s)`);
     }
+    
+    return { recordings: rowsWithData, skippedCount };
+
 };
 
 export default listRecordingsByFilters;

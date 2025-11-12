@@ -662,7 +662,7 @@ export default function databasePage() {
     const [files, setFiles] = useState<FileInfo[]>([]);
     const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
     const [deploymentId, setDeploymentId] = useState<number>(0);
-    const [driveLabel, setDriveLabel] = useState(""); // optional
+    // const [driveLabel, setDriveLabel] = useState(""); // optional
     const [deployments, setDeployments] = useState<DeploymentOption[]>([]);
     const [loading, setLoading] = useState(false);
 
@@ -712,7 +712,7 @@ export default function databasePage() {
         const result = await window.ipc.invoke("saveMultipleRecordings", {
           files,
           deploymentId,
-          driveLabel: driveLabel || null,
+          // driveLabel: driveLabel || null,
         });
         if (result.skippedCount > 0) {
           alert(`All ${files.length} recordings saved! ${result.skippedCount} duplicate files automatically ignored.`);
@@ -759,8 +759,8 @@ export default function databasePage() {
           </select>
 
 
-          <label>Optional: Drive Label, if external hard drive</label>
-          <input value={driveLabel} onChange={(e) => setDriveLabel(e.target.value)} placeholder="Leave blank for local" />
+          {/* <label>Optional: Drive Label, if external hard drive</label>
+          <input value={driveLabel} onChange={(e) => setDriveLabel(e.target.value)} placeholder="Leave blank for local" /> */}
 
           <div>
             <button type="submit" disabled={loading}>Enter</button>
