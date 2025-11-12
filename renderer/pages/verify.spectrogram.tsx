@@ -8,7 +8,7 @@ import { SingleValue } from 'react-select';
 
 export interface SpectroRef { // public Spectrogram properties & functions
 	id: number,
-	fullIndex: number,
+	index: number,
 	containerRef: React.RefObject<HTMLElement>,
 	playPause: () => boolean,
 	pause: () => void,
@@ -21,7 +21,7 @@ export interface SpectroRef { // public Spectrogram properties & functions
 
 export interface SpectroProps {
 	id: number,
-	fullIndex: number,
+	index: number,
 	audioFile: ProcessedAnnotation,
 	audioUrl: string,
 	linkedSpectro: SpectroRef,
@@ -31,7 +31,7 @@ export interface SpectroProps {
 
 function SpectrogramComponent({
 	id, // index in currentFiles (in-page index)
-	fullIndex, // index in audioFiles (global index)
+	index, // index in audioFiles (global index)
 	audioFile,
 	audioUrl,
 	linkedSpectro,
@@ -57,7 +57,7 @@ function SpectrogramComponent({
 	const speciesIndex = audioFile.speciesIndex;
 	const status = audioFile.status;
 	const filePath = audioFile.filePath;
-	const isSelected = (selected.includes(id));
+	const isSelected = (selected.includes(index));
 
 	let isDestroyed = false;
 	const [isLoaded, setIsLoaded] = useState(false);
@@ -138,7 +138,7 @@ function SpectrogramComponent({
 	useImperativeHandle(ref, () => {
 		return {
 			id,
-			fullIndex,
+			index,
 			containerRef, // for box selection
 			playPause,
 			pause,
@@ -162,19 +162,21 @@ function SpectrogramComponent({
 				${isLoaded && (isHovered ? styles.hoverOutline : styles.unhoverOutline)}
 			`}
 			ref={containerRef}
-			onMouseEnter={() => setHovered(id)}
+			onMouseEnter={() => setHovered(index)}
 			onMouseLeave={() => setHovered(null)}
 			style={{ position: "relative" }}
 		>
-			{id!=-1 && (<div className={styles.indexOverlay}>{fullIndex+1}</div>)} 
+			{id!=-1 && (<div className={styles.indexOverlay}>{index+1}</div>)} 
 			{id!=-1 && (<div className={styles.filePathOverlay}>{filePath}</div>)} 		
-			<SpeciesDropdown
-				speciesList={speciesList}
-				speciesIndex={speciesIndex}
-				fullIndex={fullIndex}
-				updateAudioFile={updateAudioFile}
-				styles={dropdownStyles}
-			/>
+			{id!=-1 && 
+				<SpeciesDropdown
+					speciesList={speciesList}
+					speciesIndex={speciesIndex}
+					index={index}
+					updateAudioFile={updateAudioFile}
+					styles={dropdownStyles}
+				/>
+			}
 			
 			<div id={`loading-spinner-${id}`} className={styles.waveLoadingCircle}></div>
 			<div 
@@ -190,7 +192,7 @@ function SpectrogramComponent({
 export const Spectrogram = memo(SpectrogramComponent, (prev, next) => {
 	// Only rerender when rendering-relevant props change. Ignore `ref` prop identity.
 	if (prev.id !== next.id) return false;
-	if (prev.fullIndex !== next.fullIndex) return false;
+	if (prev.index !== next.index) return false;
 	if (prev.audioUrl !== next.audioUrl) return false;
 	if (prev.isHovered !== next.isHovered) return false;
 	if (prev.linkedSpectro !== next.linkedSpectro) return false;
@@ -205,7 +207,7 @@ export const Spectrogram = memo(SpectrogramComponent, (prev, next) => {
 
 export function ModalSpectrogram({
 	id, // index in currentFiles (in-page index)
-	fullIndex, // index in audioFiles (global index)
+	index, // index in audioFiles (global index)
 	audioFile,
 	audioUrl,
 	linkedSpectro,
@@ -232,14 +234,14 @@ export function ModalSpectrogram({
 	return (
 		<div ref={modalRef} className={styles.modal}>
 			<div className={styles.modalHeader}>
-				<div>ID: {fullIndex + 1}</div>
+				<div>ID: {index + 1}</div>
 				<div>File Path: {audioFile?.filePath}</div>
 				<div>Species: {displaySpecies}</div>
 			</div>		
 
 			<Spectrogram 
 				id={-1} 
-				fullIndex={fullIndex}
+				index={index}
 				audioUrl={audioUrl}
 				audioFile={audioFile}
 				linkedSpectro={linkedSpectro}
@@ -252,7 +254,7 @@ export function ModalSpectrogram({
 					<SpeciesDropdown
 						speciesList={speciesList}
 						speciesIndex={speciesIndex}
-						fullIndex={fullIndex}
+						index={index}
 						updateAudioFile={updateAudioFile}
 					/>
 				</div>
@@ -353,15 +355,15 @@ type SpeciesOption = {
 type SpeciesDropdownProps = {
 	speciesList: { common: string }[];
 	speciesIndex: number | "";
-	fullIndex: number;
-	updateAudioFile: (fullIndex: number, key: string, value: number | "") => void;
+	index: number;
+	updateAudioFile: (index: number, key: string, value: number | "") => void;
 	styles?: StylesConfig<any, false, GroupBase<any>>;
 };
 
 export default function SpeciesDropdown({
 	speciesList,
 	speciesIndex,
-	fullIndex,
+	index,
 	updateAudioFile,
 	styles,
 }: SpeciesDropdownProps) {
@@ -378,7 +380,7 @@ export default function SpeciesDropdown({
 				value={speciesOptions[speciesIndex] ?? null}
 				onChange={(selectedOption: SingleValue<SpeciesOption>) =>
 					updateAudioFile(
-						fullIndex,
+						index,
 						"speciesIndex",
 						selectedOption?.value ?? ""
 					)

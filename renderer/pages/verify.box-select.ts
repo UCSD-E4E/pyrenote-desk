@@ -11,12 +11,13 @@ interface Rect {
 
 interface SpectrogramItem {
 	id: number;
+	index: number;
 	containerRef: React.RefObject<HTMLElement>;
 }
 
 interface UseBoxSelectionProps {
 	containerRef: React.RefObject<HTMLElement>;
-	spectrograms: React.MutableRefObject<SpectrogramItem[]>;
+	spectrograms: React.MutableRefObject<Record<number, SpectrogramItem>>;
 	updateSelected: (selectedIds: number[]) => void;
 	selectionRectRef: React.RefObject<HTMLDivElement>;
 }
@@ -91,7 +92,7 @@ export function useBoxSelection({
 
 		const selection: number[] = [];
 
-		spectrograms.current.forEach((spectrogram) => {
+		Object.values(spectrograms.current).forEach((spectrogram) => {
 			const el = spectrogram.containerRef.current;
 			if (!el) return;
 
@@ -109,7 +110,7 @@ export function useBoxSelection({
 				rect.y < relative.bottom &&
 				rect.y + rect.height > relative.top;
 
-			if (overlap) selection.push(spectrogram.id);
+			if (overlap) selection.push(spectrogram.index);
 		});
 
 		updateSelected(selection);

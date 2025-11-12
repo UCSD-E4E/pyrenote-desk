@@ -88,11 +88,11 @@ export default function VerifyPage() {
 	const [audioFiles, setAudioFiles] = useState<ProcessedAnnotation[]>([]); // all audio files retrieved from database
 	const [audioURLs, setAudioURLs] = useState<Record<number, string>>({}) // uses audioFiles index as key
 	const [preloadedAudioURLs, setPreloadedAudioURLs] = useState<Record<number, string>>({}) // uses audioFiles index as key
-	const spectrograms = useRef<SpectroRef[]>([]); // uses currentFiles index
+	const spectrograms = useRef<Record<number, SpectroRef>>({});
 
 	// Select & Hover
-	const [selected, _setSelected] = useState([]); // selected spectrogram(s), currentFiles indices
-	const [hovered, setHovered] = useState(null); // hovered spectrogram, currentFiles indices
+	const [selected, _setSelected] = useState<number[]>([]);
+	const [hovered, setHovered] = useState<number | null>(null);
 	const firstSelected = selected[0];
 	const lastSelected = selected[selected.length-1];
 	
@@ -101,7 +101,7 @@ export default function VerifyPage() {
 	const [isModalInputFocused, setIsModalInputFocused] = useState(false);
 
 	// Playback
-	const currentlyPlayingIndex = useRef(null); // spectrogram that is currently playing sound (currentFiles index)
+	const currentlyPlayingIndex = useRef<number | null>(null); // spectrogram that is currently playing sound (-1 for modal)
 	const [skipInterval, setSkipInterval] = useState(DEFAULT_SKIPINTERVAL);
 	const [playSpeed, _setPlaySpeed] = useState(DEFAULT_PLAYSPEED);
 
@@ -128,7 +128,7 @@ export default function VerifyPage() {
 
 	const numFiles = currentFiles.length;
 	const numRows = Math.ceil(numFiles / COLS); 
-	const numSpots = numRows * COLS; 
+	const numSpots = numRows * COLS;
 
 
 	// Wrapped Setters
@@ -153,23 +153,28 @@ export default function VerifyPage() {
 		[]
 	);
 
-	const updateSelected = useCallback((arr) => { // wraps setSelected
-		if (!isModalInputFocused) {
-			if (arrayEqual(arr, selected)) {return;}
-
-			for (let i = 0; i < selected.length; i++) { // deselect current
-				spectrograms.current[selected[i]].pause();
-			}
-			
-			_setSelected(arr);
-			
-			if (arr.length == 1 && showModal) { // reselect using arrow keys during modal
-				toggleModal();
-				toggleModal();
-			}
-			
-			return arr;
+	const updateSelected = useCallback((arr: number[]): number[] | void => { // wraps setSelected
+		if (isModalInputFocused) {
+			return;
 		}
+		
+		if (arrayEqual(arr as any, selected as any)) {
+			return;
+		}
+
+		for (let i = 0; i < selected.length; i++) { // deselect current
+			spectrograms.current[selected[i]].pause();
+		}
+		
+		_setSelected(arr);
+		
+		if (arr.length == 1 && showModal) { // reselect using arrow keys during modal
+			toggleModal();
+			toggleModal();
+		}
+		
+		return arr;
+		
 	}, [isModalInputFocused, showModal, selected]);
 
 	const toggleModal = useCallback(() => {	// wraps setShowModal
@@ -240,19 +245,19 @@ export default function VerifyPage() {
 		let isCancelled = false;
 
 		const loadFiles = async () => {
-			Object.entries(audioURLs).forEach(([fullIndex, url]) => {
+			Object.entries(audioURLs).forEach(([index, url]) => {
 				URL.revokeObjectURL(url);
-				delete audioURLs[fullIndex];
+				delete audioURLs[index];
 			})
 
 			const newAudioURLs: Record<number, string> = { ...preloadedAudioURLs };
 			setAudioURLs(newAudioURLs);
 
 			await Promise.all(
-				currentFiles.map(async (file, index) => {
-					const fullIndex = file.index;
-					if (newAudioURLs[fullIndex]) {
-						//console.log(fullIndex, "file was preloaded");
+				currentFiles.map(async (file, _) => {
+					const index = file.index;
+					if (newAudioURLs[index]) {
+						//console.log(index, "file was preloaded");
 						return;
 					}; 
 
@@ -264,7 +269,7 @@ export default function VerifyPage() {
 
 					if (!isCancelled) {
 						setAudioURLs((prev) => {
-							prev[fullIndex] = url;
+							prev[index] = url;
 							return prev;
 						});
 					}
@@ -275,9 +280,9 @@ export default function VerifyPage() {
 			setPreloadedAudioURLs(newPreloadedAudioURLs);
 
 			await Promise.all(
-				nextFiles.map(async (file, index) => {
-					const fullIndex = file.index;
-					//if (newPreloadedAudioURLs[fullIndex]) return;
+				nextFiles.map(async (file, _) => {
+					const index = file.index;
+					//if (newPreloadedAudioURLs[index]) return;
 
 					const audioFile = await window.ipc.invoke('read-file-for-verification', file.filePath);
 					const decoded = await decodeAudio(audioFile.data);
@@ -287,7 +292,7 @@ export default function VerifyPage() {
 
 					if (!isCancelled) {
 						setPreloadedAudioURLs((prev) => {
-							prev[fullIndex] = url;
+							prev[index] = url;
 							return prev;
 						});
 					}
@@ -415,11 +420,11 @@ export default function VerifyPage() {
 		}
 	}, [currentPage, totalPages, showModal]);
 
-	const moveSelectionUp = () => 		{ if (spectrograms.current.length == 0) return; updateSelected([selected.length==0 ? 0 : Math.max(lastSelected - COLS, lastSelected % COLS)]); }
-	const moveSelectionDown = () => 	{ if (spectrograms.current.length == 0) return; updateSelected([selected.length==0 ? 0 : Math.min(lastSelected + COLS, numFiles-1, numSpots-COLS+(lastSelected % COLS))]); }
-	const moveSelectionLeft = () => 	{ if (spectrograms.current.length == 0) return; updateSelected([selected.length==0 ? 0 : Math.max(lastSelected - 1, 0)]); }
-	const moveSelectionRight = () => 	{ if (spectrograms.current.length == 0) return; updateSelected([selected.length==0 ? 0 : Math.min(lastSelected + 1, numFiles-1)]); }
-	const setSpectroStatus = (status) => { selected.forEach((i) => {updateAudioFile(spectrograms.current[i].fullIndex, "status", status);}) }
+	const moveSelectionUp = () => 		{ if (numFiles == 0) return; updateSelected([selected.length==0 ? 0 : Math.max(lastSelected - COLS, lastSelected % COLS)]); }
+	const moveSelectionDown = () => 	{ if (numFiles == 0) return; updateSelected([selected.length==0 ? 0 : Math.min(lastSelected + COLS, numFiles-1, numSpots-COLS+(lastSelected % COLS))]); }
+	const moveSelectionLeft = () => 	{ if (numFiles == 0) return; updateSelected([selected.length==0 ? 0 : Math.max(lastSelected - 1, 0)]); }
+	const moveSelectionRight = () => 	{ if (numFiles == 0) return; updateSelected([selected.length==0 ? 0 : Math.min(lastSelected + 1, numFiles-1)]); }
+	const setSpectroStatus = (status) => { selected.forEach((i) => {updateAudioFile(spectrograms.current[i].index, "status", status);}) }
 	const playPauseSelection = () => { 
 		if (selected.length == 0) { return }; // null
 		if (currentlyPlayingIndex.current != null && currentlyPlayingIndex.current != firstSelected) { spectrograms.current[currentlyPlayingIndex.current].pause(); }; // pause existing
@@ -442,15 +447,14 @@ export default function VerifyPage() {
 	const moreColumns = () => { setCOLS((prev) => { updateSelected([]); return Math.min(prev+1, MAX_COLUMNS); }); }
 	const lessColumns = () => { setCOLS((prev) => { updateSelected([]); return Math.max(prev-1, MIN_COLUMNS); }); }
 	const deleteSelected = () => {
-		const fullIndexSelected = selected.map((v,_) => spectrograms.current[v]?.fullIndex)
 		const remainingFiles = audioFiles
-			.filter((_, i) => !(fullIndexSelected.includes(i)))
+			.filter((_, i) => !(selected.includes(i)))
 				.map((item, newIndex) => ({ ...item, index: newIndex }));
 
 		setAudioFiles(remainingFiles);
 		updateSelected([]);
 	}
-	const switchSpeciesOfSelected = () => { selected.forEach((i) => { updateAudioFile(spectrograms.current[i].fullIndex, "speciesIndex", (prev)=>((prev+1) % speciesList.length)); }) }
+	const switchSpeciesOfSelected = () => { selected.forEach((i) => { updateAudioFile(spectrograms.current[i].index, "speciesIndex", (prev)=>((prev+1) % speciesList.length)); }) }
 
 
 	//// ================================================================================================================
@@ -670,7 +674,7 @@ export default function VerifyPage() {
 									" " + (
 										selected.length==0 ? 
 											"none" : 
-											selected.map((v,_) => spectrograms.current[v]?.fullIndex+1)
+											selected.map((fullIdx) => fullIdx + 1)
 									)
 								}
 							</p>
@@ -704,19 +708,19 @@ export default function VerifyPage() {
 										(spectrograms as any)._refCallbacks = {};
 									}
 									const refCallbacks = (spectrograms as any)._refCallbacks as Record<number, (el: any) => void>;
-									if (!refCallbacks[i]) {
-										refCallbacks[i] = (el) => { if (el) spectrograms.current[i] = el; };
+									if (!refCallbacks[index]) {
+										refCallbacks[index] = (el) => { if (el) spectrograms.current[index] = el; };
 									}
 									return (
 										<Spectrogram
-											key={i}
+											key={index}
 											id={i} 
-											fullIndex={index}
+											index={index}
 											audioUrl={audioURLs[index]}
 											audioFile={audioFiles[index]}
 											linkedSpectro={null}
-											ref={refCallbacks[i]}
-											isHovered={hovered == i}
+											ref={refCallbacks[index]}
+											isHovered={hovered == index}
 										/>
 									)
 								})}
@@ -729,14 +733,14 @@ export default function VerifyPage() {
 					)}
 
 					<>
-						{showModal && 	
+						{showModal && firstSelected != null &&	
 							createPortal(
 								<ModalSpectrogram
 									key={-1}
 									id={-1} 
-									fullIndex={spectrograms.current[firstSelected].fullIndex}
-									audioUrl={audioURLs[spectrograms.current[firstSelected].fullIndex]}
-									audioFile={audioFiles[spectrograms.current[firstSelected].fullIndex]}
+									index={firstSelected}
+									audioUrl={audioURLs[firstSelected]}
+									audioFile={audioFiles[firstSelected]}
 									linkedSpectro={spectrograms.current[firstSelected]}
 									ref={(el) => { if (el) spectrograms.current[-1] = el; }}
 									isHovered={false}
