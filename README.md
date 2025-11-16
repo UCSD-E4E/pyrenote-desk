@@ -26,6 +26,32 @@ Afterwards, please install `yarn` with `npm install -g yarn` ([tutorial](https:/
 
 Enter `yarn && yarn dev` into the terminal, and the application should install all your dependencies and open up a new electron window!
 
+## Submodule Guide
+### Making & Commiting Changes inside Submodule
+1. `cd pyfiles/acoustic-multiclass-training`
+2. `git checkout inf-script` : ensure you're on your branch (not detached)
+3. `git add -A`
+4. `git commit -m "message"`
+5. `git push origin inf-script`
+
+### Update the parent repo to point at the new submodule commit
+1. `cd ../..` : Back to outer repo root
+2. `git add pyfiles/acoustic-multiclass-training` : Stages the new submodule SHA
+3. `git commit -m "chore: bump submodule to latest inf-script"`
+4. `git push`
+
+### Other Miscellaneous Debugging Hints!
+#### One
+After cloning, submodules often land in detached HEAD. Before committing there, do:
+1. `cd pyfiles/acoustic-multiclass-training`
+2. `git checkout -B inf-script origin/inf-script`
+
+#### Two
+I already set the submodule to track inf-script (via -b inf-script). To pull latest from that branch later:
+1. `git submodule update --remote pyfiles/acoustic-multiclass-training`
+2. `git add pyfiles/acoustic-multiclass-training`
+3. `git commit -m "chore: bump submodule"`
+4. `git push`
   
 
 ## Workflow
