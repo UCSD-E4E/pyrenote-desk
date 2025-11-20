@@ -43,13 +43,13 @@ CREATE TABLE Deployment (
 CREATE TABLE Recording (
     recordingId INTEGER PRIMARY KEY,
     deploymentId INTEGER,
-    filename TEXT,
     url TEXT,
     directory TEXT,
     datetime DATETIME,
     duration REAL,
     samplerate INTEGER,
     bitrate INTEGER,
+    UNIQUE(deploymentId, url),
     FOREIGN KEY (deploymentId) REFERENCES Deployment (deploymentId) ON DELETE CASCADE
 );
 

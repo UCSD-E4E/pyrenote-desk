@@ -4,7 +4,7 @@ import { Recording } from "../schema";
 const listRecordingsBySiteId = async (siteId: number): Promise<Recording[]> => {
   const db = getDatabase();
   const statement = db.prepare<number, Recording>(`
-    SELECT recordingId, deploymentId, filename, url, datetime, duration, samplerate, bitrate FROM recording
+    SELECT recordingId, deploymentId, url, directory, datetime, duration, samplerate, bitrate FROM recording
     NATURAL JOIN deployment
     NATURAL JOIN site
     WHERE siteId = ?

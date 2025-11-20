@@ -653,9 +653,16 @@ export default function databasePage() {
       return null;
     }
 
-    const [files, setFiles] = useState<File[]>([]);
+    type FileInfo = {
+      absolutePath: string;
+      relativePath: string;
+      name: string;
+    };
+
+    const [files, setFiles] = useState<FileInfo[]>([]);
+    const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
     const [deploymentId, setDeploymentId] = useState<number>(0);
-    const [driveLabel, setDriveLabel] = useState(""); // optional
+    // const [driveLabel, setDriveLabel] = useState(""); // optional
     const [deployments, setDeployments] = useState<DeploymentOption[]>([]);
     const [loading, setLoading] = useState(false);
 
@@ -675,10 +682,21 @@ export default function databasePage() {
       fetchDeployments();
     }, []);
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      if (e.target.files) {
-        const selectedFiles = Array.from(e.target.files);
-        setFiles(selectedFiles);
+    const handleFolderSelect = async () => {
+      try {
+        const result = await window.ipc.invoke("pick-folder-for-recordings", null);
+        if (result.files && result.files.length > 0) {
+          setFiles(result.files);
+          setSelectedFolder(result.folderPath);
+          alert(`Selected ${result.files.length} audio file(s) from folder`);
+        } else if (result.folderPath === null) {
+          // User cancelled
+          return;
+        } else {
+          alert("No audio files found in selected folder");
+        }
+      } catch (err: any) {
+        alert("Failed to select folder: " + (err?.message || err));
       }
     };
 
@@ -691,25 +709,18 @@ export default function databasePage() {
 
       setLoading(true);
       try {
-        const fileBuffers = await Promise.all(
-          files.map(async (file) => {
-            const buffer = await file.arrayBuffer();
-            return {
-              name: file.name,
-              relativePath: (file as any).webkitRelativePath || file.name,
-              buffer: Array.from(new Uint8Array(buffer)),
-            };
-          })
-        );
-
-        await window.ipc.invoke("saveMultipleRecordings", {
-          files: fileBuffers,
+        const result = await window.ipc.invoke("saveMultipleRecordings", {
+          files,
           deploymentId,
-          driveLabel: driveLabel || null,
+          // driveLabel: driveLabel || null,
         });
-
-        alert("All recordings saved!");
+        if (result.skippedCount > 0) {
+          alert(`All ${files.length} recordings saved! ${result.skippedCount} duplicate files automatically ignored.`);
+        } else {
+          alert(`All ${files.length} recordings saved!`);
+        }
         setFiles([]);
+        setSelectedFolder(null);
         setDeploymentId(0);
         toEntryForm();
       } catch (err: any) {
@@ -724,8 +735,15 @@ export default function databasePage() {
         <h1>Recording Entry</h1>
         <form onSubmit={handleSubmit}>
           <label>Select Folder:</label>
-          {/* @ts-ignore */}
-          <input type="file" webkitdirectory="true" onChange={handleFileChange} />
+          <button type="button" onClick={handleFolderSelect}>
+            Choose Folder
+          </button>
+          {selectedFolder && (
+            <div>
+              <p>Selected: {selectedFolder}</p>
+              <p>{files.length} audio file(s) found</p>
+            </div>
+          )}
 
           <label>Select Deployment:</label>
           <select
@@ -741,8 +759,8 @@ export default function databasePage() {
           </select>
 
 
-          <label>Optional: Drive Label, if external hard drive</label>
-          <input value={driveLabel} onChange={(e) => setDriveLabel(e.target.value)} placeholder="Leave blank for local" />
+          {/* <label>Optional: Drive Label, if external hard drive</label>
+          <input value={driveLabel} onChange={(e) => setDriveLabel(e.target.value)} placeholder="Leave blank for local" /> */}
 
           <div>
             <button type="submit" disabled={loading}>Enter</button>
@@ -1056,7 +1074,7 @@ export default function databasePage() {
           {!loading && !error && rows.length === 0 && (
             <p>No data available</p>
           )}
-        
+        <button type="button" onClick={toEntryForm}>Back</button>
       </div>
     );
   }

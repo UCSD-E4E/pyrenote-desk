@@ -7,7 +7,7 @@ import { execFile } from "child_process";
 import { setupQueries as queries } from "./queries";
 import { setupMutations as mutations } from "./mutations";
 import { app, ipcMain, dialog } from "electron";
-import { readFile } from "fs/promises";
+import { readFile, writeFile, mkdir } from "fs/promises";
 import os from "os";
 import { spawn } from "child_process";
 
@@ -23,7 +23,6 @@ let dbInstance: BetterSqlite3.Database;
 let selectedDbPath: string | null = null;
 
 export const getDatabase = () => {
-  console.log("db instance: ", dbInstance)
   return dbInstance;
 };
 
@@ -63,7 +62,7 @@ function createDatabase() {
   } else {
     const port = process.argv[2];
     await mainWindow.loadURL(`http://localhost:${port}/home`);
-    //mainWindow.webContents.openDevTools(); //ensure that developer console opens on startup
+    mainWindow.webContents.openDevTools(); //ensure that developer console opens on startup
   }
 })();
 
@@ -99,36 +98,6 @@ for (const mutation in mutations) {
 //     throw error;
 //   }
 // });
-
-// Listener for running the script
-ipcMain.handle("run-script", async () => {
-  // return new Promise((resolve, reject) => {
-  //   //execFile("python", ["pyfiles/script.py"], (error, stdout, stderr) => {
-  //   execFile("python", ["pyfiles/acoustic-multiclass-training/inference.py"], (error, stdout, stderr) => {
-  //     if (error) {
-  //       return reject(stderr);
-  //     }
-  //     //Passes output back to the renderer
-  //     resolve(stdout);
-  //   });
-  // });
-
-  const python = "python"; 
-  const script = path.join(process.cwd(), "pyfiles/acoustic-multiclass-training/inference.py");
-
-  return new Promise<string>((resolve, reject) => {
-    // Pass DB path as a CLI argument
-    execFile(
-      python,
-      [script, "--db-path", selectedDbPath],
-      //{ env: { ...process.env } },  // add env if needed? would this prevent us from having to activate venv before running yarn && yarn dev?
-      (error, stdout, stderr) => {
-        if (error) return reject(stderr || error.message);
-        resolve(stdout ?? "");
-      }
-    );
-  });
-});
 
 ipcMain.on("message", async (event, arg) => {
   event.reply("message", `${arg} World!`);
@@ -316,43 +285,86 @@ ipcMain.handle('edit-database', async (_event, { oldName, newName, filepath }) =
 });
 
 
-ipcMain.handle("saveMultipleRecordings", async (_event, { files, deploymentId, driveLabel }) => {
-  //const selectedDbPath = selectedDbPath; // ← however you expose this
-  const savedIds: number[] = [];
-
+function getAllAudioFiles(dirPath: string, fileList: string[] = []): string[] {
+  const files = fs.readdirSync(dirPath);
+  
   for (const file of files) {
-    const tempPath = path.join(os.tmpdir(), file.name);
-    fs.writeFileSync(tempPath, new Uint8Array(Buffer.from(file.buffer)));
+    const filePath = path.join(dirPath, file);
+    const stat = fs.statSync(filePath);
+    
+    if (stat.isDirectory()) {
+      getAllAudioFiles(filePath, fileList);
+    } else {
+      const ext = path.extname(filePath).toLowerCase();
+      if (['.wav', '.mp3', '.m4a', '.flac'].includes(ext)) {
+        fileList.push(filePath);
+      }
+    }
+  }
+  
+  return fileList;
+}
 
-    const pythonScript = path.join(__dirname, "../pyfiles/script.py");
-    const args = [
-      "--save", tempPath,
-      "--deployment", deploymentId.toString(),
-      "--db", selectedDbPath
-    ];
-    if (driveLabel) args.push("--drive", driveLabel);
+ipcMain.handle("pick-folder-for-recordings", async (_event) => {
+  const result = await dialog.showOpenDialog({
+    properties: ["openDirectory"],
+  });
 
-    await new Promise<void>((resolve, reject) => {
-      const proc = spawn(getVenvPython(), [pythonScript, ...args]);
-
-      proc.stdout.on("data", (data) => {
-        const match = data.toString().match(/recordingId=(\d+)/);
-        if (match) savedIds.push(Number(match[1]));
-        console.log("PYTHON STDOUT:", data.toString());
-      });
-
-      proc.stderr.on("data", (data) => {
-        console.error("PYTHON STDERR:", data.toString());
-      });
-
-      proc.on("close", (code) => {
-        if (code === 0) resolve();
-        else reject(new Error(`Python script failed with code ${code}`));
-      });
-    });
+  if (result.canceled || !result.filePaths[0]) {
+    return { folderPath: null, files: [] };
   }
 
-  return savedIds;
+  const folderPath = result.filePaths[0];
+  const audioFiles = getAllAudioFiles(folderPath);
+
+  return {
+    folderPath,
+    files: audioFiles.map(filePath => ({
+      absolutePath: filePath,
+      folderPath: folderPath,
+      name: path.basename(filePath),
+    })),
+  };
+});
+
+ipcMain.handle("saveMultipleRecordings", async (_event, { files, deploymentId, driveLabel }) => {
+  let db = new BetterSqlite3(selectedDbPath);
+  let url: string;
+  let skippedCount = 0;
+  for (const file of files) {
+    url = file.absolutePath;
+    try {
+      db.prepare(`INSERT INTO Recording (deploymentId, url, directory, datetime, duration, samplerate, bitrate) VALUES (?, ?, ?, ?, ?, ?, ?)`)
+      .run(deploymentId, url, file.folderPath, new Date().toISOString(), 0, 0, 0);
+    } catch (err: any) {
+      if (err.code === "SQLITE_CONSTRAINT_UNIQUE") {
+        skippedCount++;
+      } else {
+        throw err; // rethrow unknown errors
+      }
+    }
+  }
+  db.close();
+  return { skippedCount };
+});
+
+ipcMain.handle("run-script", async () => {
+
+  const python = "python"; 
+  const script = path.join(process.cwd(), "pyfiles/acoustic-multiclass-training/inference.py");
+
+  return new Promise<string>((resolve, reject) => {
+    // Pass DB path as a CLI argument
+    execFile(
+      python,
+      [script, "--db-path", selectedDbPath],
+      //{ env: { ...process.env } },  // add env if needed? would this prevent us from having to activate venv before running yarn && yarn dev?
+      (error, stdout, stderr) => {
+        if (error) return reject(stderr || error.message);
+        resolve(stdout ?? "");
+      }
+    );
+  });
 });
 
 
