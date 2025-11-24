@@ -11,6 +11,16 @@
     background-color: #374151;
 }
 
+.appContainer {
+	padding: 10px;
+	width: 100vw;
+	height: 100vh;
+	display: flex;
+  	flex: 0 0 auto;
+	flex-direction: row;
+	box-sizing: border-box;
+}
+
 .icon {
     display: flex;
     flex-direction: column;
@@ -54,7 +64,9 @@
 
 .children {
 	position: relative;
-	flex: 1;
-	min-height: 100%;
+	display: flex;
+	flex: 1 1 0;
+	flex-direction: column;
+	min-width: 0;
     color: var(--text-color);
 }

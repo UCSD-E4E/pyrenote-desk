@@ -30,7 +30,7 @@ function Layout({ children }: { children: React.ReactNode }) {
 		<>
 			<div className={`${styles.theme} ${darkMode ? styles.dark : ''}`}>
 			
-				<div className="flex p-0">
+				<div className={styles.appContainer}>
 					<div className={styles.settings} onClick={toSettings}>
 						<Image
 							src="/images/settingsCog.webp"
@@ -96,7 +96,7 @@ function Layout({ children }: { children: React.ReactNode }) {
 						</div>
 					</div>
 					{/* make labelling fill out width wise */}
-					<main className={styles.children}>{children}</main>
+					<div className={styles.children}>{children}</div>
 				</div>
 			
 			</div>

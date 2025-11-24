@@ -27,6 +27,7 @@ export default function SettingsPage() {
     const [verifyColorScheme, setVerifyColorScheme] = useState(localStorage.getItem('verifyColorScheme'));
     const [confidenceRange, setConfidenceRange] = useState(localStorage.getItem('confidenceRange'));
     const [defaultColumns, setDefaultColumns] = useState(localStorage.getItem('defaultColumns'));
+	const [defaultSpeciesId, setDefaultSpeciesId] = useState(localStorage.getItem('defaultSpeciesId'));
 
     //TODO: maybe change default database path to something else, or force user to select database
     const [databasePath, setDatabasePath] = useState(localStorage.getItem('databasePath') || defaultDatabasePath);
@@ -126,6 +127,10 @@ export default function SettingsPage() {
         localStorage.setItem('defaultColumns', columns);
         setDefaultColumns(localStorage.getItem('defaultColumns'));
     }
+	function newDefaultSpeciesId (columns) {
+        localStorage.setItem('defaultSpeciesId', columns);
+        setDefaultSpeciesId(localStorage.getItem('defaultSpeciesId'));
+    }
     function newDatabasePath(path) {
         // Sets new database path for all SQL operations
         localStorage.setItem('databasePath', path);
@@ -155,6 +160,7 @@ export default function SettingsPage() {
         localStorage.setItem('verifyColorScheme', 'black and white');
         localStorage.setItem('confidenceRange', '10');
         localStorage.setItem('defaultColumns', '4');
+		localStorage.setItem('defaultSpeciesId', 'Default');
         localStorage.setItem('databasePath', defaultDatabasePath);
 
         setUsername('');
@@ -173,6 +179,7 @@ export default function SettingsPage() {
         setVerifyColorScheme('black and white');
         setConfidenceRange('10');
         setDefaultColumns('4');
+		setDefaultSpeciesId('Default')
         setDatabasePath(defaultDatabasePath);
     }
     /**
@@ -197,6 +204,7 @@ export default function SettingsPage() {
             verifyColorScheme,
             confidenceRange,
             defaultColumns,
+			defaultSpeciesId,
             databasePath
         };
 
@@ -240,6 +248,7 @@ export default function SettingsPage() {
                     setVerifyColorScheme(importedSettings.verifyColorScheme || "black and white");
                     setConfidenceRange(importedSettings.confidenceRange || "10");
                     setDefaultColumns(importedSettings.defaultColumns || "4");
+					setDefaultSpeciesId(importedSettings.defaultSpeciesId || 'Default');
 
                     localStorage.setItem("username", importedSettings.username || "");
                     localStorage.setItem("email", importedSettings.email || "");
@@ -257,6 +266,7 @@ export default function SettingsPage() {
                     localStorage.setItem("verifyColorScheme", importedSettings.verifyColorScheme || "black and white");
                     localStorage.setItem("confidenceRange", importedSettings.confidenceRange || "10");
                     localStorage.setItem("defaultColumns", importedSettings.defaultColumns || "4");
+					localStorage.setItem("defaultSpeciesId", importedSettings.defaultSpeciesId || 'Default');
                 } catch (error) {
                     console.error("Error importing settings:", error);
                     alert("Failed to import settings. Please ensure the file is a valid JSON.");
@@ -405,6 +415,11 @@ export default function SettingsPage() {
                         <input type="number" id="columns" name="columns"
                             onChange={(e) => newDefaultColumns(e.target.value)}
                             value = {defaultColumns}>
+                        </input><br></br>
+						 <label>Default Species: </label>
+                        <input type="text" id="species" name="species"
+                            onChange={(e) => newDefaultSpeciesId(e.target.value)}
+                            value = {defaultSpeciesId}>
                         </input><br></br>
                     </form>
                 </div>}
