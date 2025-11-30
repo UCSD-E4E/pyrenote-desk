@@ -20,7 +20,7 @@ type WaveSurferObj = {
 	regions: RegionOfInterest[];
 	id: string;
 	spectrogramId: string;
-	file: Blob;
+	blobURL?: string;
 	class: "spectrogramContainer";
 };
 
@@ -103,6 +103,10 @@ const AudioPlayer: React.FC = () => {
 		if (ws) {
 			ws.destroy();
 			wavesurferInstancesRef.current[index] = null;
+		}
+		// Clean up blob URL
+		if (wavesurfers[index]?.blobURL) {
+			URL.revokeObjectURL(wavesurfers[index].blobURL);
 		}
 	};
 
@@ -271,9 +275,17 @@ const AudioPlayer: React.FC = () => {
 		if (index === 0) {
 			if (wavesurfers.length === 1) {
 				setShowSpec(false);
+				// Clean up blob URL
+				if (wavesurfers[0]?.blobURL) {
+					URL.revokeObjectURL(wavesurfers[0].blobURL);
+				}
 				setWavesurfers([]);
 			} else {
 				ws.destroy();
+				// Clean up blob URL
+				if (wavesurfers[0]?.blobURL) {
+					URL.revokeObjectURL(wavesurfers[0].blobURL);
+				}
 				setWavesurfers((arr) => arr.slice(1));
 				setIndex(0);
 			}
@@ -301,10 +313,18 @@ const AudioPlayer: React.FC = () => {
 			let currentWaveSurfer = wavesurferInstancesRef.current[index];
 			if (wavesurfers.length === 1) {
 				setShowSpec(false);
+				// Clean up blob URL
+				if (wavesurfers[0]?.blobURL) {
+					URL.revokeObjectURL(wavesurfers[0].blobURL);
+				}
 				setWavesurfers([]);
 			} else {
 				currentWaveSurfer?.destroy();
 				currentWaveSurfer = null;
+				// Clean up blob URL
+				if (wavesurfers[0]?.blobURL) {
+					URL.revokeObjectURL(wavesurfers[0].blobURL);
+				}
 				// Remove the first WaveSurfer
 				setWavesurfers((wavesurfers) => wavesurfers.slice(1));
 				setIndex(0);
@@ -344,6 +364,13 @@ const AudioPlayer: React.FC = () => {
 
 	const importFromDB = async (recordings, skippedCount = 0) => {
 		console.log("recordings:", recordings);
+		// Clean up existing blob URLs
+		wavesurfers.forEach((wave) => {
+			if (wave.blobURL) {
+				URL.revokeObjectURL(wave.blobURL);
+			}
+		});
+
 		// Ensure it's an array
 		if (!Array.isArray(recordings)) {
 			console.error("Expected recordings to be an array, got:", recordings);
@@ -363,7 +390,7 @@ const AudioPlayer: React.FC = () => {
 		}
 
 		const newWaveSurfers: WaveSurferObj[] = await Promise.all(
-			recordings.map(async (rec, i) => {
+			(recordings as Recording[]).map(async (rec, i) => {
 				const regions = await window.api.listRegionOfInterestByRecordingId(
 					rec.recordingId,
 				);
@@ -375,7 +402,7 @@ const AudioPlayer: React.FC = () => {
 					regions: regions || [], //ensure regions is array
 					id: containerId,
 					spectrogramId: spectrogramId,
-					file: new Blob([rec.fileData as BlobPart]),
+					//file: new Blob([rec.fileData as BlobPart]),
 					class: "spectrogramContainer" as const,
 				};
 			}),
@@ -409,6 +436,13 @@ const AudioPlayer: React.FC = () => {
 	//Handle audio files upload/import and map new wavesurfers
 	const handleFiles = async (acceptedFiles: File[]) => {
 		console.log("Files dropped:", acceptedFiles);
+
+		// Clean up existing blob URLs
+		wavesurfers.forEach((wave) => {
+			if (wave.blobURL) {
+				URL.revokeObjectURL(wave.blobURL);
+			}
+		});
 
 		// Clear existing wavesurfers if any
 		if (wavesurfers.length > 0) {
@@ -493,6 +527,17 @@ const AudioPlayer: React.FC = () => {
 			window.removeEventListener("keydown", handleKeyDown);
 		};
 	}, [handleKeyDown]);
+
+	// Cleanup blob URLs on component unmount
+	useEffect(() => {
+		return () => {
+			wavesurfers.forEach((wave) => {
+				if (wave.blobURL) {
+					URL.revokeObjectURL(wave.blobURL);
+				}
+			});
+		};
+	}, [wavesurfers]);
 
 	const mountWavesurfer = useCallback(async (ws: WaveSurfer, waveEntry: WaveSurferObj) => {
 		console.log("attaching", waveEntry.id)
@@ -611,7 +656,7 @@ const AudioPlayer: React.FC = () => {
 				return;
 			}
 
-			const waveEntry = wavesurfers[targetIndex];
+			const waveEntry = wavesurfers[targetIndex] as WaveSurferObj;
 			const waveContainer = document.getElementById(waveEntry.id);
 			const spectrogramContainer = document.getElementById(waveEntry.spectrogramId);
 
@@ -803,8 +848,12 @@ const AudioPlayer: React.FC = () => {
 			document
 				.getElementById(waveEntry.spectrogramId)
 				?.classList.add("spectrogramContainer");
-
-			await ws.loadBlob(waveEntry.file);
+			
+			if (!waveEntry.blobURL) {
+				const audioFile = await window.ipc.invoke('read-file-for-verification', waveEntry.recording.url);
+				waveEntry.blobURL = URL.createObjectURL(new Blob([audioFile.data]));
+			}
+			await ws.load(waveEntry.blobURL);
 			console.log("loaded ws", mount);
 			ws.setPlaybackRate(parseFloat(playbackRate), false);
 
