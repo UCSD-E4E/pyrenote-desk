@@ -118,6 +118,7 @@ const AudioPlayer: React.FC = () => {
 		// Clean up blob URL
 		if (wavesurfers[index]?.blobURL) {
 			URL.revokeObjectURL(wavesurfers[index].blobURL);
+			wavesurfers[index].blobURL = null;
 		}
 	};
 
@@ -541,6 +542,7 @@ const AudioPlayer: React.FC = () => {
 			wavesurfers.forEach((wave) => {
 				if (wave.blobURL) {
 					URL.revokeObjectURL(wave.blobURL);
+					wave.blobURL = null;
 				}
 			});
 		};
@@ -860,6 +862,7 @@ const AudioPlayer: React.FC = () => {
 				const audioFile = await window.ipc.invoke('read-file-for-verification', waveEntry.recording.url);
 				waveEntry.blobURL = URL.createObjectURL(new Blob([audioFile.data]));
 			}
+			console.log(waveEntry.blobURL);
 			await ws.load(waveEntry.blobURL);
 			console.log("loaded ws", mount);
 			ws.setPlaybackRate(parseFloat(playbackRate), false);
@@ -1341,9 +1344,6 @@ const AudioPlayer: React.FC = () => {
 										value={confidence}
 										onChange={(e) => setConfidence(Number(e.target.value))}
 									/>
-									<p>
-										{maxConfidence}
-									</p>
 								</>
 							)}
 
