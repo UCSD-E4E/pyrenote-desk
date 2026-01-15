@@ -32,6 +32,15 @@ for (let i = 0; i < 256; i++) {
 }
 
 const AudioPlayer: React.FC = () => {
+	// Settings
+	const [useConfidence, setUseConfidence] = useState(false);
+	const [useAdditional, setUseAdditional] = useState(false);
+	useEffect(() => {
+		setUseConfidence(localStorage.getItem('disableConfidence') === 'false');
+		setUseAdditional(localStorage.getItem('disableAdditional') === 'false');
+		setSampleRate(localStorage.getItem('sampleRate') || '44100');
+	}, []);
+
 	// UI state
 	const [showSpec, setShowSpec] = useState(false);
 	const [playing, setPlaying] = useState(false);
@@ -44,15 +53,11 @@ const AudioPlayer: React.FC = () => {
 
 	// Playback controls
 	const [playbackRate, setPlaybackRate] = useState("1");
-	const [sampleRate, _setSampleRate] = useState("24000");
+	const [sampleRate, setSampleRate] = useState('44100');
 
 	// Region & species
 	const regionListRef = useRef<any[]>([]);
 	const activeRegionRef = useRef<any>(null);
-	// const [speciesList, setSpeciesList] = useState<Species[]>([
-	//	 { species: "Default", common: "no", speciesId: 0 },
-	//	 { species: "some birds", common: "?", speciesId: 1 },
-	// ]);
 	const [speciesList, setSpeciesList] = useState<Species[]>([]);
 	const [selectedSpecies, setSelectedSpecies] = useState<number>(0);
 
@@ -423,10 +428,6 @@ const AudioPlayer: React.FC = () => {
 				setSpeciesList(species);
 			} catch (error) {
 				console.error("Failed to fetch species list:", error);
-				setSpeciesList([
-					{ species: "Default", common: "no", speciesId: 0 },
-					{ species: "some birds", common: "?", speciesId: 1 },
-				]);
 			}
 		};
 
@@ -1202,177 +1203,183 @@ const AudioPlayer: React.FC = () => {
 							</select>
 						</div>
 					</div>
-					<div>
-						{showSpec && wavesurfers.length > 0 && (
-							<div className={styles.audioInfo}>
-								<p>
-									File {index + 1} of {wavesurfers.length}:{" "}
-									{wavesurfers[index]?.recording.url}
-								</p>
-							</div>
-						)}
-						{showSpec && (
-							<div className={styles.waveStage}>
-								{mountedIndices.map((mountedIndex) => {
-									const wave = wavesurfers[mountedIndex];
-									if (!wave) return null;
-									const isActive = mountedIndex === index;
+					{showSpec && (
+						<div>
+							{showSpec && wavesurfers.length > 0 && (
+								<div className={styles.audioInfo}>
+									<p>
+										File {index + 1} of {wavesurfers.length}:{" "}
+										{wavesurfers[index]?.recording.url}
+									</p>
+								</div>
+							)}
+							{showSpec && (
+								<div className={styles.waveStage}>
+									{mountedIndices.map((mountedIndex) => {
+										const wave = wavesurfers[mountedIndex];
+										if (!wave) return null;
+										const isActive = mountedIndex === index;
 
-									return (
-										<div
-											key={wave.id}
-											className={`${styles.waveSpectroContainer} ${
-												isActive ? styles.activeWave : styles.prefetchWave
-											}`}
-											data-wave-index={mountedIndex}
-										>
-											<div id={wave.id} className={styles.waveContainer}></div>
+										return (
 											<div
-												id={wave.spectrogramId}
-												className={styles.spectrogramContainer}
-											></div>
-										</div>
-									);
-								})}
-							</div>
-						)}
-					</div>
+												key={wave.id}
+												className={`${styles.waveSpectroContainer} ${
+													isActive ? styles.activeWave : styles.prefetchWave
+												}`}
+												data-wave-index={mountedIndex}
+											>
+												<div id={wave.id} className={styles.waveContainer}></div>
+												<div
+													id={wave.spectrogramId}
+													className={styles.spectrogramContainer}
+												></div>
+											</div>
+										);
+									})}
+								</div>
+							)}
+						</div>
+					)}
 				</div>
 			</div>
 			{showSpec && (
-				<div id="wave-timeline" style={{ height: "20px", margin: "20px" }} />
-			)}
-			{showSpec && (
-				<div className={styles.controls}>
-					<button
-						className={styles.prevClip}
-						onClick={clickPrev}
-						disabled={isPrevDisabled || index === 0}
-					>
-						<Image
-							src="/images/LArrow.png"
-							alt="Previous Button"
-							width={45}
-							height={45}
-						/>
-					</button>
-					<button className={styles.modelButton} onClick={clickYes}>
-						Save
-					</button>
-					{!playing && (
-						<button className={styles.play} onClick={clickPlay}>
-							<Image
-								src="/images/Play.png"
-								alt="Play Button"
-								width={45}
-								height={45}
-							/>
-						</button>
-					)}
-					{playing && (
-						<button className={styles.pause} onClick={clickPause}>
-							<Image
-								src="/images/Pause.png"
-								alt="Pause Button"
-								width={45}
-								height={45}
-							/>
-						</button>
-					)}
-					<button className={styles.modelButton} onClick={clickNo}>
-						Delete
-					</button>
-					<button
-						className={styles.nextClip}
-						onClick={clickNext}
-						disabled={isNextDisabled || index === wavesurfers.length - 1}
-					>
-						<Image
-							src="/images/RArrow.png"
-							alt="Next Button"
-							width={45}
-							height={45}
-						/>
-					</button>
-				</div>
-			)}
-			{showSpec && (
-				<div className={styles.bottomBar}>
-					<div className={styles.confidenceSection}>
-						<label>Region buttons</label>
-						<div className={styles.regionButtons}>
-							<button
-								className={styles.regionButton}
-								onClick={deleteActiveRegion}
-							>
-								Delete
-							</button>
-							<button className={styles.regionButton} onClick={clearAllRegions}>
-								Clear
-							</button>
-							<button className={styles.regionButton} onClick={undoLastRegion}>
-								Undo
-							</button>
-							{/* Removed because saves new species to list in UI not database */}
-							{/* <button
-								className={styles.regionButton}
-								onClick={saveLabelsToSpecies}
-							>
-								Save Labels
-							</button> */}
-						</div>
+				<>
+					<div id="wave-timeline" style={{ height: "20px", margin: "20px" }} />
 
-						<label className={styles.confidenceLabel} htmlFor="confidence">
-							Confidence: {confidence}
-						</label>
-						<input
-							type="range"
-							id="confidence"
-							min="0"
-							max="10"
-							value={confidence}
-							onChange={(e) => setConfidence(e.target.value)}
-						/>
-						<label className={styles.confidenceLabel} htmlFor="confidence">
-							Speed: {playbackRate}
-						</label>
-						<input
-							type="range"
-							id="speed"
-							min="0.5"
-							max="2"
-							step="0.1"
-							value={playbackRate}
-							onChange={(e) => {
-								setPlaybackRate(e.target.value);
-								const ws = wavesurferInstancesRef.current[index];
-								if (ws) {
-									ws.setPlaybackRate(parseFloat(e.target.value), false);
-								}
-							}}
-						/>
+					<div className={styles.controls}>
+						<button
+							className={styles.prevClip}
+							onClick={clickPrev}
+							disabled={isPrevDisabled || index === 0}
+						>
+							<Image
+								src="/images/LArrow.png"
+								alt="Previous Button"
+								width={45}
+								height={45}
+							/>
+						</button>
+						<button className={styles.modelButton} onClick={clickYes}>
+							Save
+						</button>
+						{!playing && (
+							<button className={styles.play} onClick={clickPlay}>
+								<Image
+									src="/images/Play.png"
+									alt="Play Button"
+									width={45}
+									height={45}
+								/>
+							</button>
+						)}
+						{playing && (
+							<button className={styles.pause} onClick={clickPause}>
+								<Image
+									src="/images/Pause.png"
+									alt="Pause Button"
+									width={45}
+									height={45}
+								/>
+							</button>
+						)}
+						<button className={styles.modelButton} onClick={clickNo}>
+							Delete
+						</button>
+						<button
+							className={styles.nextClip}
+							onClick={clickNext}
+							disabled={isNextDisabled || index === wavesurfers.length - 1}
+						>
+							<Image
+								src="/images/RArrow.png"
+								alt="Next Button"
+								width={45}
+								height={45}
+							/>
+						</button>
 					</div>
-					{showSpec && (
-						<div className={styles.annotationSection}>
-							<label>
-								Zoom:{" "}
-								<input type="range" min="10" max="1000" defaultValue="10" />
-							</label>
-							<label>Call Type:</label>
-							<input
-								type="text"
-								value={callType}
-								onChange={(e) => setCallType(e.target.value)}
-							/>
-							<label>Additional Notes:</label>
-							<textarea
-								value={notes}
-								onChange={(e) => setNotes(e.target.value)}
-							/>
-						</div>
-					)}
-				</div>
+
+
+					<div className={styles.bottomBar}>
+						{useConfidence && (
+							<div className={styles.confidenceSection}>
+								<label>Region buttons</label>
+								<div className={styles.regionButtons}>
+									<button
+										className={styles.regionButton}
+										onClick={deleteActiveRegion}
+									>
+										Delete
+									</button>
+									<button className={styles.regionButton} onClick={clearAllRegions}>
+										Clear
+									</button>
+									<button className={styles.regionButton} onClick={undoLastRegion}>
+										Undo
+									</button>
+									{/* Removed because saves new species to list in UI not database */}
+									{/* <button
+										className={styles.regionButton}
+										onClick={saveLabelsToSpecies}
+									>
+										Save Labels
+									</button> */}
+								</div>
+
+								<label className={styles.confidenceLabel} htmlFor="confidence">
+									Confidence: {confidence}
+								</label>
+								<input
+									type="range"
+									id="confidence"
+									min="0"
+									max="10"
+									value={confidence}
+									onChange={(e) => setConfidence(e.target.value)}
+								/>
+								<label className={styles.confidenceLabel} htmlFor="confidence">
+									Speed: {playbackRate}
+								</label>
+								<input
+									type="range"
+									id="speed"
+									min="0.5"
+									max="2"
+									step="0.1"
+									value={playbackRate}
+									onChange={(e) => {
+										setPlaybackRate(e.target.value);
+										const ws = wavesurferInstancesRef.current[index];
+										if (ws) {
+											ws.setPlaybackRate(parseFloat(e.target.value), false);
+										}
+									}}
+								/>
+							</div>
+						)}
+						{useAdditional && showSpec && (
+							<div className={styles.annotationSection}>
+								<label>
+									Zoom:{" "}
+									<input type="range" min="10" max="1000" defaultValue="10" />
+								</label>
+								<label>Call Type:</label>
+								<input
+									type="text"
+									value={callType}
+									onChange={(e) => setCallType(e.target.value)}
+								/>
+								<label>Additional Notes:</label>
+								<textarea
+									value={notes}
+									onChange={(e) => setNotes(e.target.value)}
+								/>
+							</div>
+						)}
+					</div>
+				</>
 			)}
+				
 		</React.Fragment>
 	);
 };

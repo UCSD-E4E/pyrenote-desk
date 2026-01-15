@@ -17,18 +17,13 @@ import SpectrogramPlugin from "wavesurfer.js/dist/plugins/spectrogram";
 // modification in Settings page to be implemented
 
 const MAX_SKIPINTERVAL = 8;
-const DEFAULT_SKIPINTERVAL = 2;
 const MIN_SKIPINTERVAL = 0.5
 
 const MAX_PLAYSPEED = 4;
-const DEFAULT_PLAYSPEED = 1;
 const MIN_PLAYSPEED = 0.25;
 
 const MAX_COLUMNS = 8;
-const DEFAULT_COLUMNS = 2;
 const MIN_COLUMNS = 1;
-
-const DEFAULT_SPECIES_ID = 0
 
 
 // DATA STRUCTURES //
@@ -84,6 +79,24 @@ interface VerifyContextValue {
 export const VerifyContext = createContext<VerifyContextValue | null>(null);
 
 export default function VerifyPage() {	
+
+	// Default Settings
+
+ 	const [DEFAULT_SKIPINTERVAL, SET_DEFAULT_SKIPINTERVAL] = useState(1);
+	const [DEFAULT_PLAYSPEED, SET_DEFAULT_PLAYSPEED] = useState(1.0);
+	const [DEFAULT_COLUMNS, SET_DEFAULT_COLUMNS] = useState(2);
+	const [DEFAULT_SPECIES_ID, SET_DEFAULT_SPECIES_ID] = useState(1);
+	useEffect(() => {
+		SET_DEFAULT_SKIPINTERVAL(Number(localStorage.getItem('skipInterval')));
+		SET_DEFAULT_PLAYSPEED(Number(localStorage.getItem('playbackRate')) || DEFAULT_PLAYSPEED);
+		SET_DEFAULT_COLUMNS(Number(localStorage.getItem('defaultColumns')) || DEFAULT_COLUMNS);
+		SET_DEFAULT_SPECIES_ID(Number(localStorage.getItem('defaultSpeciesId')) || DEFAULT_SPECIES_ID);
+
+		setSkipInterval(Number(localStorage.getItem('skipInterval')) || DEFAULT_SKIPINTERVAL);
+		setPlaySpeed(Number(localStorage.getItem('playbackRate')) || DEFAULT_PLAYSPEED);
+		setCOLS(Number(localStorage.getItem('defaultColumns')) || DEFAULT_COLUMNS);
+		setDefaultSpeciesId(Number(localStorage.getItem('defaultSpeciesId')) || DEFAULT_SPECIES_ID);
+	}, []);
 
 	//// ================================================================================================================
 	//// STATE
@@ -413,19 +426,6 @@ export default function VerifyPage() {
 
 	//// ================================================================================================================
 	//// INITIALIZATION
-
-	// load settings
-	useEffect(() => {
-		//const verifyColorScheme_ = localStorage.getItem('verifyColorScheme');
-		const skipInterval_ = Number(localStorage.getItem('skipInterval'));
-		const playbackRate_ = Number(localStorage.getItem('playbackRate'));
-		const defaultColumns_ = Number(localStorage.getItem('defaultColumns'));
-		const defaultSpeciesId_ = Number(localStorage.getItem('defaultSpeciesId')); 
-		setSkipInterval(skipInterval_);
-		setPlaySpeed(playbackRate_);
-		setCOLS(defaultColumns_);
-		setDefaultSpeciesId(defaultSpeciesId_);
-	}, [])
 
 	// initial DB load
 	async function handleFileSelectionFromDB() {
