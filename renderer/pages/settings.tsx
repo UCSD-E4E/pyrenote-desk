@@ -25,7 +25,7 @@ export default function SettingsPage() {
     const [disableAdditional, setDisableAdditional] = useState('false'); // label
     const [disableConfidence, setDisableConfidence] = useState('false'); // label
     const [verifyColorScheme, setVerifyColorScheme] = useState('');
-    const [confidenceRange, setConfidenceRange] = useState('');
+    const [confidenceRange, setConfidenceRange] = useState('10'); // label
     const [defaultColumns, setDefaultColumns] = useState('4'); // verify
 	const [defaultSpeciesId, setDefaultSpeciesId] = useState('1'); // verify (awaiting feedback)
 

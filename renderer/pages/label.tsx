@@ -14,6 +14,7 @@ import {
 	RegionOfInterest,
 	Species,
 } from "../../main/schema";
+import { max } from "wavesurfer.js/src/util";
 
 type WaveSurferObj = {
 	recording: Recording;
@@ -35,10 +36,15 @@ const AudioPlayer: React.FC = () => {
 	// Settings
 	const [useConfidence, setUseConfidence] = useState(false);
 	const [useAdditional, setUseAdditional] = useState(false);
+	const [maxConfidence, setMaxConfidence] = useState(10);
 	useEffect(() => {
 		setUseConfidence(localStorage.getItem('disableConfidence') === 'false');
 		setUseAdditional(localStorage.getItem('disableAdditional') === 'false');
-		setSampleRate(localStorage.getItem('sampleRate') || '44100');
+		setSampleRate(localStorage.getItem('sampleRate') || sampleRate);
+		setMaxConfidence(Number(localStorage.getItem('confidenceRange') || maxConfidence));
+		if (confidence > Number(localStorage.getItem('confidenceRange'))) {
+			setConfidence(Number(localStorage.getItem('confidenceRange')));
+		}
 	}, []);
 
 	// UI state
@@ -47,7 +53,7 @@ const AudioPlayer: React.FC = () => {
 	const [index, setIndex] = useState(0);
 
 	// Annotation state
-	const [confidence, setConfidence] = useState("10");
+	const [confidence, setConfidence] = useState(10);
 	const [callType, setCallType] = useState("");
 	const [notes, setNotes] = useState("");
 
@@ -121,7 +127,7 @@ const AudioPlayer: React.FC = () => {
 		if (isPrevDisabled) {
 			return;
 		}
-		setConfidence("10");
+		setConfidence(maxConfidence);
 		setPrevDisabled(true);
 		setPlaying(false);
 		if (index === 0) return;
@@ -140,7 +146,7 @@ const AudioPlayer: React.FC = () => {
 		if (isNextDisabled) {
 			return;
 		}
-		setConfidence("10");
+		setConfidence(maxConfidence);
 		setNextDisabled(true);
 		setPlaying(false);
 		if (index === wavesurfers.length - 1) return;
@@ -179,7 +185,7 @@ const AudioPlayer: React.FC = () => {
 		 save annotation in database */
 	const clickYes = useCallback(async () => {
 		if (isYesDisabled) return;
-		setConfidence("10");
+		setConfidence(maxConfidence);
 		setYesDisabled(true);
 
 		const ws = wavesurferInstancesRef.current[index];
@@ -313,7 +319,7 @@ const AudioPlayer: React.FC = () => {
 			return;
 		}
 		setNoDisabled(true);
-		setConfidence("10");
+		setConfidence(maxConfidence);
 		if (index == 0) {
 			let currentWaveSurfer = wavesurferInstancesRef.current[index];
 			if (wavesurfers.length === 1) {
@@ -886,7 +892,8 @@ const AudioPlayer: React.FC = () => {
 			await createWavesurfer(index + 1, false);
 		};
 		loadCurrentAndNext();
-	}, [
+	}, 
+	[
 		showSpec,
 		index,
 		wavesurfers,
@@ -1301,81 +1308,88 @@ const AudioPlayer: React.FC = () => {
 
 
 					<div className={styles.bottomBar}>
-						{useConfidence && (
-							<div className={styles.confidenceSection}>
-								<label>Region buttons</label>
-								<div className={styles.regionButtons}>
-									<button
-										className={styles.regionButton}
-										onClick={deleteActiveRegion}
-									>
-										Delete
-									</button>
-									<button className={styles.regionButton} onClick={clearAllRegions}>
-										Clear
-									</button>
-									<button className={styles.regionButton} onClick={undoLastRegion}>
-										Undo
-									</button>
-									{/* Removed because saves new species to list in UI not database */}
-									{/* <button
-										className={styles.regionButton}
-										onClick={saveLabelsToSpecies}
-									>
-										Save Labels
-									</button> */}
-								</div>
+						<div className={styles.confidenceSection}>
+							<label>Region buttons</label>
+							<div className={styles.regionButtons}>
+								<button
+									className={styles.regionButton}
+									onClick={deleteActiveRegion}
+								>
+									Delete
+								</button>
+								<button className={styles.regionButton} onClick={clearAllRegions}>
+									Clear
+								</button>
+								<button className={styles.regionButton} onClick={undoLastRegion}>
+									Undo
+								</button>
+								{/* Removed because saves new species to list in UI not database */}
+								{/* <button
+									className={styles.regionButton}
+									onClick={saveLabelsToSpecies}
+								>
+									Save Labels
+								</button> */}
+							</div>
+							
+							{useConfidence && (
+								<>
+									<label className={styles.confidenceLabel} htmlFor="confidence">
+										Confidence: {confidence}
+									</label>
+									<input
+										type="range"
+										id="confidence"
+										min="0"
+										max={maxConfidence}
+										value={confidence}
+										onChange={(e) => setConfidence(Number(e.target.value))}
+									/>
+									<p>
+										{maxConfidence}
+									</p>
+								</>
+							)}
 
-								<label className={styles.confidenceLabel} htmlFor="confidence">
-									Confidence: {confidence}
-								</label>
-								<input
-									type="range"
-									id="confidence"
-									min="0"
-									max="10"
-									value={confidence}
-									onChange={(e) => setConfidence(e.target.value)}
-								/>
-								<label className={styles.confidenceLabel} htmlFor="confidence">
-									Speed: {playbackRate}
-								</label>
-								<input
-									type="range"
-									id="speed"
-									min="0.5"
-									max="2"
-									step="0.1"
-									value={playbackRate}
-									onChange={(e) => {
-										setPlaybackRate(e.target.value);
-										const ws = wavesurferInstancesRef.current[index];
-										if (ws) {
-											ws.setPlaybackRate(parseFloat(e.target.value), false);
-										}
-									}}
-								/>
-							</div>
-						)}
-						{useAdditional && showSpec && (
-							<div className={styles.annotationSection}>
-								<label>
-									Zoom:{" "}
-									<input type="range" min="10" max="1000" defaultValue="10" />
-								</label>
-								<label>Call Type:</label>
-								<input
-									type="text"
-									value={callType}
-									onChange={(e) => setCallType(e.target.value)}
-								/>
-								<label>Additional Notes:</label>
-								<textarea
-									value={notes}
-									onChange={(e) => setNotes(e.target.value)}
-								/>
-							</div>
-						)}
+							<label className={styles.confidenceLabel} htmlFor="confidence">
+								Speed: {playbackRate}
+							</label>
+							<input
+								type="range"
+								id="speed"
+								min="0.5"
+								max="2"
+								step="0.1"
+								value={playbackRate}
+								onChange={(e) => {
+									setPlaybackRate(e.target.value);
+									const ws = wavesurferInstancesRef.current[index];
+									if (ws) {
+										ws.setPlaybackRate(parseFloat(e.target.value), false);
+									}
+								}}
+							/>
+						</div>
+						
+						<div className={styles.annotationSection}>
+							<label>Call Type:</label>
+							<input
+								type="text"
+								value={callType}
+								onChange={(e) => setCallType(e.target.value)}
+							/>
+							{useAdditional && (
+								<>
+									<label>Additional Notes:</label>
+									<textarea
+										value={notes}
+										onChange={(e) => setNotes(e.target.value)}
+									/>
+								</>
+							)}
+							
+						</div>
+
 					</div>
 				</>
 			)}
