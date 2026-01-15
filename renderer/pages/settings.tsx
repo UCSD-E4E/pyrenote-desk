@@ -11,20 +11,20 @@ export default function SettingsPage() {
     const [showModel, setShowModel] = useState(false);
     const [showLabel, setShowLabel] = useState(false);
     const [showVerify, setShowVerify] = useState(false);
-    const [username, setUsername] = useState(''); // ?
-    const [email, setEmail] = useState(''); // ?
+    /* unused */ const [username, setUsername] = useState(''); // general
+   	/* unused */ const [email, setEmail] = useState(''); // general
     const [skipInterval, setSkipInterval] = useState('1'); // verify
     const [playbackRate, setPlaybackRate] = useState('1'); // verify
     const [darkMode, setDarkMode] = useState('false'); // layout (needs overhaul)
-    const [inputStyle, setInputStyle] = useState('default'); // ?
-    const [inputType, setInputType] = useState(''); // ?
-    const [modelVersion, setModelVersion] = useState(''); // ?
-    const [modelParameters, setModelParameters] = useState(''); // ?
+    /* unused */ const [inputStyle, setInputStyle] = useState('default'); // database
+    /* unused */ const [inputType, setInputType] = useState(''); // database
+    /* unused */ const [modelVersion, setModelVersion] = useState(''); // model
+    /* unused */ const [modelParameters, setModelParameters] = useState(''); // model
     const [sampleRate, setSampleRate] = useState(''); // label
-    const [colorScheme, setColorScheme] = useState('');
+    const [colorScheme, setColorScheme] = useState(''); // label
     const [disableAdditional, setDisableAdditional] = useState('false'); // label
     const [disableConfidence, setDisableConfidence] = useState('false'); // label
-    const [verifyColorScheme, setVerifyColorScheme] = useState('');
+    const [verifyColorScheme, setVerifyColorScheme] = useState(''); // verify
     const [confidenceRange, setConfidenceRange] = useState('10'); // label
     const [defaultColumns, setDefaultColumns] = useState('4'); // verify
 	const [defaultSpeciesId, setDefaultSpeciesId] = useState('1'); // verify (awaiting feedback)
@@ -317,7 +317,8 @@ export default function SettingsPage() {
                             name="name" 
                             onChange={(e) => newUsername(e.target.value)} 
                             value={username}
-                ></input><br></br>
+                		></input>
+						<br></br>
                         <label >Labeler Email: </label>
                         <input 
                             type="email" 
@@ -325,7 +326,8 @@ export default function SettingsPage() {
                             name="email" 
                             onChange={(e) => newEmail(e.target.value)}
                             value={email}>
-                        </input><br></br>
+                        </input>
+						<br></br>
                         <label >Dark Mode: </label>
                         <input type="checkbox" id="dark" name="dark"
                             onChange={(e) => newDarkMode(e.target.checked)}
@@ -352,20 +354,26 @@ export default function SettingsPage() {
                             ))}
                         </select>
                         
+						{/* Removed for now, since these settings are unused
                         <br></br>
                         <label >Input Style: </label>
                         <input type="text" id="fname" name="fname"
                             onChange={(e) => newInputStyle(e.target.value)}
                             value = {inputStyle}>
-                        </input><br></br>
+                        </input>
+						<br></br>
                         <label >Input Type: </label>
                         <input type="text" id="lname" name="lname"
                             onChange={(e) => newInputType(e.target.value)}
                             value = {inputType}>
                         </input>
+						*/}
                     </form>
                 </div>}
-            {!showData && <br></br>}<br></br><button type="button" className={styles.collapsible} onClick={collapseModel}>Model</button>
+			
+            {!showData && <br></br>}
+			{ /* Removed for now, since these model page settings are unused<button type="button" className={styles.collapsible} onClick={collapseModel}>Model</button>
+				<br></br>
                 {showModel && <div id="content">
                     <br></br>
                     <form>
@@ -381,6 +389,7 @@ export default function SettingsPage() {
                         </input>
                     </form>
                 </div>}
+			*/}
             {!showModel && <br></br>}<br></br><button type="button" className={styles.collapsible} onClick={collapseLabel}>Label</button>
                 {showLabel && <div id="content">
                     <br></br>
