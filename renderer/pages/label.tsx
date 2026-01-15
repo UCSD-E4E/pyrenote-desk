@@ -897,10 +897,6 @@ const AudioPlayer: React.FC = () => {
 		showSpec,
 		index,
 		wavesurfers,
-		playbackRate,
-		sampleRate,
-		speciesList,
-		confidence,
 		mountWavesurfer,
 		mountedIndices,
 	]);
