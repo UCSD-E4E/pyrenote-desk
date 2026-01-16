@@ -7,6 +7,7 @@ import WaveSurfer from "wavesurfer.js";
 import SpectrogramPlugin from "wavesurfer.js/dist/plugins/spectrogram";
 import RegionsPlugin from "wavesurfer.js/dist/plugins/regions";
 import TimelinePlugin from "wavesurfer.js/dist/plugins/timeline";
+import { GenericPlugin } from "wavesurfer.js/dist/base-plugin";
 import { Region } from "wavesurfer.js/src/plugin/regions";
 import {
 	Annotation,
@@ -21,8 +22,9 @@ type WaveSurferObj = {
 	regions: RegionOfInterest[];
 	id: string;
 	spectrogramId: string;
-	blobURL?: string;
 	class: "spectrogramContainer";
+	isCreating: boolean;
+	blobURL?: string;
 };
 
 // Generate ColorMap for Spectrogram
@@ -68,7 +70,7 @@ const AudioPlayer: React.FC = () => {
 	const [selectedSpecies, setSelectedSpecies] = useState<number>(0);
 
 	// Wavesurfer metadata & instances
-	const [wavesurfers, _setWavesurfers] = useState<any[]>([]);
+	const [wavesurfers, _setWavesurfers] = useState<WaveSurferObj[]>([]);
 	const wavesurferInstancesRef = useRef<(WaveSurfer | null)[]>([]);
 	const setWavesurfers = useCallback(
 		(
@@ -97,9 +99,9 @@ const AudioPlayer: React.FC = () => {
 		},
 		[],
 	);
+	const [preloadedIndices, setPreloadedIndices] = useState<number[]>([]);
 
-	// Wavesurfers array + button‑disable flags
-	const [mountedIndices, setMountedIndices] = useState<number[]>([]);
+	// Button‑disable flags
 	const [isPrevDisabled, setPrevDisabled] = useState(false);
 	const [isNextDisabled, setNextDisabled] = useState(false);
 	const [isYesDisabled, setYesDisabled] = useState(false);
@@ -122,8 +124,6 @@ const AudioPlayer: React.FC = () => {
 		}
 	};
 
-	// Called when moving to previous audio clip
-	// Destroys current wavesurfer and changes index
 	const clickPrev = async () => {
 		if (isPrevDisabled) {
 			return;
@@ -141,8 +141,6 @@ const AudioPlayer: React.FC = () => {
 		}, 500);
 	};
 
-	// Called when moving to next audio clip
-	// Destroys current wavesurfer and changes index
 	const clickNext = async () => {
 		if (isNextDisabled) {
 			return;
@@ -159,7 +157,6 @@ const AudioPlayer: React.FC = () => {
 		}, 500);
 	};
 
-	// Plays the current wavesurfer audio
 	const clickPlay = useCallback(async () => {
 		const wsInstance = wavesurferInstancesRef.current[index];
 		// Plays the active region
@@ -171,7 +168,6 @@ const AudioPlayer: React.FC = () => {
 		setPlaying(true);
 	}, [wavesurfers, index]);
 
-	//Pauses the current wavesurfer audio
 	const clickPause = useCallback(async () => {
 		const wsInstance = wavesurferInstancesRef.current[index];
 		if (wsInstance) {
@@ -416,6 +412,7 @@ const AudioPlayer: React.FC = () => {
 					spectrogramId: spectrogramId,
 					//file: new Blob([rec.fileData as BlobPart]),
 					class: "spectrogramContainer" as const,
+					isCreating: false,
 				};
 			}),
 		);
@@ -481,6 +478,7 @@ const AudioPlayer: React.FC = () => {
 				spectrogramId: spectrogramId,
 				file: file,
 				class: "spectrogramContainer" as const,
+				isCreating: false,
 			};
 		});
 
@@ -557,6 +555,8 @@ const AudioPlayer: React.FC = () => {
 			}),
 		);
 
+		console.log("loaded spectro plugin");
+
 		const timelineContainer = document.getElementById("wave-timeline");
 		if (timelineContainer) {
 			timelineContainer.style.position = "relative";
@@ -612,7 +612,7 @@ const AudioPlayer: React.FC = () => {
 
 	useEffect(() => {
 		if (!showSpec || wavesurfers.length === 0) {
-			setMountedIndices((prev) => (prev.length ? [] : prev));
+			setPreloadedIndices((prev) => (prev.length ? [] : prev));
 			return;
 		}
 
@@ -624,7 +624,7 @@ const AudioPlayer: React.FC = () => {
 			upcomingIndices.push(index + 1);
 		}
 
-		setMountedIndices((prev) => {
+		setPreloadedIndices((prev) => {
 			if (
 				prev.length === upcomingIndices.length &&
 				prev.every((value, i) => value === upcomingIndices[i])
@@ -637,7 +637,7 @@ const AudioPlayer: React.FC = () => {
 
 	//useEffect when index or wavesurfers updates
 	useEffect(() => {
-		if (!showSpec) {
+		if (!showSpec || !wavesurfers[index]) {
 			return;
 		}
 
@@ -645,10 +645,6 @@ const AudioPlayer: React.FC = () => {
 			setShowSpec(false);
 			setIndex(0);
 			console.log("No more audioclips");
-			return;
-		}
-
-		if (!wavesurfers[index]) {
 			return;
 		}
 
@@ -660,7 +656,8 @@ const AudioPlayer: React.FC = () => {
 			if (
 				targetIndex < 0 ||
 				targetIndex >= wavesurfers.length ||
-				!wavesurfers[targetIndex]
+				!wavesurfers[targetIndex] ||
+				wavesurfers[targetIndex].isCreating
 			) {
 				return;
 			}
@@ -682,6 +679,7 @@ const AudioPlayer: React.FC = () => {
 			}
 
 			console.log("creating ws", targetIndex);
+			waveEntry.isCreating = true;
 
 			const ws = WaveSurfer.create({
 				container: `#${waveEntry.id}`,
@@ -699,6 +697,7 @@ const AudioPlayer: React.FC = () => {
 				],
 			});
 
+
 			const wsRegions = await ws.registerPlugin(
 				(RegionsPlugin as any).create({
 					name: "regions",
@@ -709,10 +708,9 @@ const AudioPlayer: React.FC = () => {
 					dragSelection: true,
 				}),
 			);
+			wsRegions.enableDragSelection({ color: "rgba(0,255,0,0.3)" }, 3);
 
 			wavesurferInstancesRef.current[targetIndex] = ws;
-
-			wsRegions.enableDragSelection({ color: "rgba(0,255,0,0.3)" }, 3);
 
 			const waveId = waveEntry.id;
 			const spectroId = waveEntry.spectrogramId;
@@ -854,26 +852,28 @@ const AudioPlayer: React.FC = () => {
 				select.focus();
 			});
 
-			document
-				.getElementById(waveEntry.spectrogramId)
-				?.classList.add("spectrogramContainer");
+			ws.on("finish", () => {
+				setPlaying(false);
+			});
+
+			document.getElementById(waveEntry.spectrogramId)?.classList.add("spectrogramContainer");
 			
 			if (!waveEntry.blobURL) {
 				const audioFile = await window.ipc.invoke('read-file-for-verification', waveEntry.recording.url);
 				waveEntry.blobURL = URL.createObjectURL(new Blob([audioFile.data]));
 			}
 			console.log(waveEntry.blobURL);
+
 			await ws.load(waveEntry.blobURL);
-			console.log("loaded ws", mount);
+			console.log("loaded ws", targetIndex);
+			
+
 			ws.setPlaybackRate(parseFloat(playbackRate), false);
 
 			if (mount) {
 				await mountWavesurfer(ws, waveEntry);
 			}
-
-			ws.on("finish", () => {
-				setPlaying(false);
-			});
+			waveEntry.isCreating = false;
 
 			const dbRegions = Array.isArray(waveEntry.regions)
 				? waveEntry.regions
@@ -901,10 +901,9 @@ const AudioPlayer: React.FC = () => {
 		index,
 		wavesurfers,
 		mountWavesurfer,
-		mountedIndices,
+		preloadedIndices,
 	]);
 
-	// Deletes selected region
 	const deleteActiveRegion = async () => {
 		const ws = wavesurferInstancesRef.current[index];
 		if (!ws || !activeRegionRef.current) return;
@@ -913,7 +912,6 @@ const AudioPlayer: React.FC = () => {
 		activeRegionRef.current = null;
 	};
 
-	// Deletes all regions
 	const clearAllRegions = () => {
 		const ws = wavesurferInstancesRef.current[index];
 		if (!ws) return;
@@ -930,7 +928,6 @@ const AudioPlayer: React.FC = () => {
 		activeRegionRef.current = null;
 	};
 
-	// Delete last region
 	const undoLastRegion = () => {
 		if (!wavesurferInstancesRef.current[index]) return;
 		if (regionListRef.current.length === 0) return;
@@ -995,20 +992,8 @@ const AudioPlayer: React.FC = () => {
 		labelElem.textContent = species.species;
 	};
 
-	/*
-	<input
-		type="file"
-		multiple
-		accept="audio/*"
-		onChange={(e) => handleFiles(Array.from(e.target.files))}
-	/>*/
-
 	const [modalEnable, setModalEnable] = useState(false);
-
-
-	function toggleRecordingSelect() {
-		setModalEnable(!modalEnable);
-	}
+	function toggleRecordingSelect() {setModalEnable(prev => !prev);}
 
 	function SelectRecordings() {
 		if (!modalEnable) {
@@ -1122,33 +1107,33 @@ const AudioPlayer: React.FC = () => {
 					</details>
 					<details>
 						<summary>Species</summary>
-					{speciesList.map((species) => (
-						<div key={species.speciesId}>
-							 <input type="checkbox" onChange={(e) => {
-									if (e.target.checked) {
-										setSelectedSpecies([...selectedSpecies, species.speciesId]);
-									} else {
-										setSelectedDeployments(selectedSpecies.filter(val => val != species.speciesId));
-									}
-								}}/>
-							<label>{species.common} ({species.species})</label>
-						</div>
-					))}
+						{speciesList.map((species) => (
+							<div key={species.speciesId}>
+								<input type="checkbox" onChange={(e) => {
+										if (e.target.checked) {
+											setSelectedSpecies([...selectedSpecies, species.speciesId]);
+										} else {
+											setSelectedDeployments(selectedSpecies.filter(val => val != species.speciesId));
+										}
+									}}/>
+								<label>{species.common} ({species.species})</label>
+							</div>
+						))}
 					</details>
 					<details>
 						<summary>Verification</summary>
-					{verificationList.map((verification) => (
-						<div key={verification}>
-							<input type="checkbox" onChange={(e) => {
-								if (e.target.checked) {
-									setSelectedVerifications([...selectedVerifications, verification]);
-								} else {
-									setSelectedVerifications(selectedVerifications.filter(val => val != verification));
-								}
-							}}/>
-							<label>{verification}</label>
-						</div>
-					))}
+						{verificationList.map((verification) => (
+							<div key={verification}>
+								<input type="checkbox" onChange={(e) => {
+									if (e.target.checked) {
+										setSelectedVerifications([...selectedVerifications, verification]);
+									} else {
+										setSelectedVerifications(selectedVerifications.filter(val => val != verification));
+									}
+								}}/>
+								<label>{verification}</label>
+							</div>
+						))}
 					</details>
 					<br />
 					<button onClick={ async () => {
@@ -1163,11 +1148,11 @@ const AudioPlayer: React.FC = () => {
 						});
 						importFromDB(result.recordings, result.skippedCount);
 					}}>Import Selected</button>
-					<button onClick={async () => {
-						toggleRecordingSelect();
-						const recordings = await window.api.listRecordings();
-						importFromDB(recordings);
-					}}>Import All</button>
+						<button onClick={async () => {
+							toggleRecordingSelect();
+							const recordings = await window.api.listRecordings();
+							importFromDB(recordings);
+						}}>Import All</button>
 					<button onClick={toggleRecordingSelect}>Cancel</button>
 				</section>
 			</div>
@@ -1221,7 +1206,7 @@ const AudioPlayer: React.FC = () => {
 							)}
 							{showSpec && (
 								<div className={styles.waveStage}>
-									{mountedIndices.map((mountedIndex) => {
+									{preloadedIndices.map((mountedIndex) => {
 										const wave = wavesurfers[mountedIndex];
 										if (!wave) return null;
 										const isActive = mountedIndex === index;
