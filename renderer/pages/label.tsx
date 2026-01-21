@@ -24,6 +24,7 @@ type WaveSurferObj = {
 	spectrogramId: string;
 	class: "spectrogramContainer";
 	isCreating: boolean;
+	isMounted: boolean;
 	blobURL?: string;
 };
 
@@ -122,6 +123,7 @@ const AudioPlayer: React.FC = () => {
 			URL.revokeObjectURL(wavesurfers[index].blobURL);
 			wavesurfers[index].blobURL = null;
 		}
+		console.log("destroying: ", index)
 	};
 
 	const clickPrev = async () => {
@@ -413,6 +415,7 @@ const AudioPlayer: React.FC = () => {
 					//file: new Blob([rec.fileData as BlobPart]),
 					class: "spectrogramContainer" as const,
 					isCreating: false,
+					isMounted: false,
 				};
 			}),
 		);
@@ -479,6 +482,7 @@ const AudioPlayer: React.FC = () => {
 				file: file,
 				class: "spectrogramContainer" as const,
 				isCreating: false,
+				isMounted: false,
 			};
 		});
 
@@ -546,7 +550,8 @@ const AudioPlayer: React.FC = () => {
 		};
 	}, [wavesurfers]);
 
-	const mountWavesurfer = useCallback(async (ws: WaveSurfer, waveEntry: WaveSurferObj) => {
+	const mountWavesurfer = useCallback(async (ws: WaveSurfer, index: number) => {
+		const waveEntry = wavesurfers[index];
 		console.log("attaching", waveEntry.id)
 		await ws.registerPlugin(
 			TimelinePlugin.create({
@@ -554,8 +559,6 @@ const AudioPlayer: React.FC = () => {
 				height: 20,
 			}),
 		);
-
-		console.log("loaded spectro plugin");
 
 		const timelineContainer = document.getElementById("wave-timeline");
 		if (timelineContainer) {
@@ -607,7 +610,7 @@ const AudioPlayer: React.FC = () => {
 			ws.on("destroy", () => {
 				waveformContainer.removeEventListener("click", clickHandler);
 			});
-		}},[],
+		}}, [wavesurfers],
 	);
 
 	useEffect(() => {
@@ -671,15 +674,13 @@ const AudioPlayer: React.FC = () => {
 			}
 
 			const existingInstance = wavesurferInstancesRef.current[targetIndex];
-			if (existingInstance) {
-				if (mount) {
-					await mountWavesurfer(existingInstance, waveEntry);
-				}
+			if (existingInstance && mount && !wavesurfers[targetIndex].isMounted) {
+				await mountWavesurfer(existingInstance, targetIndex);
 				return;
 			}
 
 			console.log("creating ws", targetIndex);
-			waveEntry.isCreating = true;
+			wavesurfers[targetIndex].isCreating = true;
 
 			const ws = WaveSurfer.create({
 				container: `#${waveEntry.id}`,
@@ -865,15 +866,13 @@ const AudioPlayer: React.FC = () => {
 			console.log(waveEntry.blobURL);
 
 			await ws.load(waveEntry.blobURL);
-			console.log("loaded ws", targetIndex);
-			
 
 			ws.setPlaybackRate(parseFloat(playbackRate), false);
 
 			if (mount) {
-				await mountWavesurfer(ws, waveEntry);
+				await mountWavesurfer(ws, targetIndex);
 			}
-			waveEntry.isCreating = false;
+			wavesurfers[index].isCreating = false;
 
 			const dbRegions = Array.isArray(waveEntry.regions)
 				? waveEntry.regions
