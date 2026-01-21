@@ -102,25 +102,26 @@ export default function VerifyPage() {
 	//// STATE
 	
 	// Recordkeeping
-	const [audioFiles, setAudioFiles] = useState<ProcessedAnnotation[]>([]); // all audio files retrieved from database
-	const [audioURLs, setAudioURLs] = useState<Record<number, string>>({}) // uses audioFiles index as key
-	const [preloadedAudioURLs, setPreloadedAudioURLs] = useState<Record<number, string>>({}) // uses audioFiles index as key
-	const [preloadedWavesurfers, setPreloadedWavesurfers] = useState<Record<number, WaveSurfer>>({}) // uses audioFiles index as key
-	const preloadedContainersRef = useRef<Record<number, HTMLDivElement>>({}) // hidden containers for preloaded wavesurfers
-	const spectrograms = useRef<Record<number, SpectroRef>>({});
+	const [audioFiles, setAudioFiles] = useState<ProcessedAnnotation[]>([]); // global index (all audio files retrieved from database)
+	const [audioURLs, setAudioURLs] = useState<Record<number, string>>({}) // global index
+	const [preloadedAudioURLs, setPreloadedAudioURLs] = useState<Record<number, string>>({}) // global index
+	const [wavesurferObjs, setWavesurferObjs] = useState<Record<number, WaveSurfer>>({}) // global index
+	const preloadedContainersRef = useRef<Record<number, HTMLDivElement>>({}) // global index (hidden containers for preloaded wavesurfers)
+
+	const spectrograms = useRef<Record<number, SpectroRef>>({}); // on-screen index (wavesurfer spectros shown on screen)
 
 	// Select & Hover
-	const [selected, _setSelected] = useState<number[]>([]);
-	const [hovered, setHovered] = useState<number | null>(null);
-	const firstSelected = selected[0];
-	const lastSelected = selected[selected.length-1];
+	const [selected, _setSelected] = useState<number[]>([]); // on-screen index
+	const [hovered, setHovered] = useState<number | null>(null); // on-screen index
+	const firstSelected = selected[0]; // on-screen index
+	const lastSelected = selected[selected.length-1]; // on-screen index
 	
 	// Modal
 	const [showModal, _setShowModal] = useState(false);
 	const [isModalInputFocused, setIsModalInputFocused] = useState(false);
 
 	// Playback
-	const currentlyPlayingIndex = useRef<number | null>(null); // spectrogram that is currently playing sound (-1 for modal)
+	const currentlyPlayingIndex = useRef<number | null>(null); // on-screen index (-1 for modal)
 	const [skipInterval, setSkipInterval] = useState(DEFAULT_SKIPINTERVAL);
 	const [playSpeed, _setPlaySpeed] = useState(DEFAULT_PLAYSPEED);
 
@@ -220,7 +221,7 @@ export default function VerifyPage() {
 
 	const contextValue: VerifyContextValue = useMemo(() => ({
 		audioFiles, updateAudioFile, audioURLs,
-		preloadedWavesurfers, preloadedContainers: preloadedContainersRef.current,
+		preloadedWavesurfers: wavesurferObjs, preloadedContainers: preloadedContainersRef.current,
 		selected, updateSelected,
 		setHovered,
 		playSpeed, setPlaySpeed,
@@ -229,7 +230,7 @@ export default function VerifyPage() {
 		isModalInputFocused, setIsModalInputFocused,
 	}), [
 		audioFiles, updateAudioFile, audioURLs,
-		preloadedWavesurfers,
+		wavesurferObjs,
 		selected, updateSelected,
 		setHovered,
 		playSpeed, setPlaySpeed,
@@ -262,8 +263,8 @@ export default function VerifyPage() {
 				delete audioURLs[index];
 			})
 
-			// clean up preloaded wavesurfers that are no longer needed (not in currentFiles or nextFiles)
-			Object.entries(preloadedWavesurfers).forEach(([index, ws]) => {
+			// clean up wavesurfers that are no longer needed (not in currentFiles or nextFiles)
+			Object.entries(wavesurferObjs).forEach(([index, ws]) => {
 				const indexNum = Number(index);
 				const isInCurrent = currentFiles.find(f => f.index === indexNum);
 				const isInNext = nextFiles.find(f => f.index === indexNum);
@@ -275,7 +276,7 @@ export default function VerifyPage() {
 					} catch (e) {
 						console.warn("Error destroying preloaded wavesurfer:", e);
 					}
-					delete preloadedWavesurfers[index];
+					delete wavesurferObjs[index];
 					if (preloadedContainersRef.current[index]) {
 						// Only remove if container is still in hidden location (not moved to component)
 						const container = preloadedContainersRef.current[index];
@@ -288,9 +289,9 @@ export default function VerifyPage() {
 			});
 
 			const newAudioURLs: Record<number, string> = { ...preloadedAudioURLs };
-			const newPreloadedWavesurfers: Record<number, WaveSurfer> = { ...preloadedWavesurfers };
+			const newWavesurferObjs: Record<number, WaveSurfer> = { ...wavesurferObjs };
 			setAudioURLs(newAudioURLs);
-			setPreloadedWavesurfers(newPreloadedWavesurfers);
+			setWavesurferObjs(newWavesurferObjs);
 
 			// pre-generate audio URLs
 			await Promise.all(
@@ -324,7 +325,7 @@ export default function VerifyPage() {
 			await Promise.all(
 				nextFiles.map(async (file, _) => {
 					const index = file.index;
-					if (preloadedWavesurfers[index]) {
+					if (wavesurferObjs[index]) {
 						//console.log(index, "wavesurfer was preloaded");
 						return;
 					}; 
@@ -378,7 +379,7 @@ export default function VerifyPage() {
 						});
 
 						if (!isCancelled) {
-							setPreloadedWavesurfers((prev) => {
+							setWavesurferObjs((prev) => {
 								prev[index] = ws;
 								return prev;
 							});
@@ -401,7 +402,7 @@ export default function VerifyPage() {
 			});
 
 			// clean up preloaded wavesurfers on unmount
-			Object.entries(preloadedWavesurfers).forEach(([index, ws]) => {
+			Object.entries(wavesurferObjs).forEach(([index, ws]) => {
 				try {
 					ws.unAll();
 					ws.destroy();
