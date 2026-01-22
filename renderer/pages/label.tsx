@@ -27,6 +27,15 @@ type Entry = {
 	isMounted: boolean;
 };
 
+type Preload = {
+	audioURL: string;
+	wsInstance: WaveSurfer;
+	preloadedContainer: HTMLDivElement;
+	spectrogramPlugin: SpectrogramPlugin;
+	regionsPlugin?: RegionsPlugin;
+	timelinePlugin?: TimelinePlugin;
+}
+
 // Generate ColorMap for Spectrogram
 const spectrogramColorMap = [];
 for (let i = 0; i < 256; i++) {
@@ -83,6 +92,7 @@ const AudioPlayer: React.FC = () => {
 						? (valueOrUpdater as (prev: Entry[]) => Entry[])(prevMetas)
 						: valueOrUpdater;
 
+				/*
 				const prevInstances = wavesurferObjs.current;
 				const prevMap = new Map<string, WaveSurfer | null>();
 				prevMetas.forEach((meta, idx) => {
@@ -92,6 +102,7 @@ const AudioPlayer: React.FC = () => {
 				wavesurferObjs.current = nextMetas.map(
 					(meta) => prevMap.get(meta.id) ?? null,
 				);
+				*/
 
 				return nextMetas;
 			});
@@ -99,9 +110,15 @@ const AudioPlayer: React.FC = () => {
 		[],
 	);
 
-	const audioURLs = useRef<Record<number, string>>({}) // global index
-	const wavesurferObjs = useRef<Record<number, WaveSurfer>>({}) // global index
-	const preloadedContainersRef = useRef<Record<number, HTMLDivElement>>({}) // global index (hidden containers for preloaded wavesurfers)
+	//const audioURLs = useRef<Record<number, string>>({}) // global index
+	//const wavesurferObjs = useRef<Record<number, WaveSurfer>>({}) // global index
+	//const preloadedContainersRef = useRef<Record<number, HTMLDivElement>>({}) // global index (hidden containers for preloaded wavesurfers)
+	const preloads = useRef<Record<number, Preload>>({})
+
+	const waveStageRef = useRef<HTMLElement>()
+	useEffect(() => {
+		waveStageRef.current = document.getElementById("stage")
+	})
 
 	// Button‑disable flags
 	const [isPrevDisabled, setPrevDisabled] = useState(false);
@@ -115,74 +132,413 @@ const AudioPlayer: React.FC = () => {
 	// =====================================================================================================
 	// Cleanup 
 
-	const destroyWaveSurfer = async (i = index) => {
-		const ws = wavesurferObjs.current[i];
+	const cleanup = async (i = index) => {
+		const preload = preloads.current[i];
+		if (!preload) {
+			return;
+		}
+
+		const waveEntry = entries[i] as Entry;
+		if (waveEntry) {
+			waveEntry.isMounted = false;
+		}
+
+		const ws = preload.wsInstance;
 		if (ws) {
-			ws.destroy();
-			wavesurferObjs.current[i] = null;
-		}
-		// Clean up blob URL
-		if (audioURLs.current[i]) {
-			URL.revokeObjectURL(audioURLs.current[i]);
-			delete audioURLs.current[i];
-		}
-		console.log("destroying: ", index)
-	};
+			try {
+				// Remove all event listeners
+				ws.unAll();
 
-	const destroyAudioURLs = async () => {
-		Object.entries(audioURLs.current).forEach(async ([key, url]) => {
-			await URL.revokeObjectURL(url);
-			delete audioURLs.current[key];
-		})
-	}
+				// Clean up timeline dot if this is the current index
+				if (i === index && timelineDotRef.current) {
+					const timelineContainer = document.getElementById("wave-timeline");
+					if (timelineContainer) {
+						try {
+							timelineContainer.removeChild(timelineDotRef.current);
+						} catch (e) {
+							// Dot might already be removed
+						}
+					}
+					timelineDotRef.current = null;
+				}
 
-	const destroyEverything = async () => {
-		Object.entries(wavesurferObjs).forEach(([key, url]) => {
-			const i = Number(key);
-			destroyWaveSurfer(i);
-		})
-		Object.entries(audioURLs.current).forEach(([key, url]) => {
-			const i = Number(key);
-			URL.revokeObjectURL(url);
-			delete audioURLs.current[i];
-		})
-		Object.entries(preloadedContainersRef.current).forEach(([key, url]) => {
-			const i = Number(key);
-			const container = preloadedContainersRef.current[i];
-			if (container.parentElement === document.body || container.style.left === '-9999px') {
-				container.remove();
+				// Destroy the wavesurfer instance (this will also clean up plugins)
+				ws.destroy();
+			} catch (e) {
+				console.warn("Error destroying wavesurfer:", e);
+				// Still try to destroy even if cleanup failed
+				try {
+					ws.destroy();
+				} catch (destroyError) {
+					console.error("Error in final destroy:", destroyError);
+				}
 			}
-			delete preloadedContainersRef.current[i];
+		}
+
+		// Clean up blob URL
+		const audioURL = preload.audioURL;
+		if (audioURL) {
+			URL.revokeObjectURL(audioURL);
+		}
+
+		const container = preload.preloadedContainer;
+		if (container && container.parentElement === document.body) {
+			container.remove();
+		}
+
+		console.log("destroying: ", i)
+		delete preloads.current[i];
+	}
+
+	const cleanupAll = async () => {
+		Object.entries(preloads).forEach(async ([key, url]) => {
+			const i = Number(key);
+			cleanup(i);
 		})
 	}
 
-	// Cleanup blob URLs on component unmount
+	// Cleanup everything on component unmount
 	useEffect(() => {
 		return () => {
-			destroyEverything();
+			cleanupAll();
 		};
 	}, [entries]);
 
 	// =====================================================================================================
 	// Loop 
 
-	interface EntryComponentProps {
-		targetIndex: number
+	const mountWavesurfer = async (targetIndex: number) => {
+		const waveEntry = entries[targetIndex] as Entry;
+		const preload = preloads.current[targetIndex];
+
+		const ws = preload.wsInstance;
+		const hiddenContainer = preload.preloadedContainer;
+
+		if (!hiddenContainer || !ws || !waveEntry) {
+			return;
+		}
+
+		console.log("mounting:", targetIndex);
+
+		// Remove from current parent if it exists
+		if (hiddenContainer.parentElement) {
+			hiddenContainer.parentElement.removeChild(hiddenContainer);
+		}
+
+		// Set class to active (visible) and append to waveStage
+		hiddenContainer.className = `
+			${styles.waveSpectroContainer} 
+			${styles.activeWave}
+		`;
+		
+		if (waveStageRef.current) {
+			waveStageRef.current.appendChild(hiddenContainer);
+		}
+
+		// Only register plugins if not already mounted
+		if (waveEntry.isMounted) {
+			return;
+		}
+
+		// ===================================================================================
+		// Timeline Plugin
+
+		preload.timelinePlugin = TimelinePlugin.create({
+			container: "#wave-timeline",
+			height: 20,
+		});
+		await ws.registerPlugin(preload.timelinePlugin);
+
+		const timelineContainer = document.getElementById("wave-timeline");
+
+		if (timelineContainer) {
+			timelineContainer.style.position = "relative";
+			timelineContainer.style.overflow = "visible";
+
+			const existingDots = timelineContainer.querySelectorAll(
+				"div[data-timeline-dot]",
+			);
+			existingDots.forEach((dot) => timelineContainer.removeChild(dot));
+		}
+
+		const dot = document.createElement("div");
+		dot.setAttribute("data-timeline-dot", "true");
+		dot.style.position = "absolute";
+		dot.style.width = "8px";
+		dot.style.height = "8px";
+		dot.style.borderRadius = "50%";
+		dot.style.backgroundColor = "black";
+		dot.style.top = "50%";
+		dot.style.transform = "translateY(-50%)";
+		dot.style.left = "0px";
+
+		timelineContainer?.appendChild(dot);
+		timelineDotRef.current = dot;
+
+		ws.on("audioprocess", (currentTime) => {
+			const duration = ws.getDuration();
+			if (!duration) return;
+			const fraction = currentTime / duration;
+			const timelineWidth = timelineContainer?.offsetWidth || 0;
+			dot.style.left = fraction * timelineWidth + "px";
+		});
+		
+		const waveformContainer = document.getElementById(waveEntry.id);
+		if (waveformContainer && timelineContainer) {
+			const clickHandler = (event: MouseEvent) => {
+				const rect = timelineContainer.getBoundingClientRect();
+				const clickX = event.clientX - rect.left;
+				dot.style.left = clickX + "px";
+				const fraction =
+					timelineContainer.offsetWidth === 0
+						? 0
+						: clickX / timelineContainer.offsetWidth;
+				ws.seekTo(fraction);
+			};
+
+			waveformContainer.addEventListener("click", clickHandler);
+			ws.on("destroy", () => {
+				waveformContainer.removeEventListener("click", clickHandler);
+			});
+		}
+
+		// ===================================================================================
+		// Regions Plugin
+
+		const regionList: Region[] = [];
+		
+		const plug = (RegionsPlugin as any).create({
+			name: "regions",
+			regions: [],
+			drag: true,
+			resize: true,
+			color: "rgba(0, 255, 0, 0.3)",
+			dragSelection: true,
+		});
+		const wsRegions = await ws.registerPlugin(plug);
+		preload.regionsPlugin = plug;
+
+		wsRegions.enableDragSelection({ color: "rgba(0,255,0,0.3)" }, 3);
+
+		const redraw = (region: Region) => {
+			const waveEl = document.getElementById(waveEntry.id);
+			const spectroEl = document.getElementById(waveEntry.spectrogramId);
+			const waveSpectroContainer = waveEl?.parentElement;
+			if (!waveEl || !spectroEl || !waveSpectroContainer) return;
+
+			waveSpectroContainer.appendChild(region.element);
+
+			const waveHeight = waveEl.offsetHeight;
+			const spectroHeight = spectroEl.offsetHeight;
+			region.element.style.position = "absolute";
+			region.element.style.top = "0px";
+			region.element.style.height = `${waveHeight + spectroHeight}px`;
+			region.element.style.zIndex = "9999";
+		};
+
+		wsRegions.on("region-created", (region: Region) => {
+			redraw(region);
+			regionListRef.current.push(region);
+			regionList.push(region);
+			setTimeout(() => {
+				redraw(region);
+			}, 50);
+		});
+
+		wsRegions.on("region-removed", (region: Region) => {
+			console.log("Removing: ", region.id);
+			if (region.id.startsWith("imported-")) {
+				const id = Number.parseInt(region.id.split("imported-")[1]);
+				removeList.push(id);
+			}
+		});
+
+		wsRegions.on("redraw", () => {
+			regionList.forEach((region) => {
+				regionList.forEach((region) => redraw(region));
+			});
+		});
+
+		wsRegions.on("region-updated", (region: Region) => {
+			redraw(region);
+		});
+
+		wsRegions.on("region-clicked", (region) => {
+			if (activeRegionRef.current === region) {
+				region.setOptions({ color: "rgba(0,255,0,0.3)" });
+				region.data = { ...region.data, loop: false };
+				activeRegionRef.current = null;
+			} else {
+				if (activeRegionRef.current) {
+					activeRegionRef.current.setOptions({
+						color: "rgba(0,255,0,0.3)",
+					});
+				}
+
+				region.setOptions({ color: "rgba(255,0,0,0.3)" });
+				activeRegionRef.current = region;
+
+				region.data = { ...region.data, loop: true };
+			}
+		});
+
+		wsRegions.on("region-out", (region: Region) => {
+			if (region.data?.loop) {
+				region.play();
+			}
+		});
+
+		wsRegions.on("region-double-clicked", (region) => {
+			const select = document.createElement("select");
+
+			speciesList.forEach((sp) => {
+				const option = document.createElement("option");
+				option.value = sp.speciesId.toString();
+				option.textContent = `${sp.common} (${sp.species})`;
+				if (
+					region.data?.species &&
+					region.data.species.speciesId === sp.speciesId
+				) {
+					option.selected = true;
+				}
+				select.appendChild(option);
+			});
+
+			select.addEventListener("mousedown", (e) => e.stopPropagation());
+			select.addEventListener("click", (e) => e.stopPropagation());
+
+			select.addEventListener("change", () => {
+				const selectedId = parseInt(select.value);
+				const selectedSpecies = speciesList.find(
+					(sp) => sp.speciesId === selectedId,
+				);
+				if (!selectedSpecies) return;
+
+				region.data = {
+					...region.data,
+					species: selectedSpecies,
+					label: selectedSpecies.species,
+					confidence: confidence,
+				};
+
+				let labelElem = region.element.querySelector(".region-label");
+				if (!labelElem) {
+					labelElem = document.createElement("span");
+					labelElem.className = "region-label";
+					region.element.appendChild(labelElem);
+				}
+				labelElem.textContent = selectedSpecies.species;
+
+				if (document.body.contains(select)) {
+					document.body.removeChild(select);
+				}
+			});
+
+			select.addEventListener("blur", () => {
+				if (document.body.contains(select)) {
+					document.body.removeChild(select);
+				}
+			});
+
+			const rect = region.element.getBoundingClientRect();
+			select.style.position = "absolute";
+			select.style.top = `${rect.top}px`;
+			select.style.left = `${rect.left}px`;
+			select.style.zIndex = "10000";
+			select.style.backgroundColor = "white";
+			select.style.border = "1px solid black";
+			select.style.padding = "4px";
+			select.style.boxSizing = "border-box";
+			select.style.maxHeight = "200px";
+			select.style.overflow = "auto";
+
+			document.body.appendChild(select);
+			select.focus();
+		});
+
+		ws.on("finish", () => {
+			setPlaying(false);
+		});
+
+		const dbRegions = Array.isArray(waveEntry.regions)
+			? waveEntry.regions
+			: [];
+		for (const r of dbRegions) {
+			wsRegions.addRegion({
+				start: r.starttime,
+				end: r.endtime,
+				color: "rgba(0, 255, 0, 0.3)",
+				id: "imported-" + r.regionId,
+			});
+		}
+
+		waveEntry.isMounted = true;
 	}
 
-	function EntryComponent({
-		targetIndex
-	}: EntryComponentProps) {
-		const initializedRef = useRef(false);
+	const unmountWavesurfer = (targetIndex: number) => {
+		const preload = preloads.current[targetIndex];
+		const container = preload.preloadedContainer;
+		const ws = preload.wsInstance;
+		const waveEntry = entries[targetIndex] as Entry;
 
+		console.log("unmounting", targetIndex)
+
+		if (!container) return;
+
+		// Destroy plugins if wavesurfer exists and is mounted
+		if (ws && waveEntry?.isMounted) {
+			try {
+				// Remove all event listeners
+				ws.unAll();
+
+				preload.regionsPlugin.destroy();
+				preload.timelinePlugin.destroy();
+				delete preload.regionsPlugin;
+				delete preload.timelinePlugin;
+
+				// Clean up timeline dot
+				const timelineContainer = document.getElementById("wave-timeline");
+				if (timelineContainer && timelineDotRef.current) {
+					try {
+						timelineContainer.removeChild(timelineDotRef.current);
+					} catch (e) {
+						// Dot might already be removed
+					}
+					timelineDotRef.current = null;
+				}
+
+				// Reset mounted flag
+				waveEntry.isMounted = false;
+			} catch (e) {
+				console.warn("Error destroying plugins:", e);
+			}
+		}
+
+		console.log("unmounted parent el", container.parentElement);
+		// Remove from current parent if it exists
+		if (container.parentElement) {
+			container.parentElement.removeChild(container);
+		}
+
+		// Set class to hidden and move to document.body
+		container.className = `
+			${styles.waveSpectroContainer} 
+			${styles.prefetchWave}
+		`;
+		
+		document.body.appendChild(container);
+	};
+
+	const createWavesurfer = async (targetIndex: number) => {
 		console.log("attempting to create ws", targetIndex)
 		if (
 			targetIndex < 0 || // out of bounds
 			targetIndex >= entries.length || // out of bounds
 			!entries[targetIndex] || // out of bounds
 			entries[targetIndex].isCreating || // existing instance
-			wavesurferObjs.current[targetIndex] // existing instance
+			preloads.current[targetIndex]
 		) {
+			console.log("already exists", targetIndex);
 			return;
 		}
 
@@ -190,302 +546,78 @@ const AudioPlayer: React.FC = () => {
 
 		const waveEntry = entries[targetIndex] as Entry;
 		waveEntry.isCreating = true;
+		waveEntry.isMounted = false;
 
+		// create hidden container for preloaded wavesurfer
+		const hiddenContainer = document.createElement('div');
+		hiddenContainer.className = `
+			${styles.waveSpectroContainer} 
+			${styles.prefetchWave}
+		`;
+		const waveDiv = document.createElement("div");
+		waveDiv.id = waveEntry.id;
+		waveDiv.classList.add(styles.waveContainer);
+		hiddenContainer.appendChild(waveDiv);
 
-		useEffect(() => {
-			if (initializedRef.current) return;
-			initializedRef.current = true;
+		const spectroDiv = document.createElement("div");
+		spectroDiv.id = waveEntry.spectrogramId;
+		spectroDiv.classList.add(styles.spectrogramContainer);
+		hiddenContainer.appendChild(spectroDiv);
 
-			async function init() {	
-				const ws = WaveSurfer.create({
-					container: `#${waveEntry.id}`,
-					waveColor: "violet",
-					progressColor: "purple",
-					sampleRate: parseInt(sampleRate),
-				});
+		// Append to document.body as hidden
+		document.body.appendChild(hiddenContainer);
 
-				wavesurferObjs.current[targetIndex] = ws;
-
-				document.getElementById(waveEntry.spectrogramId)?.classList.add("spectrogramContainer");
-				
-				if (!audioURLs.current[targetIndex]) {
-					const audioFile = await window.ipc.invoke('read-file-for-verification', waveEntry.recording.url);
-					audioURLs.current[targetIndex] = URL.createObjectURL(new Blob([audioFile.data]));
-				}
-				await ws.load(audioURLs.current[targetIndex]);
-
-				ws.setPlaybackRate(parseFloat(playbackRate), false);
-
-
-				// ===================================================================================
-				// Spectrogram Plugin
-
-				const spectroContainer = document.getElementById(waveEntry.spectrogramId);
-				console.log(index, spectroContainer)
-
-				await ws.registerPlugin(
-					SpectrogramPlugin.create({
-						container: `#${waveEntry.spectrogramId}`,
-						labels: true,
-						colorMap: spectrogramColorMap,
-						fftSamples: 2048,
-						height: 230,
-					})
-				);
-
-				// ===================================================================================
-				// Timeline Plugin
-
-				await ws.registerPlugin(
-					TimelinePlugin.create({
-						container: "#wave-timeline",
-						height: 20,
-					}),
-				);
-
-				const timelineContainer = document.getElementById("wave-timeline");
-				console.log(timelineContainer)
-				if (timelineContainer) {
-					timelineContainer.style.position = "relative";
-					timelineContainer.style.overflow = "visible";
-
-					const existingDots = timelineContainer.querySelectorAll(
-						"div[data-timeline-dot]",
-					);
-					existingDots.forEach((dot) => timelineContainer.removeChild(dot));
-				}
-
-				const dot = document.createElement("div");
-				dot.setAttribute("data-timeline-dot", "true");
-				dot.style.position = "absolute";
-				dot.style.width = "8px";
-				dot.style.height = "8px";
-				dot.style.borderRadius = "50%";
-				dot.style.backgroundColor = "black";
-				dot.style.top = "50%";
-				dot.style.transform = "translateY(-50%)";
-				dot.style.left = "0px";
-
-				timelineContainer?.appendChild(dot);
-				timelineDotRef.current = dot;
-
-				ws.on("audioprocess", (currentTime) => {
-					const duration = ws.getDuration();
-					if (!duration) return;
-					const fraction = currentTime / duration;
-					const timelineWidth = timelineContainer?.offsetWidth || 0;
-					dot.style.left = fraction * timelineWidth + "px";
-				});
-				
-				const waveformContainer = document.getElementById(waveEntry.id);
-				if (waveformContainer && timelineContainer) {
-					const clickHandler = (event: MouseEvent) => {
-						const rect = timelineContainer.getBoundingClientRect();
-						const clickX = event.clientX - rect.left;
-						dot.style.left = clickX + "px";
-						const fraction =
-							timelineContainer.offsetWidth === 0
-								? 0
-								: clickX / timelineContainer.offsetWidth;
-						ws.seekTo(fraction);
-					};
-
-					waveformContainer.addEventListener("click", clickHandler);
-					ws.on("destroy", () => {
-						waveformContainer.removeEventListener("click", clickHandler);
-					});
-				}
-
-				// ===================================================================================
-				// Regions Plugin
-
-				const regionList: Region[] = [];
-
-				const wsRegions = await ws.registerPlugin(
-					(RegionsPlugin as any).create({
-						name: "regions",
-						regions: [],
-						drag: true,
-						resize: true,
-						color: "rgba(0, 255, 0, 0.3)",
-						dragSelection: true,
-					}),
-				);
-				wsRegions.enableDragSelection({ color: "rgba(0,255,0,0.3)" }, 3);
-
-				const redraw = (region: Region) => {
-					const waveEl = document.getElementById(waveEntry.id);
-					const spectroEl = document.getElementById(waveEntry.spectrogramId);
-					const waveSpectroContainer = waveEl?.parentElement;
-					if (!waveEl || !spectroEl || !waveSpectroContainer) return;
-
-					waveSpectroContainer.appendChild(region.element);
-
-					const waveHeight = waveEl.offsetHeight;
-					const spectroHeight = spectroEl.offsetHeight;
-					region.element.style.position = "absolute";
-					region.element.style.top = "0px";
-					region.element.style.height = `${waveHeight + spectroHeight}px`;
-					region.element.style.zIndex = "9999";
-				};
-
-				wsRegions.on("region-created", (region: Region) => {
-					redraw(region);
-					regionListRef.current.push(region);
-					regionList.push(region);
-					setTimeout(() => {
-						redraw(region);
-					}, 50);
-				});
-
-				wsRegions.on("region-removed", (region: Region) => {
-					console.log("Removing: ", region.id);
-					if (region.id.startsWith("imported-")) {
-						const id = Number.parseInt(region.id.split("imported-")[1]);
-						removeList.push(id);
-					}
-				});
-
-				wsRegions.on("redraw", () => {
-					regionList.forEach((region) => {
-						regionList.forEach((region) => redraw(region));
-					});
-				});
-
-				wsRegions.on("region-updated", (region: Region) => {
-					redraw(region);
-				});
-
-				wsRegions.on("region-clicked", (region) => {
-					if (activeRegionRef.current === region) {
-						region.setOptions({ color: "rgba(0,255,0,0.3)" });
-						region.data = { ...region.data, loop: false };
-						activeRegionRef.current = null;
-					} else {
-						if (activeRegionRef.current) {
-							activeRegionRef.current.setOptions({
-								color: "rgba(0,255,0,0.3)",
-							});
-						}
-
-						region.setOptions({ color: "rgba(255,0,0,0.3)" });
-						activeRegionRef.current = region;
-
-						region.data = { ...region.data, loop: true };
-					}
-				});
-
-				wsRegions.on("region-out", (region: Region) => {
-					if (region.data?.loop) {
-						region.play();
-					}
-				});
-
-				wsRegions.on("region-double-clicked", (region) => {
-					const select = document.createElement("select");
-
-					speciesList.forEach((sp) => {
-						const option = document.createElement("option");
-						option.value = sp.speciesId.toString();
-						option.textContent = `${sp.common} (${sp.species})`;
-						if (
-							region.data?.species &&
-							region.data.species.speciesId === sp.speciesId
-						) {
-							option.selected = true;
-						}
-						select.appendChild(option);
-					});
-
-					select.addEventListener("mousedown", (e) => e.stopPropagation());
-					select.addEventListener("click", (e) => e.stopPropagation());
-
-					select.addEventListener("change", () => {
-						const selectedId = parseInt(select.value);
-						const selectedSpecies = speciesList.find(
-							(sp) => sp.speciesId === selectedId,
-						);
-						if (!selectedSpecies) return;
-
-						region.data = {
-							...region.data,
-							species: selectedSpecies,
-							label: selectedSpecies.species,
-							confidence: confidence,
-						};
-
-						let labelElem = region.element.querySelector(".region-label");
-						if (!labelElem) {
-							labelElem = document.createElement("span");
-							labelElem.className = "region-label";
-							region.element.appendChild(labelElem);
-						}
-						labelElem.textContent = selectedSpecies.species;
-
-						if (document.body.contains(select)) {
-							document.body.removeChild(select);
-						}
-					});
-
-					select.addEventListener("blur", () => {
-						if (document.body.contains(select)) {
-							document.body.removeChild(select);
-						}
-					});
-
-					const rect = region.element.getBoundingClientRect();
-					select.style.position = "absolute";
-					select.style.top = `${rect.top}px`;
-					select.style.left = `${rect.left}px`;
-					select.style.zIndex = "10000";
-					select.style.backgroundColor = "white";
-					select.style.border = "1px solid black";
-					select.style.padding = "4px";
-					select.style.boxSizing = "border-box";
-					select.style.maxHeight = "200px";
-					select.style.overflow = "auto";
-
-					document.body.appendChild(select);
-					select.focus();
-				});
-
-				ws.on("finish", () => {
-					setPlaying(false);
-				});
-
-				const dbRegions = Array.isArray(waveEntry.regions)
-					? waveEntry.regions
-					: [];
-				for (const r of dbRegions) {
-					wsRegions.addRegion({
-						start: r.starttime,
-						end: r.endtime,
-						color: "rgba(0, 255, 0, 0.3)",
-						id: "imported-" + r.regionId,
-					});
-				}
-
-				entries[index].isCreating = false;
-			}
-
-			init();
-		}, [targetIndex])
-
-		return (
+		/*
+		<div
+			className={`
+				${styles.waveSpectroContainer} 
+				${(index == targetIndex) ? styles.activeWave : styles.prefetchWave}
+			`}
+		>
+			<div id={waveEntry.id} className={styles.waveContainer}></div>
 			<div
-				className={`
-					${styles.waveSpectroContainer} 
-					${(index == targetIndex) ? styles.activeWave : styles.prefetchWave}
-				`}
-			>
-				<div id={waveEntry.id} className={styles.waveContainer}></div>
-				<div
-					id={waveEntry.spectrogramId}
-					className={styles.spectrogramContainer}
-				></div>
-			</div>
-		)
-	};
+				id={waveEntry.spectrogramId}
+				className={styles.spectrogramContainer}
+			></div>
+		</div>
+		*/
+
+		const ws = WaveSurfer.create({
+			container: `#${waveEntry.id}`,
+			waveColor: "violet",
+			progressColor: "purple",
+			sampleRate: parseInt(sampleRate),
+		});
+		
+		const audioFile = await window.ipc.invoke('read-file-for-verification', waveEntry.recording.url);
+		const audioURL = URL.createObjectURL(new Blob([audioFile.data]));
+		
+		ws.load(audioURL);
+		ws.setPlaybackRate(parseFloat(playbackRate), false);
+
+
+		// ===================================================================================
+		// Spectrogram Plugin
+
+		const spectrogramPlugin = SpectrogramPlugin.create({
+			container: `#${waveEntry.spectrogramId}`,
+			labels: true,
+			colorMap: spectrogramColorMap,
+			fftSamples: 2048,
+			height: 230,
+		})
+		await ws.registerPlugin(spectrogramPlugin);
+
+		entries[targetIndex].isCreating = false;
+
+		preloads.current[targetIndex] = {
+			audioURL: audioURL,
+			wsInstance: ws,
+			preloadedContainer: hiddenContainer,
+			spectrogramPlugin: spectrogramPlugin,
+		}
+	}
+
 
 	// Runs on page update or entries update
 	useEffect(() => {
@@ -499,35 +631,39 @@ const AudioPlayer: React.FC = () => {
 			return;
 		}
 
-		// Cleanup unneeded resources
-		Object.entries(wavesurferObjs).forEach(([key, url]) => {
-			const i = Number(key);
-			if (i < index-1 || i > index+1) { // not in range
-				destroyWaveSurfer(i);
-			}
-		})
-		Object.entries(audioURLs.current).forEach(([key, url]) => {
-			const i = Number(key);
-			if (i < index-1 || i > index+1) { // not in range
-				URL.revokeObjectURL(url);
-				delete audioURLs.current[i];
-			}
-		})
-		Object.entries(preloadedContainersRef.current).forEach(([key, url]) => {
-			const i = Number(key);
-			if (i < index-1 || i > index+1) { // not in range
-				const container = preloadedContainersRef.current[i];
-				if (container.parentElement === document.body || container.style.left === '-9999px') {
-					container.remove();
+		async function handleMounting() {
+			// Unmount containers that are no longer in range (index, index+1)
+			Object.entries(preloads.current).forEach(([key, container]) => {
+				const i = Number(key);
+				if (i < index-1 || i > index + 1) {
+					// Out of range - unmount and move to body
+					cleanup(i)
+				} else {
+					if (i != index) {
+						unmountWavesurfer(i);
+					}
 				}
-				delete preloadedContainersRef.current[i];
-			} else { // in range
-				if (i != index) {
+			});
 
+
+			// Create wavesurfers for current and next index if they don't exist
+			if (index + 1 < entries.length) {
+				createWavesurfer(index + 1);
+			}
+			await createWavesurfer(index);
+
+			// Clear waveStage
+			if (waveStageRef.current) {
+				while (waveStageRef.current.firstChild) {
+					waveStageRef.current.removeChild(waveStageRef.current.firstChild);
 				}
 			}
-		})
 
+			// Mount the current index (make it visible in waveStage)
+			await mountWavesurfer(index);
+		}
+
+		handleMounting();
 	}, 
 	[
 		showSpec,
@@ -546,7 +682,6 @@ const AudioPlayer: React.FC = () => {
 		setPrevDisabled(true);
 		setPlaying(false);
 		if (index === 0) return;
-		await destroyWaveSurfer();
 		setIndex((prevIndex) => prevIndex - 1);
 
 		// Buffer time between presses
@@ -563,7 +698,6 @@ const AudioPlayer: React.FC = () => {
 		setNextDisabled(true);
 		setPlaying(false);
 		if (index === entries.length - 1) return;
-		await destroyWaveSurfer();
 		setIndex((prevIndex) => prevIndex + 1);
 		//buffer time between presses
 		setTimeout(() => {
@@ -572,7 +706,7 @@ const AudioPlayer: React.FC = () => {
 	};
 
 	const clickPlay = useCallback(async () => {
-		const wsInstance = wavesurferObjs.current[index];
+		const wsInstance = preloads.current[index].wsInstance;
 		// Plays the active region
 		if (wsInstance && activeRegionRef.current) {
 			activeRegionRef.current.play();
@@ -583,7 +717,7 @@ const AudioPlayer: React.FC = () => {
 	}, [entries, index]);
 
 	const clickPause = useCallback(async () => {
-		const wsInstance = wavesurferObjs.current[index];
+		const wsInstance = preloads.current[index].wsInstance;
 		if (wsInstance) {
 			wsInstance.playPause();
 		}
@@ -599,7 +733,7 @@ const AudioPlayer: React.FC = () => {
 		setConfidence(maxConfidence);
 		setYesDisabled(true);
 
-		const ws = wavesurferObjs.current[index];
+		const ws = preloads.current[index].wsInstance;
 		if (!ws) return;
 
 		// Accesses all regions
@@ -697,10 +831,10 @@ const AudioPlayer: React.FC = () => {
 		if (index === 0) {
 			if (entries.length === 1) {
 				setShowSpec(false);
-				await destroyWaveSurfer();
+				await cleanup();
 				setEntries([]);
 			} else {
-				await destroyWaveSurfer();
+				await cleanup();
 				setEntries((arr) => arr.slice(1));
 				setIndex(0);
 			}
@@ -708,7 +842,7 @@ const AudioPlayer: React.FC = () => {
 			return;
 		}
 
-		await destroyWaveSurfer();
+		await cleanup();
 		setEntries((arr) => arr.filter((_, i) => i !== index));
 		if (entries.length - 1 >= index) setIndex((i) => i - 1);
 		setTimeout(() => setYesDisabled(false), 500);
@@ -725,7 +859,7 @@ const AudioPlayer: React.FC = () => {
 		setNoDisabled(true);
 		setConfidence(maxConfidence);
 		if (index == 0) {
-			await destroyWaveSurfer();
+			await cleanup();
 			
 			// Remove the first WaveSurfer
 			if (entries.length === 1) {
@@ -741,7 +875,7 @@ const AudioPlayer: React.FC = () => {
 			}, 500);
 			return;
 		}
-		await destroyWaveSurfer();
+		await cleanup();
 		setEntries((wavesurfers) => wavesurfers.filter((_, i) => i !== index));
 
 		console.log(entries);
@@ -762,7 +896,7 @@ const AudioPlayer: React.FC = () => {
 	const importFromDB = async (recordings, skippedCount = 0) => {
 		console.log("recordings:", recordings);
 
-		await destroyAudioURLs();
+		await cleanup();
 
 		// Ensure it's an array
 		if (!Array.isArray(recordings)) {
@@ -829,15 +963,11 @@ const AudioPlayer: React.FC = () => {
 		console.log("Files dropped:", acceptedFiles);
 
 		// Clean up existing blob URLs
-		await destroyAudioURLs();
+		await cleanup();
 
 		// Clear existing wavesurfers if any
 		if (entries.length > 0) {
-			const currentInstance = wavesurferObjs.current[index];
-			currentInstance?.destroy();
-			if (wavesurferObjs.current[index]) {
-				wavesurferObjs.current[index] = null;
-			}
+			cleanupAll();
 		}
 
 		const newWaveSurfers = acceptedFiles.map((file, i) => {
@@ -921,7 +1051,7 @@ const AudioPlayer: React.FC = () => {
 	// Regions & Species 
 	
 	const deleteActiveRegion = async () => {
-		const ws = wavesurferObjs.current[index];
+		const ws = preloads.current[index];
 		if (!ws || !activeRegionRef.current) return;
 
 		activeRegionRef.current.remove();
@@ -929,7 +1059,7 @@ const AudioPlayer: React.FC = () => {
 	};
 
 	const clearAllRegions = () => {
-		const ws = wavesurferObjs.current[index];
+		const ws = preloads.current[index];
 		if (!ws) return;
 
 		const regionPlugin = (ws as any).plugins[1];
@@ -945,7 +1075,7 @@ const AudioPlayer: React.FC = () => {
 	};
 
 	const undoLastRegion = () => {
-		if (!wavesurferObjs.current[index]) return;
+		if (!preloads.current[index]) return;
 		if (regionListRef.current.length === 0) return;
 
 		const lastRegion = regionListRef.current.pop();
@@ -960,7 +1090,7 @@ const AudioPlayer: React.FC = () => {
 	// Download regions data only (maybe repurpose logic later)
 	// TODO: Fix this
 	const saveLabelsToSpecies = () => {
-		const ws = wavesurferObjs.current[index];
+		const ws = preloads.current[index];
 		if (!ws) return;
 
 		const regionPlugin = (ws as any).plugins[1];
@@ -1221,17 +1351,8 @@ const AudioPlayer: React.FC = () => {
 								</div>
 							)}
 							{showSpec && (
-								<div className={styles.waveStage}>
-									{/* Render current wavesurfer */}
-									<EntryComponent
-										targetIndex={index}
-									/>
-									{/* Render next wavesurfer for prefetching (hidden) */}
-									{index + 1 < entries.length && (
-										<EntryComponent
-											targetIndex={index + 1}
-										/>
-									)}
+								<div id="stage" className={styles.waveStage}>
+
 								</div>
 							)}
 						</div>
@@ -1349,7 +1470,7 @@ const AudioPlayer: React.FC = () => {
 								value={playbackRate}
 								onChange={(e) => {
 									setPlaybackRate(e.target.value);
-									const ws = wavesurferObjs.current[index];
+									const ws = preloads.current[index]?.wsInstance;
 									if (ws) {
 										ws.setPlaybackRate(parseFloat(e.target.value), false);
 									}
