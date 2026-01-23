@@ -618,7 +618,6 @@ const AudioPlayer: React.FC = () => {
 		}
 	}
 
-
 	// Runs on page update or entries update
 	useEffect(() => {
 		if (!showSpec || !entries[index]) {
@@ -957,51 +956,6 @@ const AudioPlayer: React.FC = () => {
 
 		fetchSpecies();
 	}, []);
-
-	//Handle audio files upload/import and map new wavesurfers
-	const handleFiles = async (acceptedFiles: File[]) => {
-		console.log("Files dropped:", acceptedFiles);
-
-		// Clean up existing blob URLs
-		await cleanup();
-
-		// Clear existing wavesurfers if any
-		if (entries.length > 0) {
-			cleanupAll();
-		}
-
-		const newWaveSurfers = acceptedFiles.map((file, i) => {
-			const containerId = `waveform-${i}`;
-			const spectrogramId = `spectrogram-${i}`;
-			const placeholderRecording: Recording = {
-				recordingId: -(i + 1),
-				deploymentId: 0,
-				url: file.name,
-				directory: "",
-				datetime: new Date().toISOString(),
-				duration: 0,
-				samplerate: 0,
-				bitrate: 0,
-			};
-			return {
-				recording: placeholderRecording,
-				regions: [],
-				id: containerId,
-				spectrogramId: spectrogramId,
-				file: file,
-				class: "spectrogramContainer" as const,
-				isCreating: false,
-				isMounted: false,
-			};
-		});
-
-		console.log("New WaveSurfers:", newWaveSurfers);
-		setEntries(newWaveSurfers);
-		setShowSpec(true);
-		setIndex(0);
-		regionListRef.current = [];
-		activeRegionRef.current = null;
-	};
 
 	// Keydown handler with useCallback to properly track dependencies
 	const handleKeyDown = useCallback(
