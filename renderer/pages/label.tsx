@@ -27,7 +27,7 @@ type Entry = {
 	isMounted: boolean;
 };
 
-type Preload = {
+type WavesurferInstance = {
 	audioURL: string;
 	wsInstance: WaveSurfer;
 	preloadedContainer: HTMLDivElement;
@@ -113,7 +113,7 @@ const AudioPlayer: React.FC = () => {
 	//const audioURLs = useRef<Record<number, string>>({}) // global index
 	//const wavesurferObjs = useRef<Record<number, WaveSurfer>>({}) // global index
 	//const preloadedContainersRef = useRef<Record<number, HTMLDivElement>>({}) // global index (hidden containers for preloaded wavesurfers)
-	const preloads = useRef<Record<number, Preload>>({})
+	const instances = useRef<Record<number, WavesurferInstance>>({})
 
 	const waveStageRef = useRef<HTMLElement>()
 	useEffect(() => {
@@ -133,8 +133,8 @@ const AudioPlayer: React.FC = () => {
 	// Cleanup 
 
 	const cleanup = async (i = index) => {
-		const preload = preloads.current[i];
-		if (!preload) {
+		const instance = instances.current[i];
+		if (!instance) {
 			return;
 		}
 
@@ -143,7 +143,7 @@ const AudioPlayer: React.FC = () => {
 			waveEntry.isMounted = false;
 		}
 
-		const ws = preload.wsInstance;
+		const ws = instance.wsInstance;
 		if (ws) {
 			try {
 				// Remove all event listeners
@@ -176,22 +176,22 @@ const AudioPlayer: React.FC = () => {
 		}
 
 		// Clean up blob URL
-		const audioURL = preload.audioURL;
+		const audioURL = instance.audioURL;
 		if (audioURL) {
 			URL.revokeObjectURL(audioURL);
 		}
 
-		const container = preload.preloadedContainer;
+		const container = instance.preloadedContainer;
 		if (container && container.parentElement === document.body) {
 			container.remove();
 		}
 
 		console.log("destroying: ", i)
-		delete preloads.current[i];
+		delete instances.current[i];
 	}
 
 	const cleanupAll = async () => {
-		Object.entries(preloads).forEach(async ([key, url]) => {
+		Object.entries(instances).forEach(async ([key, url]) => {
 			const i = Number(key);
 			cleanup(i);
 		})
@@ -209,10 +209,10 @@ const AudioPlayer: React.FC = () => {
 
 	const mountWavesurfer = async (targetIndex: number) => {
 		const waveEntry = entries[targetIndex] as Entry;
-		const preload = preloads.current[targetIndex];
+		const instance = instances.current[targetIndex];
 
-		const ws = preload.wsInstance;
-		const hiddenContainer = preload.preloadedContainer;
+		const ws = instance.wsInstance;
+		const hiddenContainer = instance.preloadedContainer;
 
 		if (!hiddenContainer || !ws || !waveEntry) {
 			return;
@@ -243,11 +243,11 @@ const AudioPlayer: React.FC = () => {
 		// ===================================================================================
 		// Timeline Plugin
 
-		preload.timelinePlugin = TimelinePlugin.create({
+		instance.timelinePlugin = TimelinePlugin.create({
 			container: "#wave-timeline",
 			height: 20,
 		});
-		await ws.registerPlugin(preload.timelinePlugin);
+		await ws.registerPlugin(instance.timelinePlugin);
 
 		const timelineContainer = document.getElementById("wave-timeline");
 
@@ -316,7 +316,7 @@ const AudioPlayer: React.FC = () => {
 			dragSelection: true,
 		});
 		const wsRegions = await ws.registerPlugin(plug);
-		preload.regionsPlugin = plug;
+		instance.regionsPlugin = plug;
 
 		wsRegions.enableDragSelection({ color: "rgba(0,255,0,0.3)" }, 3);
 
@@ -476,9 +476,9 @@ const AudioPlayer: React.FC = () => {
 	}
 
 	const unmountWavesurfer = (targetIndex: number) => {
-		const preload = preloads.current[targetIndex];
-		const container = preload.preloadedContainer;
-		const ws = preload.wsInstance;
+		const instance = instances.current[targetIndex];
+		const container = instance.preloadedContainer;
+		const ws = instance.wsInstance;
 		const waveEntry = entries[targetIndex] as Entry;
 
 		console.log("unmounting", targetIndex)
@@ -491,10 +491,10 @@ const AudioPlayer: React.FC = () => {
 				// Remove all event listeners
 				ws.unAll();
 
-				preload.regionsPlugin.destroy();
-				preload.timelinePlugin.destroy();
-				delete preload.regionsPlugin;
-				delete preload.timelinePlugin;
+				instance.regionsPlugin.destroy();
+				instance.timelinePlugin.destroy();
+				delete instance.regionsPlugin;
+				delete instance.timelinePlugin;
 
 				// Clean up timeline dot
 				const timelineContainer = document.getElementById("wave-timeline");
@@ -536,7 +536,7 @@ const AudioPlayer: React.FC = () => {
 			targetIndex >= entries.length || // out of bounds
 			!entries[targetIndex] || // out of bounds
 			entries[targetIndex].isCreating || // existing instance
-			preloads.current[targetIndex]
+			instances.current[targetIndex]
 		) {
 			console.log("already exists", targetIndex);
 			return;
@@ -610,7 +610,7 @@ const AudioPlayer: React.FC = () => {
 
 		entries[targetIndex].isCreating = false;
 
-		preloads.current[targetIndex] = {
+		instances.current[targetIndex] = {
 			audioURL: audioURL,
 			wsInstance: ws,
 			preloadedContainer: hiddenContainer,
@@ -633,7 +633,7 @@ const AudioPlayer: React.FC = () => {
 
 		async function handleMounting() {
 			// Unmount containers that are no longer in range (index, index+1)
-			Object.entries(preloads.current).forEach(([key, container]) => {
+			Object.entries(instances.current).forEach(([key, container]) => {
 				const i = Number(key);
 				if (i < index-1 || i > index + 1) {
 					// Out of range - unmount and move to body
@@ -706,7 +706,7 @@ const AudioPlayer: React.FC = () => {
 	};
 
 	const clickPlay = useCallback(async () => {
-		const wsInstance = preloads.current[index].wsInstance;
+		const wsInstance = instances.current[index].wsInstance;
 		// Plays the active region
 		if (wsInstance && activeRegionRef.current) {
 			activeRegionRef.current.play();
@@ -717,7 +717,7 @@ const AudioPlayer: React.FC = () => {
 	}, [entries, index]);
 
 	const clickPause = useCallback(async () => {
-		const wsInstance = preloads.current[index].wsInstance;
+		const wsInstance = instances.current[index].wsInstance;
 		if (wsInstance) {
 			wsInstance.playPause();
 		}
@@ -733,7 +733,7 @@ const AudioPlayer: React.FC = () => {
 		setConfidence(maxConfidence);
 		setYesDisabled(true);
 
-		const ws = preloads.current[index].wsInstance;
+		const ws = instances.current[index].wsInstance;
 		if (!ws) return;
 
 		// Accesses all regions
@@ -1051,7 +1051,7 @@ const AudioPlayer: React.FC = () => {
 	// Regions & Species 
 	
 	const deleteActiveRegion = async () => {
-		const ws = preloads.current[index];
+		const ws = instances.current[index];
 		if (!ws || !activeRegionRef.current) return;
 
 		activeRegionRef.current.remove();
@@ -1059,7 +1059,7 @@ const AudioPlayer: React.FC = () => {
 	};
 
 	const clearAllRegions = () => {
-		const ws = preloads.current[index];
+		const ws = instances.current[index];
 		if (!ws) return;
 
 		const regionPlugin = (ws as any).plugins[1];
@@ -1075,7 +1075,7 @@ const AudioPlayer: React.FC = () => {
 	};
 
 	const undoLastRegion = () => {
-		if (!preloads.current[index]) return;
+		if (!instances.current[index]) return;
 		if (regionListRef.current.length === 0) return;
 
 		const lastRegion = regionListRef.current.pop();
@@ -1090,7 +1090,7 @@ const AudioPlayer: React.FC = () => {
 	// Download regions data only (maybe repurpose logic later)
 	// TODO: Fix this
 	const saveLabelsToSpecies = () => {
-		const ws = preloads.current[index];
+		const ws = instances.current[index];
 		if (!ws) return;
 
 		const regionPlugin = (ws as any).plugins[1];
@@ -1470,7 +1470,7 @@ const AudioPlayer: React.FC = () => {
 								value={playbackRate}
 								onChange={(e) => {
 									setPlaybackRate(e.target.value);
-									const ws = preloads.current[index]?.wsInstance;
+									const ws = instances.current[index]?.wsInstance;
 									if (ws) {
 										ws.setPlaybackRate(parseFloat(e.target.value), false);
 									}
