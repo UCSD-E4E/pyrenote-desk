@@ -110,10 +110,10 @@ const AudioPlayer: React.FC = () => {
 		[],
 	);
 
-	//const audioURLs = useRef<Record<number, string>>({}) // global index
-	//const wavesurferObjs = useRef<Record<number, WaveSurfer>>({}) // global index
-	//const preloadedContainersRef = useRef<Record<number, HTMLDivElement>>({}) // global index (hidden containers for preloaded wavesurfers)
-	const instances = useRef<Record<number, WavesurferInstance>>({})
+	const instances = useRef<Record<string, WavesurferInstance>>({})
+	const idsToPreload = entries.slice(Math.max(0, index-1), Math.min(entries.length, index+2)).map(entry => entry.id);
+	const currentEntryId = entries[index]?.id ?? null;
+	// the reason we key instances by "entry's id" is because indices themselves will shift as entries get deleted
 
 	const waveStageRef = useRef<HTMLElement>()
 	useEffect(() => {
@@ -132,13 +132,13 @@ const AudioPlayer: React.FC = () => {
 	// =====================================================================================================
 	// Cleanup 
 
-	const cleanup = async (i = index) => {
-		const instance = instances.current[i];
+	const cleanup = async (key = currentEntryId) => {
+		const instance = instances.current[key];
 		if (!instance) {
 			return;
 		}
 
-		const waveEntry = entries[i] as Entry;
+		const waveEntry = entries.find((entry) => (entry.id == key));
 		if (waveEntry) {
 			waveEntry.isMounted = false;
 		}
@@ -150,7 +150,7 @@ const AudioPlayer: React.FC = () => {
 				ws.unAll();
 
 				// Clean up timeline dot if this is the current index
-				if (i === index && timelineDotRef.current) {
+				if (key === currentEntryId && timelineDotRef.current) {
 					const timelineContainer = document.getElementById("wave-timeline");
 					if (timelineContainer) {
 						try {
@@ -186,14 +186,13 @@ const AudioPlayer: React.FC = () => {
 			container.remove();
 		}
 
-		console.log("destroying: ", i)
-		delete instances.current[i];
+		console.log("destroying: ", key);
+		delete instances.current[key];
 	}
 
 	const cleanupAll = async () => {
 		Object.entries(instances).forEach(async ([key, url]) => {
-			const i = Number(key);
-			cleanup(i);
+			cleanup(key);
 		})
 	}
 
@@ -207,9 +206,9 @@ const AudioPlayer: React.FC = () => {
 	// =====================================================================================================
 	// Loop 
 
-	const mountWavesurfer = async (targetIndex: number) => {
-		const waveEntry = entries[targetIndex] as Entry;
-		const instance = instances.current[targetIndex];
+	const mountWavesurfer = async (key: string) => {
+		const waveEntry = entries.find((entry) => (entry.id == key));
+		const instance = instances.current[key];
 
 		const ws = instance.wsInstance;
 		const hiddenContainer = instance.preloadedContainer;
@@ -218,7 +217,7 @@ const AudioPlayer: React.FC = () => {
 			return;
 		}
 
-		console.log("mounting:", targetIndex);
+		console.log("mounting:", key);
 
 		// Remove from current parent if it exists
 		if (hiddenContainer.parentElement) {
@@ -283,7 +282,7 @@ const AudioPlayer: React.FC = () => {
 			dot.style.left = fraction * timelineWidth + "px";
 		});
 		
-		const waveformContainer = document.getElementById(waveEntry.id);
+		const waveformContainer = document.getElementById(key);
 		if (waveformContainer && timelineContainer) {
 			const clickHandler = (event: MouseEvent) => {
 				const rect = timelineContainer.getBoundingClientRect();
@@ -475,13 +474,14 @@ const AudioPlayer: React.FC = () => {
 		waveEntry.isMounted = true;
 	}
 
-	const unmountWavesurfer = (targetIndex: number) => {
-		const instance = instances.current[targetIndex];
+	const unmountWavesurfer = (key: string) => {
+		const waveEntry = entries.find((entry) => (entry.id == key));
+
+		const instance = instances.current[key];
 		const container = instance.preloadedContainer;
 		const ws = instance.wsInstance;
-		const waveEntry = entries[targetIndex] as Entry;
 
-		console.log("unmounting", targetIndex)
+		console.log("unmounting", key)
 
 		if (!container) return;
 
@@ -529,22 +529,21 @@ const AudioPlayer: React.FC = () => {
 		document.body.appendChild(container);
 	};
 
-	const createWavesurfer = async (targetIndex: number) => {
-		console.log("attempting to create ws", targetIndex)
+	const createWavesurfer = async (key: string) => {
+		const waveEntry = entries.find((entry) => (entry.id == key));
+
+		console.log("attempting to create ws", key)
 		if (
-			targetIndex < 0 || // out of bounds
-			targetIndex >= entries.length || // out of bounds
-			!entries[targetIndex] || // out of bounds
-			entries[targetIndex].isCreating || // existing instance
-			instances.current[targetIndex]
+			!waveEntry ||
+			waveEntry.isCreating || // existing instance
+			instances.current[key]
 		) {
-			console.log("already exists", targetIndex);
+			console.log("already exists", key);
 			return;
 		}
 
-		console.log("creating new ws", targetIndex);
+		console.log("creating new ws", key);
 
-		const waveEntry = entries[targetIndex] as Entry;
 		waveEntry.isCreating = true;
 		waveEntry.isMounted = false;
 
@@ -608,9 +607,13 @@ const AudioPlayer: React.FC = () => {
 		})
 		await ws.registerPlugin(spectrogramPlugin);
 
-		entries[targetIndex].isCreating = false;
+		
+		// ===================================================================================
+		// Finalize
 
-		instances.current[targetIndex] = {
+		waveEntry.isCreating = false;
+
+		instances.current[key] = {
 			audioURL: audioURL,
 			wsInstance: ws,
 			preloadedContainer: hiddenContainer,
@@ -633,23 +636,19 @@ const AudioPlayer: React.FC = () => {
 		async function handleMounting() {
 			// Unmount containers that are no longer in range (index, index+1)
 			Object.entries(instances.current).forEach(([key, container]) => {
-				const i = Number(key);
-				if (i < index-1 || i > index + 1) {
-					// Out of range - unmount and move to body
-					cleanup(i)
-				} else {
-					if (i != index) {
-						unmountWavesurfer(i);
-					}
+				if (!idsToPreload.includes(key)) { 
+					cleanup(key)
+				} else if (key != currentEntryId) {
+					unmountWavesurfer(key);
 				}
 			});
 
 
 			// Create wavesurfers for current and next index if they don't exist
 			if (index + 1 < entries.length) {
-				createWavesurfer(index + 1);
+				createWavesurfer(entries[index+1].id);
 			}
-			await createWavesurfer(index);
+			await createWavesurfer(entries[index].id);
 
 			// Clear waveStage
 			if (waveStageRef.current) {
@@ -659,7 +658,7 @@ const AudioPlayer: React.FC = () => {
 			}
 
 			// Mount the current index (make it visible in waveStage)
-			await mountWavesurfer(index);
+			await mountWavesurfer(currentEntryId);
 		}
 
 		handleMounting();
@@ -705,7 +704,7 @@ const AudioPlayer: React.FC = () => {
 	};
 
 	const clickPlay = useCallback(async () => {
-		const wsInstance = instances.current[index].wsInstance;
+		const wsInstance = instances.current[currentEntryId].wsInstance;
 		// Plays the active region
 		if (wsInstance && activeRegionRef.current) {
 			activeRegionRef.current.play();
@@ -716,7 +715,7 @@ const AudioPlayer: React.FC = () => {
 	}, [entries, index]);
 
 	const clickPause = useCallback(async () => {
-		const wsInstance = instances.current[index].wsInstance;
+		const wsInstance = instances.current[currentEntryId].wsInstance;
 		if (wsInstance) {
 			wsInstance.playPause();
 		}
@@ -732,7 +731,7 @@ const AudioPlayer: React.FC = () => {
 		setConfidence(maxConfidence);
 		setYesDisabled(true);
 
-		const ws = instances.current[index].wsInstance;
+		const ws = instances.current[currentEntryId].wsInstance;
 		if (!ws) return;
 
 		// Accesses all regions
@@ -1005,7 +1004,7 @@ const AudioPlayer: React.FC = () => {
 	// Regions & Species 
 	
 	const deleteActiveRegion = async () => {
-		const ws = instances.current[index];
+		const ws = instances.current[currentEntryId];
 		if (!ws || !activeRegionRef.current) return;
 
 		activeRegionRef.current.remove();
@@ -1013,7 +1012,7 @@ const AudioPlayer: React.FC = () => {
 	};
 
 	const clearAllRegions = () => {
-		const ws = instances.current[index];
+		const ws = instances.current[currentEntryId];
 		if (!ws) return;
 
 		const regionPlugin = (ws as any).plugins[1];
@@ -1029,7 +1028,7 @@ const AudioPlayer: React.FC = () => {
 	};
 
 	const undoLastRegion = () => {
-		if (!instances.current[index]) return;
+		if (!instances.current[currentEntryId]) return;
 		if (regionListRef.current.length === 0) return;
 
 		const lastRegion = regionListRef.current.pop();
@@ -1044,7 +1043,7 @@ const AudioPlayer: React.FC = () => {
 	// Download regions data only (maybe repurpose logic later)
 	// TODO: Fix this
 	const saveLabelsToSpecies = () => {
-		const ws = instances.current[index];
+		const ws = instances.current[currentEntryId];
 		if (!ws) return;
 
 		const regionPlugin = (ws as any).plugins[1];
@@ -1424,7 +1423,7 @@ const AudioPlayer: React.FC = () => {
 								value={playbackRate}
 								onChange={(e) => {
 									setPlaybackRate(e.target.value);
-									const ws = instances.current[index]?.wsInstance;
+									const ws = instances.current[currentEntryId]?.wsInstance;
 									if (ws) {
 										ws.setPlaybackRate(parseFloat(e.target.value), false);
 									}
