@@ -15,7 +15,6 @@ import {
 	RegionOfInterest,
 	Species,
 } from "../../main/schema";
-import { max } from "wavesurfer.js/src/util";
 
 type Entry = {
 	recording: Recording;
@@ -576,11 +575,12 @@ const AudioPlayer: React.FC = () => {
 			progressColor: "purple",
 			sampleRate: parseInt(sampleRate),
 		});
-		
+
 		const audioFile = await window.ipc.invoke('read-file-for-verification', waveEntry.recording.url);
 		const audioURL = URL.createObjectURL(new Blob([audioFile.data]));
+
+		await ws.load(audioURL); 
 		
-		ws.load(audioURL);
 		ws.setPlaybackRate(parseFloat(playbackRate), false);
 
 
@@ -590,13 +590,12 @@ const AudioPlayer: React.FC = () => {
 		const spectrogramPlugin = SpectrogramPlugin.create({
 			container: `#${waveEntry.spectrogramId}`,
 			labels: true,
-			colorMap: spectrogramColorMap,
-			fftSamples: 2048,
+			colorMap: "roseus",
+			fftSamples: 256,
 			height: 230,
 		})
-		await ws.registerPlugin(spectrogramPlugin);
+		ws.registerPlugin(spectrogramPlugin);
 
-		
 		// ===================================================================================
 		// Finalize
 
