@@ -186,7 +186,6 @@ const AudioPlayer: React.FC = () => {
 			container.remove();
 		}
 
-		console.log("destroying: ", key);
 		delete instances.current[key];
 	}
 
@@ -216,8 +215,6 @@ const AudioPlayer: React.FC = () => {
 		if (!hiddenContainer || !ws || !waveEntry) {
 			return;
 		}
-
-		console.log("mounting:", key);
 
 		// Remove from current parent if it exists
 		if (hiddenContainer.parentElement) {
@@ -345,7 +342,6 @@ const AudioPlayer: React.FC = () => {
 		});
 
 		wsRegions.on("region-removed", (region: Region) => {
-			console.log("Removing: ", region.id);
 			if (region.id.startsWith("imported-")) {
 				const id = Number.parseInt(region.id.split("imported-")[1]);
 				removeList.push(id);
@@ -481,8 +477,6 @@ const AudioPlayer: React.FC = () => {
 		const container = instance.preloadedContainer;
 		const ws = instance.wsInstance;
 
-		console.log("unmounting", key)
-
 		if (!container) return;
 
 		// Destroy plugins if wavesurfer exists and is mounted
@@ -514,7 +508,6 @@ const AudioPlayer: React.FC = () => {
 			}
 		}
 
-		console.log("unmounted parent el", container.parentElement);
 		// Remove from current parent if it exists
 		if (container.parentElement) {
 			container.parentElement.removeChild(container);
@@ -532,17 +525,13 @@ const AudioPlayer: React.FC = () => {
 	const createWavesurfer = async (key: string) => {
 		const waveEntry = entries.find((entry) => (entry.id == key));
 
-		console.log("attempting to create ws", key)
 		if (
 			!waveEntry ||
 			waveEntry.isCreating || // existing instance
 			instances.current[key]
 		) {
-			console.log("already exists", key);
 			return;
 		}
-
-		console.log("creating new ws", key);
 
 		waveEntry.isCreating = true;
 		waveEntry.isMounted = false;
@@ -876,7 +865,6 @@ const AudioPlayer: React.FC = () => {
 		await cleanup();
 		setEntries((wavesurfers) => wavesurfers.filter((_, i) => i !== index));
 
-		console.log(entries);
 		//adjust index if array is shorter than index
 		if (entries.length == 0) {
 			setEntries([]);
@@ -919,7 +907,6 @@ const AudioPlayer: React.FC = () => {
 				const regions = await window.api.listRegionOfInterestByRecordingId(
 					rec.recordingId,
 				);
-				console.log("regions:", regions);
 				const containerId = `waveform-${i}`;
 				const spectrogramId = `spectrogram-${i}`;
 				return {
@@ -935,7 +922,6 @@ const AudioPlayer: React.FC = () => {
 			}),
 		);
 
-		console.log("New WaveSurfers:", newWaveSurfers);
 		setEntries(newWaveSurfers);
 		setShowSpec(true);
 		setIndex(0);
