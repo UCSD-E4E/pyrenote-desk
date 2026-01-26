@@ -184,12 +184,13 @@ const AudioPlayer: React.FC = () => {
 		if (container && container.parentElement === document.body) {
 			container.remove();
 		}
-
+		console.log("Cleaned up wavesurfer instance for key:", key);
 		delete instances.current[key];
 	}
 
 	const cleanupAll = async () => {
-		Object.entries(instances).forEach(async ([key, url]) => {
+		Object.entries(instances.current).forEach(async ([key, url]) => {
+			console.log(key);
 			cleanup(key);
 		})
 	}
@@ -197,9 +198,10 @@ const AudioPlayer: React.FC = () => {
 	// Cleanup everything on component unmount
 	useEffect(() => {
 		return () => {
+			console.log("UNMOUNT")
 			cleanupAll();
 		};
-	}, [entries]);
+	}, []);
 
 	// =====================================================================================================
 	// Loop 
@@ -881,7 +883,7 @@ const AudioPlayer: React.FC = () => {
 	const importFromDB = async (recordings, skippedCount = 0) => {
 		console.log("recordings:", recordings);
 
-		await cleanup();
+		await cleanupAll();
 
 		// Ensure it's an array
 		if (!Array.isArray(recordings)) {
