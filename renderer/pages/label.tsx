@@ -330,7 +330,7 @@ const AudioPlayer: React.FC = () => {
 			region.element.style.position = "absolute";
 			region.element.style.top = "0px";
 			region.element.style.height = `${waveHeight + spectroHeight}px`;
-			region.element.style.zIndex = "9999";
+			region.element.style.zIndex = "99";
 		};
 
 		wsRegions.on("region-created", (region: Region) => {
