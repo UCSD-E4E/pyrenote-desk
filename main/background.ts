@@ -348,16 +348,20 @@ ipcMain.handle("saveMultipleRecordings", async (_event, { files, deploymentId, d
   return { skippedCount };
 });
 
-ipcMain.handle("run-script", async () => {
+ipcMain.handle("run-script", async (event, recordingIds?: number[]) => {
 
   const python = "python"; 
   const script = path.join(process.cwd(), "pyfiles/acoustic-multiclass-training/inference.py");
 
   return new Promise<string>((resolve, reject) => {
     // Pass DB path as a CLI argument
+    const args = [script, "--db-path", selectedDbPath];
+    if (recordingIds && recordingIds.length > 0) {
+      args.push("--recording-ids", recordingIds.join(","));
+    }
     execFile(
       python,
-      [script, "--db-path", selectedDbPath],
+      args,
       //{ env: { ...process.env } },  // add env if needed? would this prevent us from having to activate venv before running yarn && yarn dev?
       (error, stdout, stderr) => {
         if (error) return reject(stderr || error.message);

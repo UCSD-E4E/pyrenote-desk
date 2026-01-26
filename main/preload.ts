@@ -70,7 +70,7 @@ const exposedMutations: MutationsApi = {
 contextBridge.exposeInMainWorld("api", {
   ...exposedQueries,
   ...exposedMutations,
-  runScript: () => ipcRenderer.invoke("run-script"),
+  runScript: (recordingIds?: number[]) => ipcRenderer.invoke("run-script", recordingIds),
 });
 
 const handler = {
