@@ -785,7 +785,16 @@ const AudioPlayer: React.FC = () => {
         createWavesurfer();
       }
     }
-  }, [showSpec, index, wavesurfers, playbackRate, sampleRate]);
+  }, [showSpec, index, wavesurfers, sampleRate]);
+
+  useEffect(() => {
+    if (showSpec && wavesurfers[index]?.instance) {
+      wavesurfers[index].instance.setPlaybackRate(
+        parseFloat(playbackRate),
+        false,
+      );
+    }
+  }, [playbackRate, showSpec, index, wavesurfers]);
 
   // Deletes selected region
   const deleteActiveRegion = async () => {
