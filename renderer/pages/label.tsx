@@ -28,7 +28,7 @@ type Entry = {
 
 type WavesurferInstance = {
 	audioURL: string;
-	wsInstance: WaveSurfer;
+	wavesurfer: WaveSurfer;
 	preloadedContainer: HTMLDivElement;
 	spectrogramPlugin: SpectrogramPlugin;
 	regionsPlugin?: RegionsPlugin;
@@ -142,7 +142,7 @@ const AudioPlayer: React.FC = () => {
 			waveEntry.isMounted = false;
 		}
 
-		const ws = instance.wsInstance;
+		const ws = instance.wavesurfer;
 		if (ws) {
 			try {
 				// Remove all event listeners
@@ -210,7 +210,7 @@ const AudioPlayer: React.FC = () => {
 		const waveEntry = entries.find((entry) => (entry.id == key));
 		const instance = instances.current[key];
 
-		const ws = instance.wsInstance;
+		const ws = instance.wavesurfer;
 		const hiddenContainer = instance.preloadedContainer;
 
 		if (!hiddenContainer || !ws || !waveEntry) {
@@ -476,7 +476,7 @@ const AudioPlayer: React.FC = () => {
 
 		const instance = instances.current[key];
 		const container = instance.preloadedContainer;
-		const ws = instance.wsInstance;
+		const ws = instance.wavesurfer;
 
 		if (!container) return;
 
@@ -605,7 +605,7 @@ const AudioPlayer: React.FC = () => {
 
 		instances.current[key] = {
 			audioURL: audioURL,
-			wsInstance: ws,
+			wavesurfer: ws,
 			preloadedContainer: hiddenContainer,
 			spectrogramPlugin: spectrogramPlugin,
 		}
@@ -694,7 +694,7 @@ const AudioPlayer: React.FC = () => {
 	};
 
 	const clickPlay = useCallback(async () => {
-		const wsInstance = instances.current[currentEntryId].wsInstance;
+		const wsInstance = instances.current[currentEntryId].wavesurfer;
 		// Plays the active region
 		if (wsInstance && activeRegionRef.current) {
 			activeRegionRef.current.play();
@@ -705,7 +705,7 @@ const AudioPlayer: React.FC = () => {
 	}, [entries, index]);
 
 	const clickPause = useCallback(async () => {
-		const wsInstance = instances.current[currentEntryId].wsInstance;
+		const wsInstance = instances.current[currentEntryId].wavesurfer;
 		if (wsInstance) {
 			wsInstance.playPause();
 		}
@@ -721,7 +721,7 @@ const AudioPlayer: React.FC = () => {
 		setConfidence(maxConfidence);
 		setYesDisabled(true);
 
-		const ws = instances.current[currentEntryId].wsInstance;
+		const ws = instances.current[currentEntryId].wavesurfer;
 		if (!ws) return;
 
 		// Accesses all regions
@@ -1410,7 +1410,7 @@ const AudioPlayer: React.FC = () => {
 								value={playbackRate}
 								onChange={(e) => {
 									setPlaybackRate(e.target.value);
-									const ws = instances.current[currentEntryId]?.wsInstance;
+									const ws = instances.current[currentEntryId]?.wavesurfer;
 									if (ws) {
 										ws.setPlaybackRate(parseFloat(e.target.value), false);
 									}
