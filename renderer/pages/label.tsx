@@ -7,7 +7,6 @@ import WaveSurfer from "wavesurfer.js";
 import SpectrogramPlugin from "wavesurfer.js/dist/plugins/spectrogram";
 import RegionsPlugin from "wavesurfer.js/dist/plugins/regions";
 import TimelinePlugin from "wavesurfer.js/dist/plugins/timeline";
-import { GenericPlugin } from "wavesurfer.js/dist/base-plugin";
 import { Region } from "wavesurfer.js/src/plugin/regions";
 import {
 	Annotation,
@@ -129,9 +128,9 @@ const AudioPlayer: React.FC = () => {
 	const timelineDotRef = useRef<HTMLDivElement | null>(null);
 
 	// =====================================================================================================
-	// Cleanup 
+	// Wavesurfer Management
 
-	const cleanup = async (key = currentEntryId) => {
+	const cleanupWavesurfer = (key = currentEntryId) => {
 		const instance = instances.current[key];
 		if (!instance) {
 			return;
@@ -139,14 +138,16 @@ const AudioPlayer: React.FC = () => {
 
 		const waveEntry = entries.find((entry) => (entry.id == key));
 		if (waveEntry) {
+            if (waveEntry.isMounted) {
+                unmountWavesurfer(key);
+            }
 			waveEntry.isMounted = false;
 		}
 
 		const ws = instance.wavesurfer;
 		if (ws) {
 			try {
-				// Remove all event listeners
-				ws.unAll();
+				ws.destroy();
 
 				// Clean up timeline dot if this is the current index
 				if (key === currentEntryId && timelineDotRef.current) {
@@ -161,16 +162,8 @@ const AudioPlayer: React.FC = () => {
 					timelineDotRef.current = null;
 				}
 
-				// Destroy the wavesurfer instance (this will also clean up plugins)
-				ws.destroy();
 			} catch (e) {
 				console.warn("Error destroying wavesurfer:", e);
-				// Still try to destroy even if cleanup failed
-				try {
-					ws.destroy();
-				} catch (destroyError) {
-					console.error("Error in final destroy:", destroyError);
-				}
 			}
 		}
 
@@ -184,31 +177,21 @@ const AudioPlayer: React.FC = () => {
 		if (container && container.parentElement === document.body) {
 			container.remove();
 		}
-		console.log("Cleaned up wavesurfer instance for key:", key);
 		delete instances.current[key];
 	}
-
-	const cleanupAll = async () => {
+	const cleanupAll = () => {
 		Object.entries(instances.current).forEach(async ([key, url]) => {
-			console.log(key);
-			cleanup(key);
+			cleanupWavesurfer(key);
 		})
 	}
-
-	// Cleanup everything on component unmount
-	useEffect(() => {
-		return () => {
-			console.log("UNMOUNT")
-			cleanupAll();
-		};
-	}, []);
-
-	// =====================================================================================================
-	// Loop 
 
 	const mountWavesurfer = async (key: string) => {
 		const waveEntry = entries.find((entry) => (entry.id == key));
 		const instance = instances.current[key];
+
+        if (!instance) {
+            return; // shouldn't happen
+        }
 
 		const ws = instance.wavesurfer;
 		const hiddenContainer = instance.preloadedContainer;
@@ -244,7 +227,7 @@ const AudioPlayer: React.FC = () => {
 			container: "#wave-timeline",
 			height: 20,
 		});
-		await ws.registerPlugin(instance.timelinePlugin);
+		ws.registerPlugin(instance.timelinePlugin);
 
 		const timelineContainer = document.getElementById("wave-timeline");
 
@@ -302,22 +285,19 @@ const AudioPlayer: React.FC = () => {
 		// ===================================================================================
 		// Regions Plugin
 
-		const regionList: Region[] = [];
-		
-		const plug = (RegionsPlugin as any).create({
+		instance.regionsPlugin = (RegionsPlugin as any).create({
 			name: "regions",
 			regions: [],
 			drag: true,
 			resize: true,
 			color: "rgba(0, 255, 0, 0.3)",
 			dragSelection: true,
-		});
-		const wsRegions = await ws.registerPlugin(plug);
-		instance.regionsPlugin = plug;
+		}) as RegionsPlugin;
+        ws.registerPlugin(instance.regionsPlugin);
 
-		wsRegions.enableDragSelection({ color: "rgba(0,255,0,0.3)" }, 3);
+		instance.regionsPlugin.enableDragSelection({ color: "rgba(0,255,0,0.3)" }, 3);
 
-		const redraw = (region: Region) => {
+		const redraw = (region) => {
 			const waveEl = document.getElementById(waveEntry.id);
 			const spectroEl = document.getElementById(waveEntry.spectrogramId);
 			const waveSpectroContainer = waveEl?.parentElement;
@@ -333,33 +313,26 @@ const AudioPlayer: React.FC = () => {
 			region.element.style.zIndex = "99";
 		};
 
-		wsRegions.on("region-created", (region: Region) => {
+		instance.regionsPlugin.on("region-created", (region: any) => {
 			redraw(region);
 			regionListRef.current.push(region);
-			regionList.push(region);
 			setTimeout(() => {
 				redraw(region);
 			}, 50);
 		});
 
-		wsRegions.on("region-removed", (region: Region) => {
+		instance.regionsPlugin.on("region-removed", (region: any) => {
 			if (region.id.startsWith("imported-")) {
 				const id = Number.parseInt(region.id.split("imported-")[1]);
 				removeList.push(id);
 			}
 		});
 
-		wsRegions.on("redraw", () => {
-			regionList.forEach((region) => {
-				regionList.forEach((region) => redraw(region));
-			});
-		});
-
-		wsRegions.on("region-updated", (region: Region) => {
+		instance.regionsPlugin.on("region-updated", (region: any) => {
 			redraw(region);
 		});
 
-		wsRegions.on("region-clicked", (region) => {
+		instance.regionsPlugin.on("region-clicked", (region: any) => {
 			if (activeRegionRef.current === region) {
 				region.setOptions({ color: "rgba(0,255,0,0.3)" });
 				region.data = { ...region.data, loop: false };
@@ -378,13 +351,13 @@ const AudioPlayer: React.FC = () => {
 			}
 		});
 
-		wsRegions.on("region-out", (region: Region) => {
+		instance.regionsPlugin.on("region-out", (region: any) => {
 			if (region.data?.loop) {
 				region.play();
 			}
 		});
 
-		wsRegions.on("region-double-clicked", (region) => {
+		instance.regionsPlugin.on("region-double-clicked", (region: any) => {
 			const select = document.createElement("select");
 
 			speciesList.forEach((sp) => {
@@ -452,33 +425,32 @@ const AudioPlayer: React.FC = () => {
 			select.focus();
 		});
 
-		ws.on("finish", () => {
-			setPlaying(false);
-		});
-
-		const dbRegions = Array.isArray(waveEntry.regions)
-			? waveEntry.regions
-			: [];
-		for (const r of dbRegions) {
-			wsRegions.addRegion({
+		waveEntry.regions.forEach((r) => {
+			instance.regionsPlugin.addRegion({
 				start: r.starttime,
 				end: r.endtime,
 				color: "rgba(0, 255, 0, 0.3)",
 				id: "imported-" + r.regionId,
 			});
-		}
+		})
+
+		ws.on("finish", () => {
+			setPlaying(false);
+		});
 
 		waveEntry.isMounted = true;
 	}
 
 	const unmountWavesurfer = (key: string) => {
 		const waveEntry = entries.find((entry) => (entry.id == key));
-
 		const instance = instances.current[key];
-		const container = instance.preloadedContainer;
-		const ws = instance.wavesurfer;
 
-		if (!container) return;
+        if (!instance) {
+            return; 
+        }
+
+        const ws = instance.wavesurfer;
+		const container = instance.preloadedContainer;
 
 		// Destroy plugins if wavesurfer exists and is mounted
 		if (ws && waveEntry?.isMounted) {
@@ -486,9 +458,12 @@ const AudioPlayer: React.FC = () => {
 				// Remove all event listeners
 				ws.unAll();
 
+                instance.regionsPlugin.unAll();
 				instance.regionsPlugin.destroy();
+                delete instance.regionsPlugin;
+
+                instance.timelinePlugin.unAll();
 				instance.timelinePlugin.destroy();
-				delete instance.regionsPlugin;
 				delete instance.timelinePlugin;
 
 				// Clean up timeline dot
@@ -611,7 +586,7 @@ const AudioPlayer: React.FC = () => {
 		}
 	}
 
-	// Runs on page update or entries update
+	// Unmount, create, and mount on page update or entries update
 	useEffect(() => {
 		if (!showSpec || !entries[index]) {
 			return;
@@ -623,41 +598,40 @@ const AudioPlayer: React.FC = () => {
 			return;
 		}
 
+        // Destroy containers that are no longer in range (index, index+1)
+        Object.entries(instances.current).forEach(([key, container]) => {
+            if (!idsToPreload.includes(key)) { 
+                cleanupWavesurfer(key)
+            }
+        });
+
 		async function handleMounting() {
-			// Unmount containers that are no longer in range (index, index+1)
-			Object.entries(instances.current).forEach(([key, container]) => {
-				if (!idsToPreload.includes(key)) { 
-					cleanup(key)
-				} else if (key != currentEntryId) {
-					unmountWavesurfer(key);
-				}
-			});
-
-
-			// Create wavesurfers for current and next index if they don't exist
+			// Create wavesurfers for next index if they don't exist
 			if (index + 1 < entries.length) {
 				createWavesurfer(entries[index+1].id);
 			}
 			await createWavesurfer(entries[index].id);
-
-			// Clear waveStage
-			if (waveStageRef.current) {
-				while (waveStageRef.current.firstChild) {
-					waveStageRef.current.removeChild(waveStageRef.current.firstChild);
-				}
-			}
-
-			// Mount the current index (make it visible in waveStage)
 			await mountWavesurfer(currentEntryId);
 		}
 
 		handleMounting();
+
+        return () => {
+            unmountWavesurfer(currentEntryId);
+        }
 	}, 
 	[
 		showSpec,
 		index,
 		entries,
 	]);
+
+    // Cleanup everything on component unmount
+	useEffect(() => {
+		return () => {
+			cleanupAll();
+		};
+	}, []);
 
 	// =====================================================================================================
 	// Button Handlers 
@@ -819,10 +793,10 @@ const AudioPlayer: React.FC = () => {
 		if (index === 0) {
 			if (entries.length === 1) {
 				setShowSpec(false);
-				await cleanup();
+				await cleanupWavesurfer();
 				setEntries([]);
 			} else {
-				await cleanup();
+				await cleanupWavesurfer();
 				setEntries((arr) => arr.slice(1));
 				setIndex(0);
 			}
@@ -830,7 +804,7 @@ const AudioPlayer: React.FC = () => {
 			return;
 		}
 
-		await cleanup();
+		await cleanupWavesurfer();
 		setEntries((arr) => arr.filter((_, i) => i !== index));
 		if (entries.length - 1 >= index) setIndex((i) => i - 1);
 		setTimeout(() => setYesDisabled(false), 500);
@@ -847,7 +821,7 @@ const AudioPlayer: React.FC = () => {
 		setNoDisabled(true);
 		setConfidence(maxConfidence);
 		if (index == 0) {
-			await cleanup();
+			await cleanupWavesurfer();
 			
 			// Remove the first WaveSurfer
 			if (entries.length === 1) {
@@ -863,7 +837,7 @@ const AudioPlayer: React.FC = () => {
 			}, 500);
 			return;
 		}
-		await cleanup();
+		await cleanupWavesurfer();
 		setEntries((wavesurfers) => wavesurfers.filter((_, i) => i !== index));
 
 		//adjust index if array is shorter than index
