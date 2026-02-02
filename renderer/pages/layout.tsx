@@ -6,16 +6,9 @@ import { useState, useEffect } from 'react';
 function Layout({ children }: { children: React.ReactNode }) {
 	const [darkMode, setDarkMode] = useState(false);
 
+	// Initialize dark mode from localStorage after component mounts (client-side only)
 	useEffect(() => {
-		const stored = localStorage.getItem('darkMode');
-		setDarkMode(stored === 'true');
-
-		const handleStorage = () => {
-			const updated = localStorage.getItem('darkMode');
-			setDarkMode(updated === 'true');
-		};
-		window.addEventListener('storage', handleStorage);
-		return () => window.removeEventListener('storage', handleStorage);
+		setDarkMode(localStorage.getItem('darkMode') === 'true');
 	}, []);
 
 	const router = useRouter();

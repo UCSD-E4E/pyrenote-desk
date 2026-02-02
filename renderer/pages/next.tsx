@@ -702,8 +702,8 @@ export default function databasePage() {
 
     const handleSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
-      if (files.length === 0) {
-        alert("Please select a folder.");
+      if (files.length === 0 || !deploymentId) {
+        alert("Please select a folder and a deployment.");
         return;
       }
 
