@@ -1,10 +1,15 @@
 import Image from 'next/image';
 import styles from './layout.module.css';
 import { useRouter } from 'next/router';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 function Layout({ children }: { children: React.ReactNode }) {
 	const [darkMode, setDarkMode] = useState(false);
+
+	// Initialize dark mode from localStorage after component mounts (client-side only)
+	useEffect(() => {
+		setDarkMode(localStorage.getItem('darkMode') === 'true');
+	}, []);
 
 	const router = useRouter();
 	const toSettings = () => {
