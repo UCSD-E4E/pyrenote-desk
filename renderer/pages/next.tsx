@@ -781,7 +781,7 @@ export default function databasePage() {
     const [newDatabaseName, setNewDatabaseName] = useState('');
     const [editingDatabase, setEditingDatabase] = useState(null);
     const [editDatabaseName, setEditDatabaseName] = useState('');
-    const [selectedDatabase, setSelectedDatabase] = useState(localStorage.getItem('databasePath') || './pyrenoteDeskDatabase.db');
+    const [selectedDatabase, setSelectedDatabase] = useState(localStorage.getItem('databasePath') || './databases/pyrenoteDeskDatabase.db');
 
     useEffect(() => {
       loadDatabases();
