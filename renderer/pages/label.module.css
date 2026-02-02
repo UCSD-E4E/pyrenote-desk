@@ -13,27 +13,6 @@
 	overflow: visible;
 }
 
-.waveStage {
-	position: relative;
-	width: 100%;
-	min-height: 350px;
-}
-
-.activeWave {
-	position: relative;
-	opacity: 1;
-	pointer-events: auto;
-}
-
-.prefetchWave {
-	position: absolute;
-	top: 0;
-	left: 0;
-	transform: translateX(-200vw);
-	opacity: 0;
-	pointer-events: none;
-}
-
 .waveContainer {
 	position: absolute;
 	top: 0;
