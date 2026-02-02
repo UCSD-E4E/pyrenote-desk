@@ -5,6 +5,7 @@ import BetterSqlite3 from "better-sqlite3";
 import fs from "fs";
 import { execFile } from "child_process";
 import { setupQueries as queries } from "./queries";
+import { ensureMasterDbInitialized } from "./queries/listDatabases";
 import { setupMutations as mutations } from "./mutations";
 import { app, ipcMain, dialog } from "electron";
 import { readFile, writeFile, mkdir } from "fs/promises";
@@ -27,7 +28,7 @@ export const getDatabase = () => {
 };
 
 function createDatabase() {
-  const dbPath = selectedDbPath || "./pyrenoteDeskDatabase.db";
+  const dbPath = selectedDbPath || "./databases/pyrenoteDeskDatabase.db";
   let db: BetterSqlite3.Database;
 
   if (fs.existsSync(dbPath)) {
@@ -45,6 +46,7 @@ function createDatabase() {
 
 (async () => {
   await app.whenReady();
+  await ensureMasterDbInitialized();
   dbInstance = createDatabase();
 
   const mainWindow = createWindow("main", {

@@ -4,7 +4,7 @@ import Head from 'next/head';
 import Link from 'next/link';
 import Image from 'next/image';
 
-const defaultDatabasePath = './pyrenoteDeskDatabase.db';
+const defaultDatabasePath = './databases/pyrenoteDeskDatabase.db';
 export default function SettingsPage() {
     const [showGeneral, setShowGeneral] = useState(false);
     const [showData, setShowData] = useState(false);
@@ -32,19 +32,14 @@ export default function SettingsPage() {
     //TODO: maybe change default database path to something else, or force user to select database
     const [databasePath, setDatabasePath] = useState(localStorage.getItem('databasePath') || defaultDatabasePath);
     const [availableDatabases, setAvailableDatabases] = useState([
-        { Country: 'Default', filepath: defaultDatabasePath }
+        { Country: 'Pyrenote Desk', filepath: defaultDatabasePath }
     ]);
 
-    // fetch data from masterdb.json and save to availableDatabases variable
     useEffect(() => {
         fetch('/masterdb.json')
             .then(response => response.json())
             .then(data => {
-                const dbs = [
-                    { Country: 'Default', filepath: defaultDatabasePath },
-                    ...data.databases
-                ];
-                setAvailableDatabases(dbs);
+                setAvailableDatabases(data.databases || []);
             })
             .catch(error => {
                 console.error('Error loading database paths:', error);
