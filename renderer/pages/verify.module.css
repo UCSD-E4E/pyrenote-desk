@@ -109,22 +109,6 @@
 	100% { transform: translate(-50%, -50%) rotate(360deg); }
 }
 
-
-.unmountedInstance {
-	position: absolute;
-	top: 0;
-	left: 0;
-	transform: translateX(-200vw);
-	opacity: 0;
-	pointer-events: none;
-}
-.mountedInstance {
-	position: relative;
-	opacity: 1;
-	pointer-events: auto;
-}
-
-
 .waveContainer{
 	margin-bottom: 0px;
 	height: 90px;
