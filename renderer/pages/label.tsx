@@ -39,14 +39,14 @@ const AudioPlayer: React.FC = () => {
   const [index, setIndex] = useState(0);
 
   // Annotation state
-  const [confidence, setConfidence] = useState(localStorage.getItem("confidenceRange") || "100");
+  const [confidence, setConfidence] = useState("100");
   const confidenceRef = useRef(confidence);
   const [callType, setCallType] = useState("");
   const [notes, setNotes] = useState("");
 
   // Playback controls
   const [playbackRate, setPlaybackRate] = useState("1");
-  const [sampleRate, _setSampleRate] = useState(localStorage.getItem("sampleRate") || "24000");
+  const [sampleRate, _setSampleRate] = useState("24000");
 
   // Region & species
   const regionListRef = useRef<any[]>([]);
@@ -67,6 +67,12 @@ const AudioPlayer: React.FC = () => {
   const removeList: number[] = [];
 
   const timelineDotRef = useRef<HTMLDivElement | null>(null);
+
+  // Get user settings from local storage
+  useEffect(() => {
+    setConfidence(localStorage.getItem("confidenceRange") || "100");
+    _setSampleRate(localStorage.getItem("sampleRate") || "24000");
+  }, []);
 
   useEffect(() => {
     confidenceRef.current = confidence;
