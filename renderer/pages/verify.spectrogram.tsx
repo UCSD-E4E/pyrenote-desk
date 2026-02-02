@@ -1,6 +1,6 @@
 import styles from './verify.module.css'
 import { memo, MutableRefObject, Ref, useContext, useEffect, useImperativeHandle, useRef, useState } from "react";
-import { ProcessedAnnotation, SpectroStatus, VerifyContext } from "./verify";
+import { ProcessedAnnotation, SpectroStatus, VerifyContext, WavesurferInstance } from "./verify";
 import WaveSurfer from "wavesurfer.js";
 import SpectrogramPlugin from "wavesurfer.js/dist/plugins/spectrogram";
 import Select, { GroupBase, StylesConfig } from 'react-select';
@@ -17,107 +17,114 @@ export interface SpectroRef { // public Spectrogram properties & functions
 	skip: (number) => void,
 	setTime: (number) => void,
 	getTime: () => number,
-	wsRef: MutableRefObject<WaveSurfer>
+	mountInstance: (instance: WavesurferInstance) => void,
+	unmountInstance: () => void,
 	// add properties and functions here if you want them to be accessible from outside the Spectrogram
 }
 
 export interface SpectroProps {
 	id: number,
 	index: number,
-	audioFile: ProcessedAnnotation,
-	audioUrl: string,
-	syncedSpectro: SpectroRef,
+	isSelected: boolean,
 	isHovered: boolean,
 	ref?: any, 
-	spectroRef?: any,
-	uuid?: string,
+	syncedSpectro?: SpectroRef,
+	instance: WavesurferInstance,
 }
 
-function SpectrogramComponent({
+
+export const Spectrogram = memo(function Spectrogram({
 	id, // index in currentFiles (in-page index)
 	index, // index in audioFiles (global index)
-	audioFile,
-	audioUrl,
-	syncedSpectro, // grid spectrogram reference, null when not modal
-	ref,
+	isSelected,
 	isHovered,
+	ref=null,
+	syncedSpectro=null, // grid spectrogram reference, null when not modal
+	instance,
 }: SpectroProps) {
 	const context = useContext(VerifyContext);
 	const {
 		audioFiles, updateAudioFile,
-		audioURLs,
-		preloadedWavesurfers, preloadedContainers,
-		selected, updateSelected,
 		setHovered,
-		playSpeed, setPlaySpeed,
+		playSpeed,
 		speciesList,
 		toggleModal,
-		isModalInputFocused, setIsModalInputFocused,
 	} = context;
-
+	const instanceRef = useRef<WavesurferInstance>(null);
 	const wavesurferRef = useRef<WaveSurfer>(null);
-	const containerRef = useRef(null);
-	const innerRef = useRef(null);
 
-	const speciesIndex = audioFile.speciesIndex;
-	const status = audioFile.status;
-	const filePath = audioFile.filePath;
-	const isSelected = (selected.includes(index));
+	const outerRef = useRef(null);
+	const innerRef = useRef(null); // parent of preloaded container
 
-	let isDestroyed = false;
+	let audioFile = audioFiles[index];
+	let speciesIndex = audioFile.speciesIndex;
+	let status = audioFile.status;
+	let filePath = audioFile.filePath;
+
+	const isMounting = useRef(false);
+	const isMounted = useRef(false);
+	const isAlive = useRef(true);
 	const [isLoaded, setIsLoaded] = useState(false);
 
-	useEffect(() => { // initialize
-		setIsLoaded(false);
+	const mountInstance = async (instance: WavesurferInstance) => {
+		if (!isAlive.current) return;
+		if (isMounted.current) return;
+		if (isMounting.current) return;
+		isMounting.current = true;
 
-		if (!audioUrl) {
-			return;
+		if (!instance.isAudioUrlReady) {
+			await instance.audioUrlReady;
+			if (!isAlive.current) {
+				return (isMounting.current = false)
+			};
+		}	
+
+		instanceRef.current = instance;
+		wavesurferRef.current = instance.wavesurfer;
+
+		const preloadedContainer = instance.preloadedContainer;
+		preloadedContainer.className = `${styles.mountedInstance}`
+
+		if (preloadedContainer.parentElement) {
+			preloadedContainer.parentElement.removeChild(preloadedContainer);
 		}
 
-		// check if there's a preloaded wavesurfer for this index
-		const preloadedWs = preloadedWavesurfers?.[index];
-		const preloadedContainer = preloadedContainers?.[index];
-		const isUsingPreloaded = !!(preloadedWs && preloadedContainer && innerRef.current && !syncedSpectro);
+		innerRef.current.appendChild(preloadedContainer);
 
-		if (isUsingPreloaded) {
-			innerRef.current.innerHTML = '';
-			preloadedContainer.style.position = 'relative';
-			preloadedContainer.style.left = '0';
-			preloadedContainer.style.top = '0';
-			preloadedContainer.style.width = '100%';
-			preloadedContainer.style.height = '256px';
-			
-			// remove from old parent if it exists
-			if (preloadedContainer.parentElement) {
-				preloadedContainer.parentElement.removeChild(preloadedContainer);
-			}
-			innerRef.current.appendChild(preloadedContainer);
+		isMounted.current = true;
+		isMounting.current = false;
+		
+		if (!instance.isAudioLoaded) {
+			await instance.audioLoaded;
+		}
+		document.getElementById(`loading-spinner-${index}`)?.style.setProperty('display', 'none');
+		setIsLoaded(true);
+	}
 
-			wavesurferRef.current = preloadedWs;
+	const unmountInstance = () => {
+		if (!isMounted.current) {
+			return
+		};
 
-			// check if already loaded
-			try {
-				const duration = preloadedWs.getDuration();
-				if (duration > 0) {
-					// is loaded
-					document.getElementById(`loading-spinner-${id}`)?.style.setProperty('display', 'none');
-					setIsLoaded(true);
-				} else {
-					// wait for ready event if not yet loaded
-					wavesurferRef.current.on('ready', function() {
-						document.getElementById(`loading-spinner-${id}`)?.style.setProperty('display', 'none');
-						setIsLoaded(true);
-					});
-				}
-			} catch (e) {
-				// wait for ready event
-				wavesurferRef.current.on('ready', function() {
-					document.getElementById(`loading-spinner-${id}`)?.style.setProperty('display', 'none');
-					setIsLoaded(true);
-				});
-			}
-		} else {
-			// new wavesurfer instance
+		wavesurferRef.current.stop();
+		wavesurferRef.current.pause();
+
+		const preloadedContainer = instanceRef.current.preloadedContainer;
+		
+		if (preloadedContainer.parentElement) {
+			preloadedContainer.parentElement.removeChild(preloadedContainer);
+		}
+		preloadedContainer.className = `${styles.unmountedInstance}`
+		document.body.appendChild(preloadedContainer);
+
+		isMounted.current = false;
+		isMounting.current = false;
+	}
+
+	useEffect(() => {
+		if (syncedSpectro) { // modal spectrogram
+			const audioUrl = instance.audioUrl;
+
 			wavesurferRef.current = WaveSurfer.create({	
 				container: innerRef.current,
 				height: 0,
@@ -131,15 +138,15 @@ function SpectrogramComponent({
 				SpectrogramPlugin.create({
 					colorMap: 'roseus',
 					scale: "linear",
-					fftSamples: (id==-1) ? 512 : 64, // <<< (SPECTROGRAM QUALITY)	zoomed : unzoomed
-					labels: (id==-1),
-					height: (id==-1) ? 256 : 90, 
+					fftSamples: 512, // <<< (SPECTROGRAM QUALITY)	zoomed : unzoomed
+					labels: true,
+					height: 256, 
 				}),
 			)
 
 			// on load
 			wavesurferRef.current.load(audioUrl).catch((e) => {
-				if (e.name === "AbortError" && isDestroyed) {
+				if (e.name === "AbortError") {
 					console.log("WaveSurfer load aborted cleanly");
 				} else {
 					console.error("WaveSurfer load failed:", e);
@@ -150,33 +157,27 @@ function SpectrogramComponent({
 			wavesurferRef.current.on('ready', function() {
 				document.getElementById(`loading-spinner-${id}`)?.style.setProperty('display', 'none');
 
-				if (syncedSpectro) {
-					wavesurferRef.current.setTime(syncedSpectro.getTime());
-					wavesurferRef.current.on("timeupdate", (progress) => {
-						syncedSpectro.setTime(progress);
-					});
-				}
+				wavesurferRef.current.setTime(syncedSpectro.getTime());
+				wavesurferRef.current.on("timeupdate", (progress) => {
+					syncedSpectro.setTime(progress);
+				});
+				
 				setIsLoaded(true);
 			});
-		}
-		
-		return () => { 
-			isDestroyed = true;
-			// only destroy if we created a new instance (not preloaded)
-			if (!isUsingPreloaded && wavesurferRef.current) {
-				wavesurferRef.current.unAll();
-				try {
-					wavesurferRef.current?.destroy();
-				} catch (e) {
-					if (e instanceof DOMException && e.name === "AbortError") {
-						console.warn("WaveSurfer load aborted cleanly");
-					} else {
-						console.error("WaveSurfer destroy failed:", e);
-					}
+			return () => {
+				isAlive.current = false;
+				if (wavesurferRef.current) {
+					wavesurferRef.current.destroy();
+					wavesurferRef.current = null;
 				}
 			}
-		};
-	}, [audioUrl, index, preloadedWavesurfers, preloadedContainers]);
+		} else {
+			return () => {
+				isAlive.current = false;
+				unmountInstance();
+			};
+		}
+	}, [])
 
 	const playPause = () => {
 		wavesurferRef.current.setPlaybackRate(playSpeed);
@@ -186,19 +187,22 @@ function SpectrogramComponent({
 	const pause = () => { wavesurferRef.current.pause(); }
 	const skip = (i) => { wavesurferRef.current.skip(i); }
 	const setPlaybackRate = (i) => { wavesurferRef.current.setPlaybackRate(i); }
+	const setTime = (time) => { wavesurferRef.current.setTime(time) }
+	const getTime = () => { return wavesurferRef.current.getCurrentTime() }
 
 	useImperativeHandle(ref, () => {
 		return {
 			id,
 			index,
-			containerRef, // for box selection
+			containerRef: outerRef, // for box selection
 			playPause,
 			pause,
 			skip,
 			setPlaybackRate,
-			setTime: (time) => { wavesurferRef.current.setTime(time) },
-			getTime: () => { return wavesurferRef.current.getCurrentTime() },
-			wsRef: wavesurferRef,
+			setTime,
+			getTime,
+			mountInstance,
+			unmountInstance,
 		}
 	});
 
@@ -214,7 +218,7 @@ function SpectrogramComponent({
 				${isLoaded && (isSelected ? styles.selectOutline : styles.unselectOutline)}
 				${isLoaded && (isHovered ? styles.hoverOutline : styles.unhoverOutline)}
 			`}
-			ref={containerRef}
+			ref={outerRef}
 			onMouseEnter={() => setHovered(index)}
 			onMouseLeave={() => setHovered(null)}
 			style={{ position: "relative" }}
@@ -231,61 +235,51 @@ function SpectrogramComponent({
 				/>
 			}
 			
-			<div id={`loading-spinner-${id}`} className={styles.waveLoadingCircle}></div>
+			{!isLoaded && (<div id={`loading-spinner-${index}`} className={styles.waveLoadingCircle}></div>)}
 			<div 
-				id={`waveform-${id}`} 
+				id={`waveform-${index}`} 
 				ref={innerRef}
 				style={{ width: "100%", height: "256px"}}
 				onContextMenu={(e) => { e.preventDefault(); if (isSelected) playPause(); }}
 			></div>
 		</div>	
 	)
-}
-
-export const Spectrogram = memo(SpectrogramComponent, (prev, next) => {
-	// Only rerender when rendering-relevant props change. Ignore `ref` prop identity.
+}, (prev, next) => {
+	if (prev.isSelected !== next.isSelected) return false;
 	if (prev.id !== next.id) return false;
 	if (prev.index !== next.index) return false;
-	if (prev.audioUrl !== next.audioUrl) return false;
 	if (prev.isHovered !== next.isHovered) return false;
 	if (prev.syncedSpectro !== next.syncedSpectro) return false;
-	// Compare used fields of audioFile
-	const p = prev.audioFile;
-	const n = next.audioFile;
-	if (p.speciesIndex !== n.speciesIndex) return false;
-	if (p.status !== n.status) return false;
-	if (p.filePath !== n.filePath) return false;
+
 	return true;
 });
+
 
 export function ModalSpectrogram({
 	id, // index in currentFiles (in-page index)
 	index, // index in audioFiles (global index)
-	audioFile,
-	audioUrl,
-	syncedSpectro,
+	isSelected,
 	isHovered,
-	spectroRef,
-}: Omit<SpectroProps, 'ref'>) {
+	syncedSpectro,
+	ref,
+	instance,
+}: SpectroProps) {
 	const context = useContext(VerifyContext);
 	const {
 		audioFiles, updateAudioFile,
-		audioURLs,
-		selected, updateSelected,
 		setHovered,
-		playSpeed, setPlaySpeed,
+		playSpeed,
 		speciesList,
 		toggleModal,
-		isModalInputFocused, setIsModalInputFocused,
 	} = context;
 
-	const modalRef = useRef(null);
+	const audioFile = audioFiles[index];
 
 	const speciesIndex = audioFile.speciesIndex;
 	const [displaySpecies, setDisplaySpecies] = useState(speciesList[speciesIndex].common);
 
 	return (
-		<div ref={modalRef} className={styles.modal}>
+		<div className={styles.modal}>
 			<div className={styles.modalHeader}>
 				<div>ID: {index + 1}</div>
 				<div>File Path: {audioFile?.filePath}</div>
@@ -295,11 +289,11 @@ export function ModalSpectrogram({
 			<Spectrogram 
 				id={-1} 
 				index={index}
-				audioUrl={audioUrl}
-				audioFile={audioFile}
 				syncedSpectro={syncedSpectro}
-				ref={spectroRef}
+				ref={ref}
+				isSelected={isSelected}
 				isHovered={isHovered}
+				instance={instance}
 			/>
 			
 			<div className={styles.modalControls}>

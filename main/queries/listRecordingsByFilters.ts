@@ -2,7 +2,7 @@ import { getDatabase } from '../background';
 import { Recording, RecordingWithData } from '../schema';
 import fs from 'fs';
 
-const listRecordingsByFilters = async (filters): Promise<{ recordings: RecordingWithData[], skippedCount: number }> => {
+const listRecordingsByFilters = async (filters): Promise<{ recordings: Recording[], skippedCount: number }> => {
     const db = getDatabase();
 
     let query = `
@@ -65,11 +65,11 @@ const listRecordingsByFilters = async (filters): Promise<{ recordings: Recording
     const rows = statement.all(...parameters) as Recording[];
     let skippedCount = 0;
         
-    const rowsWithData: RecordingWithData[] = rows.reduce<RecordingWithData[]>((acc, r) => {
+    const rowsWithData: Recording[] = rows.reduce<Recording[]>((acc, r) => {
         try {
             acc.push({
                 ...r,
-                fileData: new Uint8Array(fs.readFileSync(r.url)),
+                //fileData: new Uint8Array(fs.readFileSync(r.url)),
             });
         } catch (e: any) {
             //keep track of ENOENT (file not found) errors and skip

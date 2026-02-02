@@ -133,6 +133,7 @@ ipcMain.handle(
         buffer.byteOffset,
         buffer.byteOffset + buffer.byteLength
       );
+
       return {
         name: path.basename(filePath), // get filename only
         extension: path.extname(filePath),
