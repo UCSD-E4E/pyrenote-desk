@@ -2,7 +2,7 @@
 
 1.  **`DBHelper` Class**:
     *   A singleton class responsible for all SQLite database operations.
-    *   `__new__`: Establishes connection to the database file (default: `pyrenoteDeskDatabase.db`).
+    *   `__new__`: Establishes connection to the database file (default: `databases/pyrenoteDeskDatabase.db`).
     *   `fetch_recordings`: Retrieves recording metadata (ID, URL) from the `Recording` table based on a list of recording IDs.
     *   `insert_annotation`: Inserts or updates an annotation in the `Annotation` table. This includes `regionId`, `labelerId`, `speciesId`, `speciesProbability`, etc.
     *   `save_recording_file`: Copies a source audio file to a destination path. Supports various audio formats (FLAC, MP3, WAV, AAC, M4A, OGG). If `dest_path` is not provided, it defaults to a hidden `.recordings` directory in the current working directory. It handles directory creation and avoids re-copying if the file already exists and is identical.
