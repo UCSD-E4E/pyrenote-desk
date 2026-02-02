@@ -11,29 +11,50 @@ export default function SettingsPage() {
     const [showModel, setShowModel] = useState(false);
     const [showLabel, setShowLabel] = useState(false);
     const [showVerify, setShowVerify] = useState(false);
-    const [username, setUsername] = useState(localStorage.getItem('username'));
-    const [email, setEmail] = useState(localStorage.getItem('email'));
-    const [skipInterval, setSkipInterval] = useState(localStorage.getItem('skipInterval'));
-    const [playbackRate, setPlaybackRate] = useState(localStorage.getItem('playbackRate'));
-    const [darkMode, setDarkMode] = useState(localStorage.getItem('darkMode'));
-    const [inputStyle, setInputStyle] = useState(localStorage.getItem('inputStyle'));
-    const [inputType, setInputType] = useState(localStorage.getItem('inputType'));
-    const [modelVersion, setModelVersion] = useState(localStorage.getItem('modelVersion'));
-    const [modelParameters, setModelParameters] = useState(localStorage.getItem('modelParameters'));
-    const [sampleRate, setSampleRate] = useState(localStorage.getItem('sampleRate'));
-    const [colorScheme, setColorScheme] = useState(localStorage.getItem('colorScheme'));
-    const [disableAdditional, setDisableAdditional] = useState(localStorage.getItem('disableAdditional'));
-    const [disableConfidence, setDisableConfidence] = useState(localStorage.getItem('disableConfidence'));
-    const [verifyColorScheme, setVerifyColorScheme] = useState(localStorage.getItem('verifyColorScheme'));
-    const [confidenceRange, setConfidenceRange] = useState(localStorage.getItem('confidenceRange'));
-    const [defaultColumns, setDefaultColumns] = useState(localStorage.getItem('defaultColumns'));
-	const [defaultSpeciesId, setDefaultSpeciesId] = useState(localStorage.getItem('defaultSpeciesId'));
+    /* unused */ const [username, setUsername] = useState(''); // general
+   	/* unused */ const [email, setEmail] = useState(''); // general
+    const [skipInterval, setSkipInterval] = useState('1'); // verify
+    const [playbackRate, setPlaybackRate] = useState('1'); // verify
+    const [darkMode, setDarkMode] = useState('false'); // layout (needs overhaul)
+    /* unused */ const [inputStyle, setInputStyle] = useState('default'); // database
+    /* unused */ const [inputType, setInputType] = useState(''); // database
+    /* unused */ const [modelVersion, setModelVersion] = useState(''); // model
+    /* unused */ const [modelParameters, setModelParameters] = useState(''); // model
+    const [sampleRate, setSampleRate] = useState(''); // label
+    const [colorScheme, setColorScheme] = useState(''); // label
+    const [disableAdditional, setDisableAdditional] = useState('false'); // label
+    const [disableConfidence, setDisableConfidence] = useState('false'); // label
+    const [verifyColorScheme, setVerifyColorScheme] = useState(''); // verify
+    const [confidenceRange, setConfidenceRange] = useState('10'); // label
+    const [defaultColumns, setDefaultColumns] = useState('4'); // verify
+	const [defaultSpeciesId, setDefaultSpeciesId] = useState('1'); // verify (awaiting feedback)
 
     //TODO: maybe change default database path to something else, or force user to select database
-    const [databasePath, setDatabasePath] = useState(localStorage.getItem('databasePath') || defaultDatabasePath);
+    const [databasePath, setDatabasePath] = useState(defaultDatabasePath);
     const [availableDatabases, setAvailableDatabases] = useState([
         { Country: 'Default', filepath: defaultDatabasePath }
     ]);
+
+    useEffect(() => {
+        setUsername(localStorage.getItem('username') || username);
+        setEmail(localStorage.getItem('email') || email);
+        setSkipInterval(localStorage.getItem('skipInterval') || skipInterval);
+        setPlaybackRate(localStorage.getItem('playbackRate') || playbackRate);
+        setDarkMode(localStorage.getItem('darkMode') || darkMode);
+        setInputStyle(localStorage.getItem('inputStyle') || inputStyle);
+        setInputType(localStorage.getItem('inputType') || inputType);
+        setModelVersion(localStorage.getItem('modelVersion') || modelVersion);
+        setModelParameters(localStorage.getItem('modelParameters') || modelParameters);
+        setSampleRate(localStorage.getItem('sampleRate') || sampleRate);
+        setColorScheme(localStorage.getItem('colorScheme') || colorScheme);
+        setDisableAdditional(localStorage.getItem('disableAdditional') || disableAdditional);
+        setDisableConfidence(localStorage.getItem('disableConfidence') || disableConfidence);
+        setVerifyColorScheme(localStorage.getItem('verifyColorScheme') || verifyColorScheme);
+        setConfidenceRange(localStorage.getItem('confidenceRange') || confidenceRange);
+        setDefaultColumns(localStorage.getItem('defaultColumns') || defaultColumns);
+        setDefaultSpeciesId(localStorage.getItem('defaultSpeciesId') || defaultSpeciesId);
+        setDatabasePath(localStorage.getItem('databasePath') || defaultDatabasePath);
+    }, []);
 
     // fetch data from masterdb.json and save to availableDatabases variable
     useEffect(() => {
@@ -63,7 +84,6 @@ export default function SettingsPage() {
      * @param param the new value to be set in local storage and state.
      */
     function newUsername (username) {
-        
         localStorage.setItem('username', username);
         setUsername(localStorage.getItem('username'));
     }
@@ -297,7 +317,8 @@ export default function SettingsPage() {
                             name="name" 
                             onChange={(e) => newUsername(e.target.value)} 
                             value={username}
-                ></input><br></br>
+                		></input>
+						<br></br>
                         <label >Labeler Email: </label>
                         <input 
                             type="email" 
@@ -305,11 +326,12 @@ export default function SettingsPage() {
                             name="email" 
                             onChange={(e) => newEmail(e.target.value)}
                             value={email}>
-                        </input><br></br>
+                        </input>
+						<br></br>
                         <label >Dark Mode: </label>
                         <input type="checkbox" id="dark" name="dark"
-                            onChange={(e) => newDarkMode(e.target.value)}
-                            value={darkMode}>    
+                            onChange={(e) => newDarkMode(e.target.checked)}
+                            checked={darkMode == "true"}>    
                         </input>
                     </form>
                 </div>}
@@ -332,20 +354,26 @@ export default function SettingsPage() {
                             ))}
                         </select>
                         
+						{/* Removed for now, since these settings are unused
                         <br></br>
                         <label >Input Style: </label>
                         <input type="text" id="fname" name="fname"
                             onChange={(e) => newInputStyle(e.target.value)}
                             value = {inputStyle}>
-                        </input><br></br>
+                        </input>
+						<br></br>
                         <label >Input Type: </label>
                         <input type="text" id="lname" name="lname"
                             onChange={(e) => newInputType(e.target.value)}
                             value = {inputType}>
                         </input>
+						*/}
                     </form>
                 </div>}
-            {!showData && <br></br>}<br></br><button type="button" className={styles.collapsible} onClick={collapseModel}>Model</button>
+			
+            {!showData && <br></br>}
+			{ /* Removed for now, since these model page settings are unused<button type="button" className={styles.collapsible} onClick={collapseModel}>Model</button>
+				<br></br>
                 {showModel && <div id="content">
                     <br></br>
                     <form>
@@ -361,6 +389,7 @@ export default function SettingsPage() {
                         </input>
                     </form>
                 </div>}
+			*/}
             {!showModel && <br></br>}<br></br><button type="button" className={styles.collapsible} onClick={collapseLabel}>Label</button>
                 {showLabel && <div id="content">
                     <br></br>
@@ -377,13 +406,13 @@ export default function SettingsPage() {
                         </input><br></br>
                         <label >Disable Additional: </label>
                         <input type="checkbox" id="disableAdditional" name="disableAdditional"
-                            onChange={(e) => newDisableAdditional(e.target.value)}
-                            value = {disableAdditional}>    
+                            onChange={(e) => newDisableAdditional(e.target.checked)}
+                            checked = {disableAdditional == "true"}>    
                         </input><br></br>
                         <label >Disable Confidence: </label>
                         <input type="checkbox" id="disableConfidence" name="disableConfidence"
-                            onChange={(e) => newDisableConfidence(e.target.value)}
-                            value = {disableConfidence}>    
+                            onChange={(e) => newDisableConfidence(e.target.checked)}
+                            checked = {disableConfidence == "true"}>    
                         </input><br></br>
                         <label>Confidence Range: </label>
                         <input type="number" id="range" name="range"
