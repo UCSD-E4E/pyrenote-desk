@@ -17,13 +17,18 @@ import SpectrogramPlugin from "wavesurfer.js/dist/plugins/spectrogram";
 // modification in Settings page to be implemented
 
 const MAX_SKIPINTERVAL = 8;
+const DEFAULT_SKIPINTERVAL = 2;
 const MIN_SKIPINTERVAL = 0.5
 
 const MAX_PLAYSPEED = 4;
+const DEFAULT_PLAYSPEED = 1;
 const MIN_PLAYSPEED = 0.25;
 
 const MAX_COLUMNS = 8;
+const DEFAULT_COLUMNS = 2;
 const MIN_COLUMNS = 1;
+
+const DEFAULT_SPECIES_ID = 0
 
 
 // DATA STRUCTURES //
@@ -51,20 +56,9 @@ export interface ProcessedAnnotation { // Audio file information
 	recordingId: number;
 	startOffset: number;
 	endOffset: number;
+	url?: string; // not the same as filepath, refers to the cropped audio blob in memory
 }
 
-export type WavesurferInstance = {
-	audioUrl: string | null;
-	wavesurfer: WaveSurfer;
-	preloadedContainer: HTMLDivElement;
-	spectrogramPlugin: SpectrogramPlugin;
-
-	isAudioUrlReady: boolean;
-	audioUrlReady: Promise<void>;
-
-	isAudioLoaded: boolean;
-	audioLoaded: Promise<void>;
-}
 
 interface VerifyContextValue {
 	audioFiles: ProcessedAnnotation[];
@@ -73,93 +67,75 @@ interface VerifyContextValue {
 			field: K, 
 			value: ProcessedAnnotation[K]
 		) => void;
+	audioURLs: Record<number, string>;
+	preloadedWavesurfers: Record<number, WaveSurfer>;
+	preloadedContainers: Record<number, HTMLDivElement>;
+	selected: number[];
+	updateSelected: (arr: number[]) => number[] | void;
 	setHovered: (upd: number | ((prev: number) => number)) => void;
 	playSpeed: number;
+	setPlaySpeed: (upd: number | ((prev: number) => number)) => void;
 	speciesList: Species[];
 	toggleModal: () => void;
+	isModalInputFocused: boolean;
+	setIsModalInputFocused: (upd: boolean | ((prev: boolean) => boolean)) => void;
 }
 
 export const VerifyContext = createContext<VerifyContextValue | null>(null);
 
 export default function VerifyPage() {	
 
-	// Default Settings
-
- 	const [DEFAULT_SKIPINTERVAL, SET_DEFAULT_SKIPINTERVAL] = useState(1);
-	const [DEFAULT_PLAYSPEED, SET_DEFAULT_PLAYSPEED] = useState(1.0);
-	const [DEFAULT_COLUMNS, SET_DEFAULT_COLUMNS] = useState(2);
-	const [DEFAULT_SPECIES_ID, SET_DEFAULT_SPECIES_ID] = useState(1);
-	useEffect(() => {
-		SET_DEFAULT_SKIPINTERVAL(Number(localStorage.getItem('skipInterval')));
-		SET_DEFAULT_PLAYSPEED(Number(localStorage.getItem('playbackRate')) || DEFAULT_PLAYSPEED);
-		SET_DEFAULT_COLUMNS(Number(localStorage.getItem('defaultColumns')) || DEFAULT_COLUMNS);
-		SET_DEFAULT_SPECIES_ID(Number(localStorage.getItem('defaultSpeciesId')) || DEFAULT_SPECIES_ID);
-
-		setSkipInterval(Number(localStorage.getItem('skipInterval')) || DEFAULT_SKIPINTERVAL);
-		setPlaySpeed(Number(localStorage.getItem('playbackRate')) || DEFAULT_PLAYSPEED);
-		setCOLS(Number(localStorage.getItem('defaultColumns')) || DEFAULT_COLUMNS);
-		setDefaultSpeciesId(Number(localStorage.getItem('defaultSpeciesId')) || DEFAULT_SPECIES_ID);
-	}, []);
-
 	//// ================================================================================================================
 	//// STATE
 	
-	// Page
-	const [currentPage, setCurrentPage] = useState(0);
-	const [forceReloadKey, setForceReloadKey] = useState(0); // crucial for switching pages	
-
-	// Dimensions
-	const [ROWS, setROWS] = useState(5);
-	const [COLS, setCOLS] = useState(DEFAULT_COLUMNS);
-	const FILES_PER_PAGE = ROWS*COLS;
-
-	// Audio Files
-	const [audioFiles, setAudioFiles] = useState<ProcessedAnnotation[]>([]); // global index (all audio files retrieved from database)
-	const currentFiles = useMemo(
-		() => audioFiles.slice((currentPage-1) * FILES_PER_PAGE, Math.min(currentPage * FILES_PER_PAGE, audioFiles.length)
-	), [currentPage, FILES_PER_PAGE, audioFiles]);
-	const nextFiles = useMemo( // specifically for pre-decoding audio files on the next page in the background
-		() => audioFiles.slice(Math.min(currentPage * FILES_PER_PAGE, audioFiles.length), Math.min((currentPage+1) * FILES_PER_PAGE, audioFiles.length)
-	), [currentPage, FILES_PER_PAGE, audioFiles]);
-	const prevFiles = useMemo( // specifically for pre-decoding audio files on the prev page in the background
-		() => audioFiles.slice(Math.max(0, (currentPage-2) * FILES_PER_PAGE), Math.min((currentPage-1) * FILES_PER_PAGE, audioFiles.length)
-	), [currentPage, FILES_PER_PAGE, audioFiles]);
-
-	const totalPages = Math.ceil(audioFiles.length / FILES_PER_PAGE);
-	const numFiles = currentFiles.length;
-	const numRows = Math.ceil(numFiles / COLS); 
-
-	const firstIndexOnScreen = (currentPage-1) * FILES_PER_PAGE;
-	const lastIndexOnScreen = Math.min(currentPage * FILES_PER_PAGE, audioFiles.length) - 1;
-
-	// Spectrograms
-	const instances = useRef<Record<number, WavesurferInstance>>({}); // global index
-	const spectrograms = useRef<Record<number, SpectroRef>>({}); // screen index (wavesurfer spectros shown on screen)
-	const globalIndexToScreenIndex = (index) => {
-		return index - firstIndexOnScreen;
-	}
-	const screenIndexToGlobalIndex = (index) => {
-		return index + firstIndexOnScreen;
-	}
+	// Recordkeeping
+	const [audioFiles, setAudioFiles] = useState<ProcessedAnnotation[]>([]); // all audio files retrieved from database
+	const [audioURLs, setAudioURLs] = useState<Record<number, string>>({}) // uses audioFiles index as key
+	const [preloadedAudioURLs, setPreloadedAudioURLs] = useState<Record<number, string>>({}) // uses audioFiles index as key
+	const [preloadedWavesurfers, setPreloadedWavesurfers] = useState<Record<number, WaveSurfer>>({}) // uses audioFiles index as key
+	const preloadedContainersRef = useRef<Record<number, HTMLDivElement>>({}) // hidden containers for preloaded wavesurfers
+	const spectrograms = useRef<Record<number, SpectroRef>>({});
 
 	// Select & Hover
-	const [selected, _setSelected] = useState<number[]>([]); // global index
-	const [hovered, setHovered] = useState<number | null>(null); // global index
-	const firstSelected = selected[0]; // global index
-	const lastSelected = selected[selected.length-1]; // global index
+	const [selected, _setSelected] = useState<number[]>([]);
+	const [hovered, setHovered] = useState<number | null>(null);
+	const firstSelected = selected[0];
+	const lastSelected = selected[selected.length-1];
 	
 	// Modal
 	const [showModal, _setShowModal] = useState(false);
 	const [isModalInputFocused, setIsModalInputFocused] = useState(false);
 
 	// Playback
-	const currentlyPlayingId = useRef<number | null>(null); // screen index (-1 for modal)
+	const currentlyPlayingIndex = useRef<number | null>(null); // spectrogram that is currently playing sound (-1 for modal)
 	const [skipInterval, setSkipInterval] = useState(DEFAULT_SKIPINTERVAL);
 	const [playSpeed, _setPlaySpeed] = useState(DEFAULT_PLAYSPEED);
 
 	// Species
 	const [defaultSpeciesId, setDefaultSpeciesId] = useState(DEFAULT_SPECIES_ID);
 	const [speciesList, setSpeciesList] = useState<Species[]>([]);
+
+	// Page
+	const [currentPage, setCurrentPage] = useState(0);
+	const [forceReloadKey, setForceReloadKey] = useState(0); // crucial for switching pages	
+	
+	// Dimensions
+	const [ROWS, setROWS] = useState(5);
+	const [COLS, setCOLS] = useState(DEFAULT_COLUMNS);
+	const FILES_PER_PAGE = ROWS*COLS;
+	const totalPages = Math.ceil(audioFiles.length / FILES_PER_PAGE);
+
+	const currentFiles = useMemo(
+		() => audioFiles.slice((currentPage - 1) * FILES_PER_PAGE, Math.min(currentPage * FILES_PER_PAGE, audioFiles.length)
+	), [currentPage, FILES_PER_PAGE]);
+	const nextFiles = useMemo( // specifically for pre-decoding audio files on the next page in the background
+		() => audioFiles.slice(Math.min(currentPage * FILES_PER_PAGE, audioFiles.length), Math.min((currentPage+1) * FILES_PER_PAGE, audioFiles.length)
+	), [currentPage, FILES_PER_PAGE]);
+
+	const numFiles = currentFiles.length;
+	const numRows = Math.ceil(numFiles / COLS); 
+	const numSpots = numRows * COLS;
+
 
 	// Wrapped Setters
 
@@ -187,7 +163,7 @@ export default function VerifyPage() {
 		if (isModalInputFocused) {return;}
 		if (arrayEqual(arr as any, selected as any)) {return;}
 
-		spectrograms.current[currentlyPlayingId.current]?.pause()
+		spectrograms.current[currentlyPlayingIndex.current]?.pause()
 		_setSelected(arr);
 		
 		if (arr.length == 1 && showModal) { // reselect using arrow keys during modal
@@ -203,10 +179,10 @@ export default function VerifyPage() {
 		if (selected.length != 0) {
 			_setShowModal((prev) => {
 				if (prev) { // EXIT MODAL
-					currentlyPlayingId.current = null;
+					currentlyPlayingIndex.current = null;
 					return false;
 				} else { // SHOW MODAL
-					spectrograms.current[currentlyPlayingId.current]?.pause();
+					spectrograms.current[currentlyPlayingIndex.current]?.pause();
 					return true;
 				}
 			});
@@ -217,8 +193,8 @@ export default function VerifyPage() {
 		_setPlaySpeed((prev) => {
 			const newSpeed = typeof upd === 'function' ? upd(prev) : upd;
 
-			if (currentlyPlayingId.current != null) {
-				spectrograms.current[currentlyPlayingId.current].setPlaybackRate(newSpeed);
+			if (currentlyPlayingIndex.current != null) {
+				spectrograms.current[currentlyPlayingIndex.current].setPlaybackRate(newSpeed);
 
 				if (showModal) {
 					spectrograms.current[-1].setPlaybackRate(newSpeed);
@@ -230,50 +206,25 @@ export default function VerifyPage() {
 	}, []);
 
 	const contextValue: VerifyContextValue = useMemo(() => ({
-		audioFiles, updateAudioFile,
+		audioFiles, updateAudioFile, audioURLs,
+		preloadedWavesurfers, preloadedContainers: preloadedContainersRef.current,
+		selected, updateSelected,
 		setHovered,
-		playSpeed,
+		playSpeed, setPlaySpeed,
 		speciesList,
 		toggleModal,
+		isModalInputFocused, setIsModalInputFocused,
 	}), [
-		audioFiles, updateAudioFile,
+		audioFiles, updateAudioFile, audioURLs,
+		preloadedWavesurfers,
+		selected, updateSelected,
 		setHovered,
-		playSpeed,
+		playSpeed, setPlaySpeed,
 		speciesList,
 		toggleModal,
+		isModalInputFocused, setIsModalInputFocused,
 	])
 
-	//// ================================================================================================================
-	//// Cleanup
-
-	const cleanup = async (index: number, force: boolean = false) => {
-		const currentInstances = instances.current;
-		const instance = currentInstances[index];
-		if (instance) {
-			if (!instance.isAudioLoaded) {
-				if (force) {
-					await instance.audioLoaded;
-				} else {
-					return;
-				}
-			}
-
-			URL.revokeObjectURL(instance.audioUrl);
-			instance.wavesurfer.unAll();
-			instance.wavesurfer.destroy();
-			
-			instance.preloadedContainer.remove();
-			delete currentInstances[index];
-		}
-	}
-
-	useEffect(() => {
-		return () => {
-			instances.current && Object.keys(instances.current).forEach((key) => {
-				cleanup(Number(key), true);
-			});
-		}
-	}, [])
 
 	//// ================================================================================================================
 	//// CHECKS + SYNC
@@ -289,131 +240,192 @@ export default function VerifyPage() {
 
 	// decode new audio files and prerenders new Wavesurfer objects on page update
 	useEffect(() => {
-		Object.entries(instances.current).forEach(([index, _]) => {
-			const indexNum = Number(index);
+		let isCancelled = false;
 
-			const isInPrev = !!prevFiles.find(f => f.index === indexNum);
-			const isInCurrent = !!currentFiles.find(f => f.index === indexNum);
-			const isInNext = !!nextFiles.find(f => f.index === indexNum);
-			
-			if (!isInPrev && !isInCurrent && !isInNext) {
-				cleanup(indexNum);
-			}
-		})
+		const loadFiles = async () => {
+			// clean up old audio URLs and wavesurfers
+			Object.entries(audioURLs).forEach(([index, url]) => {
+				URL.revokeObjectURL(url);
+				delete audioURLs[index];
+			})
 
-		const filesToLoad = [...currentFiles, ...nextFiles];
-		filesToLoad.forEach(async (file, _) => {
-			const index = file.index;
-
-			const existing = instances.current[index];
-			if (existing) {
-				return;
-			}
-
-			// loading promise
-			let resolveAudioUrlReady: () => void;
-			let resolveAudioLoaded: () => void;
-
-			// new instance shell
-			const instance = {
-				audioUrl: null,
-				wavesurfer: null as any, // assigned below
-				preloadedContainer: null as any, // assigned below
-				spectrogramPlugin: null as any, // assigned below
-
-				isAudioUrlReady: false,
-				audioUrlReady: new Promise<void>((resolve) => {resolveAudioUrlReady = resolve;}),
-
-				isAudioLoaded: false,
-				audioLoaded: new Promise<void>((resolve) => {resolveAudioLoaded = resolve;}),
-			} as WavesurferInstance;
-			instances.current[index] = instance;
-
-			// create preloaded container
-			const preloadedContainer = document.createElement('div');
-			preloadedContainer.className = `${styles.unmountedInstance}`
-			preloadedContainer.id = `preload-wavesurfer-${index}`;
-			document.body.appendChild(preloadedContainer);
-
-			// create wavesurfer instance + spectrogram plugin
-			const wavesurfer = WaveSurfer.create({
-				container: preloadedContainer,
-				height: 0,
-				fillParent: true,
-				progressColor: 'white',
-				cursorColor: 'yellow',
-				cursorWidth: 2,
-				sampleRate: 16000,
-			});
-			const spectrogramPlugin = SpectrogramPlugin.create({
-				colorMap: 'roseus',
-				scale: "linear",
-				fftSamples: 64, // unzoomed quality for preload
-				labels: false,
-				height: 90,
-			});
-			wavesurfer.registerPlugin(spectrogramPlugin);
-
-			// assign instant variables
-			instance.preloadedContainer = preloadedContainer;
-			instance.wavesurfer = wavesurfer;
-			instance.spectrogramPlugin = spectrogramPlugin;
-			
-			// ------------- ASYNC WORK ------------
-			try {
-				const audioFile = await window.ipc.invoke(
-					'read-file-for-verification',
-					file.filePath
-				);
-				const decoded = await decodeAudio(audioFile.data);
-				const cropped = cropAudio(
-					decoded,
-					file.startOffset,
-					file.endOffset,
-					file.filePath
-				);
-				const blob = audioBufferToWavBlob(cropped);
-				const audioUrl = URL.createObjectURL(blob);
-
-				instance.audioUrl = audioUrl;
-				instance.isAudioUrlReady = true; // resolve url ready
-				resolveAudioUrlReady();
-
-				wavesurfer.on('ready', () => {
-					if (instance.isAudioLoaded) return;
-
-					instance.isAudioLoaded = true; // resolve audio loaded
-					resolveAudioLoaded();
-				});
+			// clean up preloaded wavesurfers that are no longer needed (not in currentFiles or nextFiles)
+			Object.entries(preloadedWavesurfers).forEach(([index, ws]) => {
+				const indexNum = Number(index);
+				const isInCurrent = currentFiles.find(f => f.index === indexNum);
+				const isInNext = nextFiles.find(f => f.index === indexNum);
 				
+				if (!isInCurrent && !isInNext) {
+					try {
+						ws.unAll();
+						ws.destroy();
+					} catch (e) {
+						console.warn("Error destroying preloaded wavesurfer:", e);
+					}
+					delete preloadedWavesurfers[index];
+					if (preloadedContainersRef.current[index]) {
+						// Only remove if container is still in hidden location (not moved to component)
+						const container = preloadedContainersRef.current[index];
+						if (container.parentElement === document.body || container.style.left === '-9999px') {
+							container.remove();
+						}
+						delete preloadedContainersRef.current[index];
+					}
+				}
+			});
 
-				wavesurfer.load(audioUrl);
-			} catch (e) {
-				console.error('Preloaded WaveSurfer load failed:', e);
-				wavesurfer.destroy();
-				instance.isAudioLoaded = true;
-				resolveAudioLoaded(); 
-			}
-		});
+			const newAudioURLs: Record<number, string> = { ...preloadedAudioURLs };
+			const newPreloadedWavesurfers: Record<number, WaveSurfer> = { ...preloadedWavesurfers };
+			setAudioURLs(newAudioURLs);
+			setPreloadedWavesurfers(newPreloadedWavesurfers);
 
-		Object.entries(spectrograms.current).forEach(([screenIndex, spectroRef]) => {
-			if (Number(screenIndex) == -1) return;
-			const instance = instances.current[spectroRef.index];
-			spectrograms.current[screenIndex].mountInstance(instance);
-		})
+			// pre-generate audio URLs
+			await Promise.all(
+				currentFiles.map(async (file, _) => {
+					const index = file.index;
+					if (newAudioURLs[index]) {
+						//console.log(index, "file was preloaded");
+						return;
+					}; 
 
+					const audioFile = await window.ipc.invoke('read-file-for-verification', file.filePath);
+					const decoded = await decodeAudio(audioFile.data);
+					const cropped = cropAudio(decoded, file.startOffset, file.endOffset, file.filePath);
+					const blob = audioBufferToWavBlob(cropped);
+					const url = URL.createObjectURL(blob);
+
+					if (!isCancelled) {
+						setAudioURLs((prev) => {
+							prev[index] = url;
+							return prev;
+						});
+					}
+				})
+			);
+
+			const newPreloadedAudioURLs: Record<number, string> = {};
+			setPreloadedAudioURLs(newPreloadedAudioURLs);
+
+			// create wavesurfers for next page
+			// TODO: keep audio in decoded form so we don't need to decode-encode-decode
+			await Promise.all(
+				nextFiles.map(async (file, _) => {
+					const index = file.index;
+					if (preloadedWavesurfers[index]) {
+						//console.log(index, "wavesurfer was preloaded");
+						return;
+					}; 
+
+					const audioFile = await window.ipc.invoke('read-file-for-verification', file.filePath);
+					const decoded = await decodeAudio(audioFile.data);
+					const cropped = cropAudio(decoded, file.startOffset, file.endOffset, file.filePath);
+					const blob = audioBufferToWavBlob(cropped);
+					const url = URL.createObjectURL(blob);
+
+					if (!isCancelled) {
+						setPreloadedAudioURLs((prev) => {
+							prev[index] = url;
+							return prev;
+						});
+
+						// create hidden container for preloaded wavesurfer
+						const hiddenContainer = document.createElement('div');
+						hiddenContainer.style.position = 'absolute';
+						hiddenContainer.style.left = '-9999px';
+						hiddenContainer.style.top = '-9999px';
+						hiddenContainer.style.width = '256px';
+						hiddenContainer.style.height = '256px';
+						hiddenContainer.id = `preload-wavesurfer-${index}`;
+						document.body.appendChild(hiddenContainer);
+						preloadedContainersRef.current[index] = hiddenContainer;
+
+						const ws = WaveSurfer.create({
+							container: hiddenContainer,
+							height: 0,
+							fillParent: true,
+							progressColor: 'white',
+							cursorColor: 'yellow',
+							cursorWidth: 2,
+							sampleRate: parseInt(localStorage.getItem("sampleRate") || "16000"),
+						});
+						ws.registerPlugin(
+							SpectrogramPlugin.create({
+								colorMap: 'roseus',
+								scale: "linear",
+								fftSamples: 64, // unzoomed quality for preload
+								labels: false,
+								height: 90,
+							})
+						);
+
+						ws.load(url).catch((e) => {
+							if (!isCancelled) {
+								console.error("Preloaded WaveSurfer load failed:", e);
+							}
+						});
+
+						if (!isCancelled) {
+							setPreloadedWavesurfers((prev) => {
+								prev[index] = ws;
+								return prev;
+							});
+						}
+					}
+				})
+			);
+		};
+
+		loadFiles();
+
+		// cleanup function
+		return () => {
+			isCancelled = true;
+
+			// cleanup audioURLs
+			Object.entries(audioURLs).forEach(([fullIndex, url]) => {
+				URL.revokeObjectURL(url);
+				delete audioURLs[fullIndex];
+			});
+
+			// clean up preloaded wavesurfers on unmount
+			Object.entries(preloadedWavesurfers).forEach(([index, ws]) => {
+				try {
+					ws.unAll();
+					ws.destroy();
+				} catch (e) {
+					console.warn("Error destroying preloaded wavesurfer on cleanup:", e);
+				}
+				if (preloadedContainersRef.current[index]) {
+					preloadedContainersRef.current[index].remove();
+					delete preloadedContainersRef.current[index];
+				}
+			});
+		};
 	}, [currentFiles]);
 
 	// update currently playing spectrogram's playSpeed
 	useEffect(() => {
-		if (currentlyPlayingId.current != null) {
-			spectrograms.current[currentlyPlayingId.current].setPlaybackRate(playSpeed);
+		if (currentlyPlayingIndex.current != null) {
+			spectrograms.current[currentlyPlayingIndex.current].setPlaybackRate(playSpeed);
 		}
 	}, [playSpeed])
 
 
 	//// ================================================================================================================
 	//// INITIALIZATION
+
+	// load settings
+	useEffect(() => {
+		//const verifyColorScheme_ = localStorage.getItem('verifyColorScheme');
+		const skipInterval_ = Number(localStorage.getItem('skipInterval'));
+		const playbackRate_ = Number(localStorage.getItem('playbackRate'));
+		const defaultColumns_ = Number(localStorage.getItem('defaultColumns'));
+		const defaultSpeciesId_ = Number(localStorage.getItem('defaultSpeciesId')); 
+		setSkipInterval(skipInterval_);
+		setPlaySpeed(playbackRate_);
+		setCOLS(defaultColumns_);
+		setDefaultSpeciesId(defaultSpeciesId_);
+	}, [])
 
 	// initial DB load
 	async function handleFileSelectionFromDB() {
@@ -458,6 +470,7 @@ export default function VerifyPage() {
 		setCurrentPage(spawnPage);
 	}
 
+
 	//// ================================================================================================================
 	//// CONTROLS
 
@@ -498,21 +511,21 @@ export default function VerifyPage() {
 		}
 	}, [currentPage, totalPages, showModal]);
 
-	const moveSelectionUp = () => 		{ if (numFiles == 0) return; updateSelected([selected.length==0 ? firstIndexOnScreen : Math.max(lastSelected - COLS, firstIndexOnScreen + (lastSelected % COLS))]); }
-	const moveSelectionDown = () => 	{ if (numFiles == 0) return; updateSelected([selected.length==0 ? firstIndexOnScreen : Math.min(lastSelected + COLS, lastIndexOnScreen - (COLS - lastSelected % COLS) + 1)]); }
-	const moveSelectionLeft = () => 	{ if (numFiles == 0) return; updateSelected([selected.length==0 ? firstIndexOnScreen : Math.max(lastSelected - 1, firstIndexOnScreen)]); }
-	const moveSelectionRight = () => 	{ if (numFiles == 0) return; updateSelected([selected.length==0 ? firstIndexOnScreen : Math.min(lastSelected + 1, lastIndexOnScreen)]); }
-	const setSpectroStatus = (status) => { selected.forEach((i) => {updateAudioFile(i, "status", status);}) }
+	const moveSelectionUp = () => 		{ if (numFiles == 0) return; updateSelected([selected.length==0 ? 0 : Math.max(lastSelected - COLS, lastSelected % COLS)]); }
+	const moveSelectionDown = () => 	{ if (numFiles == 0) return; updateSelected([selected.length==0 ? 0 : Math.min(lastSelected + COLS, numFiles-1, numSpots-COLS+(lastSelected % COLS))]); }
+	const moveSelectionLeft = () => 	{ if (numFiles == 0) return; updateSelected([selected.length==0 ? 0 : Math.max(lastSelected - 1, 0)]); }
+	const moveSelectionRight = () => 	{ if (numFiles == 0) return; updateSelected([selected.length==0 ? 0 : Math.min(lastSelected + 1, numFiles-1)]); }
+	const setSpectroStatus = (status) => { selected.forEach((i) => {updateAudioFile(spectrograms.current[i].index, "status", status);}) }
 	const playPauseSelection = () => { 
 		if (selected.length == 0) { return }; // null
-		if (currentlyPlayingId.current != null && currentlyPlayingId.current != globalIndexToScreenIndex(firstSelected) && !showModal) { spectrograms.current[currentlyPlayingId.current].pause(); }; // pause existing
-		const screenIndex = showModal ? -1 : globalIndexToScreenIndex(firstSelected);
+		if (currentlyPlayingIndex.current != null && currentlyPlayingIndex.current != firstSelected && !showModal) { spectrograms.current[currentlyPlayingIndex.current].pause(); }; // pause existing
+		const id = showModal ? -1 : firstSelected;
 
-		const isPlaying = spectrograms.current[screenIndex].playPause(); // play/pause selected
-		currentlyPlayingId.current = (isPlaying ? screenIndex : null);
+		const isPlaying = spectrograms.current[id].playPause(); // play/pause selected
+		currentlyPlayingIndex.current = (isPlaying ? id : null);
 	}
-	const skipBack = () => { if (selected.length != 0) {spectrograms.current[showModal ? -1 : globalIndexToScreenIndex(firstSelected)].skip(-skipInterval);}; }
-	const skipForward = () => { if (selected.length != 0) {spectrograms.current[showModal ? -1 : globalIndexToScreenIndex(firstSelected)].skip(skipInterval);}; } 
+	const skipBack = () => { if (selected.length != 0) {spectrograms.current[showModal ? -1 : selected[0]].skip(-skipInterval);}; }
+	const skipForward = () => { if (selected.length != 0) {spectrograms.current[showModal ? -1 : selected[0]].skip(skipInterval);}; } 
 	const doubleSkipInterval = () => { setSkipInterval((prev) => Math.min(prev*2, MAX_SKIPINTERVAL)) } 
 	const halveSkipInterval = () => { setSkipInterval((prev) => Math.max(prev/2, MIN_SKIPINTERVAL)) } 
 	const doublePlaySpeed = () => { setPlaySpeed((prev) => { return Math.min(MAX_PLAYSPEED, prev*2); }); }
@@ -520,45 +533,19 @@ export default function VerifyPage() {
 	const resetIncrements = () => { 
 		setSkipInterval(DEFAULT_SKIPINTERVAL); 
 		setPlaySpeed(DEFAULT_PLAYSPEED); 
-		if (currentlyPlayingId.current != null) {spectrograms.current[currentlyPlayingId.current].setPlaybackRate(DEFAULT_PLAYSPEED)}; 
+		if (currentlyPlayingIndex.current != null) {spectrograms.current[currentlyPlayingIndex.current].setPlaybackRate(DEFAULT_PLAYSPEED)}; 
 	}
 	const moreColumns = () => { setCOLS((prev) => { updateSelected([]); return Math.min(prev+1, MAX_COLUMNS); }); }
 	const lessColumns = () => { setCOLS((prev) => { updateSelected([]); return Math.max(prev-1, MIN_COLUMNS); }); }
 	const deleteSelected = () => {
-		// Update audio files
 		const remainingFiles = audioFiles
-			.filter((_, i) => !selected.includes(i))
-			.map((item, newIndex) => ({ ...item, index: newIndex }));
+			.filter((_, i) => !(selected.includes(i)))
+				.map((item, newIndex) => ({ ...item, index: newIndex }));
 
-		// Unmount all spectrograms that have to shift down
-		for (let id = globalIndexToScreenIndex(firstSelected); id < numFiles; id++) {
-			spectrograms.current[id].unmountInstance();
-		}
-
-		// Clean up instances of deleted
-		selected.map((index) => {
-			cleanup(index, true);
-		})
-
-		// Rebuild instances with shifted indices
-		const newInstances: Record<number, WavesurferInstance> = {};
-		let newIndex = 0;
-		for (let oldIndex = 0; oldIndex < audioFiles.length; oldIndex++) {
-			if (selected.includes(oldIndex)) continue;
-
-			const instance = instances.current[oldIndex];
-			if (instance) {
-				newInstances[newIndex] = instance;
-				newIndex++;
-			}
-		}
-		instances.current = newInstances;
-
-		// Clear selection
 		setAudioFiles(remainingFiles);
 		updateSelected([]);
-	};
-	const switchSpeciesOfSelected = () => { selected.forEach((i) => { updateAudioFile(i, "speciesIndex", (prev)=>((prev+1) % speciesList.length)); }) }
+	}
+	const switchSpeciesOfSelected = () => { selected.forEach((i) => { updateAudioFile(spectrograms.current[i].index, "speciesIndex", (prev)=>((prev+1) % speciesList.length)); }) }
 
 
 	//// ================================================================================================================
@@ -597,10 +584,6 @@ export default function VerifyPage() {
 	// handle keyboard input (ADD STATES TO THE DEPENDENCY ARRAY IF RELATED TO A KEYBIND )
 	useEffect(() => { 
 		const handleKeyDown = (event) => {
-			if (event.key == "Tab") {
-				event.preventDefault();
-			}
-
 			if (showModal) {
 				if (event.key == "Escape") {
 					if (isModalInputFocused) {
@@ -624,7 +607,7 @@ export default function VerifyPage() {
 		return () => {
 			window.removeEventListener("keydown", handleKeyDown);
 		};
-	}, [selected, currentlyPlayingId, playSpeed, skipInterval, currentPage, totalPages, showModal, isModalInputFocused, toggleModal]);
+	}, [selected, currentlyPlayingIndex, playSpeed, skipInterval, currentPage, totalPages, showModal, isModalInputFocused, toggleModal]);
 
 
 	//// ================================================================================================================
@@ -816,19 +799,19 @@ export default function VerifyPage() {
 										(spectrograms as any)._refCallbacks = {};
 									}
 									const refCallbacks = (spectrograms as any)._refCallbacks as Record<number, (el: any) => void>;
-									if (!refCallbacks[i]) {
-										refCallbacks[i] = (el) => { if (el) spectrograms.current[i] = el; };
+									if (!refCallbacks[index]) {
+										refCallbacks[index] = (el) => { if (el) spectrograms.current[index] = el; };
 									}
 									return (
 										<Spectrogram
 											key={index}
 											id={i} 
 											index={index}
+											audioUrl={audioURLs[index]}
+											audioFile={audioFiles[index]}
 											syncedSpectro={null}
-											ref={refCallbacks[i]}
-											isSelected={selected.includes(index)}
+											ref={refCallbacks[index]}
 											isHovered={hovered == index}
-											instance={instances.current[index]}
 										/>
 									)
 								})}
@@ -851,11 +834,11 @@ export default function VerifyPage() {
 									key={-1}
 									id={-1} 
 									index={firstSelected}
-									isSelected={false}
-									isHovered={false}
+									audioUrl={audioURLs[firstSelected]}
+									audioFile={audioFiles[firstSelected]}
 									syncedSpectro={spectrograms.current[firstSelected]}
-									ref={refCallbacks[-1]}
-									instance={instances.current[firstSelected]}
+									spectroRef={refCallbacks[-1]}
+									isHovered={false}
 								/>,
 								document.body
 							)
