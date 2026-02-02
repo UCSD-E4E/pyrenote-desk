@@ -346,7 +346,7 @@ export default function VerifyPage() {
 							progressColor: 'white',
 							cursorColor: 'yellow',
 							cursorWidth: 2,
-							sampleRate: 16000,
+							sampleRate: parseInt(localStorage.getItem("sampleRate") || "16000"),
 						});
 						ws.registerPlugin(
 							SpectrogramPlugin.create({

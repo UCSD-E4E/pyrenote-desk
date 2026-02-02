@@ -82,6 +82,7 @@ export default function SettingsPage() {
     function newDarkMode (mode) {
         localStorage.setItem('darkMode', mode);
         setDarkMode(localStorage.getItem('darkMode'));
+        window.dispatchEvent(new Event('storage'));
     }
     function newInputStyle (style) {
         localStorage.setItem('inputStyle', style);
@@ -158,7 +159,7 @@ export default function SettingsPage() {
         localStorage.setItem('disableAdditional', 'false');
         localStorage.setItem('disableConfidence', 'false');
         localStorage.setItem('verifyColorScheme', 'black and white');
-        localStorage.setItem('confidenceRange', '10');
+        localStorage.setItem('confidenceRange', '100');
         localStorage.setItem('defaultColumns', '4');
 		localStorage.setItem('defaultSpeciesId', 'Default');
         localStorage.setItem('databasePath', defaultDatabasePath);
@@ -177,10 +178,11 @@ export default function SettingsPage() {
         setDisableAdditional('false');
         setDisableConfidence('false');
         setVerifyColorScheme('black and white');
-        setConfidenceRange('10');
+        setConfidenceRange('100');
         setDefaultColumns('4');
 		setDefaultSpeciesId('Default')
         setDatabasePath(defaultDatabasePath);
+        window.dispatchEvent(new Event('storage'));
     }
     /**
      * exportSettings function creates a JSON file with the current settings
@@ -246,7 +248,7 @@ export default function SettingsPage() {
                     setDisableAdditional(importedSettings.disableAdditional || "false");
                     setDisableConfidence(importedSettings.disableConfidence || "false");
                     setVerifyColorScheme(importedSettings.verifyColorScheme || "black and white");
-                    setConfidenceRange(importedSettings.confidenceRange || "10");
+                    setConfidenceRange(importedSettings.confidenceRange || "100");
                     setDefaultColumns(importedSettings.defaultColumns || "4");
 					setDefaultSpeciesId(importedSettings.defaultSpeciesId || 'Default');
 
@@ -264,9 +266,10 @@ export default function SettingsPage() {
                     localStorage.setItem("disableAdditional", importedSettings.disableAdditional || "false");
                     localStorage.setItem("disableConfidence", importedSettings.disableConfidence || "false");
                     localStorage.setItem("verifyColorScheme", importedSettings.verifyColorScheme || "black and white");
-                    localStorage.setItem("confidenceRange", importedSettings.confidenceRange || "10");
+                    localStorage.setItem("confidenceRange", importedSettings.confidenceRange || "100");
                     localStorage.setItem("defaultColumns", importedSettings.defaultColumns || "4");
 					localStorage.setItem("defaultSpeciesId", importedSettings.defaultSpeciesId || 'Default');
+                    window.dispatchEvent(new Event('storage'));
                 } catch (error) {
                     console.error("Error importing settings:", error);
                     alert("Failed to import settings. Please ensure the file is a valid JSON.");
@@ -308,8 +311,8 @@ export default function SettingsPage() {
                         </input><br></br>
                         <label >Dark Mode: </label>
                         <input type="checkbox" id="dark" name="dark"
-                            onChange={(e) => newDarkMode(e.target.value)}
-                            value={darkMode}>    
+                            onChange={(e) => newDarkMode(e.target.checked.toString())}
+                            checked={darkMode === 'true'}>    
                         </input>
                     </form>
                 </div>}
@@ -436,6 +439,7 @@ export default function SettingsPage() {
             className={styles.magnus}
             width={610}
             height={400}
+            style={{ zIndex: -1 }}
         /></div>
 
     </React.Fragment>

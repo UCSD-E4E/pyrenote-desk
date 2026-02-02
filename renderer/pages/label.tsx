@@ -39,13 +39,14 @@ const AudioPlayer: React.FC = () => {
   const [index, setIndex] = useState(0);
 
   // Annotation state
-  const [confidence, setConfidence] = useState("10");
+  const [confidence, setConfidence] = useState(localStorage.getItem("confidenceRange") || "100");
+  const confidenceRef = useRef(confidence);
   const [callType, setCallType] = useState("");
   const [notes, setNotes] = useState("");
 
   // Playback controls
   const [playbackRate, setPlaybackRate] = useState("1");
-  const [sampleRate, _setSampleRate] = useState("24000");
+  const [sampleRate, _setSampleRate] = useState(localStorage.getItem("sampleRate") || "24000");
 
   // Region & species
   const regionListRef = useRef<any[]>([]);
@@ -67,6 +68,10 @@ const AudioPlayer: React.FC = () => {
 
   const timelineDotRef = useRef<HTMLDivElement | null>(null);
 
+  useEffect(() => {
+    confidenceRef.current = confidence;
+  }, [confidence]);
+
   // Destroys Current Wavesurfer reference
   const destroyCurrentWaveSurfer = async () => {
     if (wavesurfers[index]?.instance) {
@@ -81,7 +86,7 @@ const AudioPlayer: React.FC = () => {
     if (isPrevDisabled) {
       return;
     }
-    setConfidence("10");
+    setConfidence(localStorage.getItem("confidenceRange") || "100");
     setPrevDisabled(true);
     setPlaying(false);
     if (index === 0) return;
@@ -100,7 +105,7 @@ const AudioPlayer: React.FC = () => {
     if (isNextDisabled) {
       return;
     }
-    setConfidence("10");
+    setConfidence(localStorage.getItem("confidenceRange") || "100");
     setNextDisabled(true);
     setPlaying(false);
     if (index === wavesurfers.length - 1) return;
@@ -139,7 +144,7 @@ const AudioPlayer: React.FC = () => {
      save annotation in database */
   const clickYes = useCallback(async () => {
     if (isYesDisabled) return;
-    setConfidence("10");
+    setConfidence(localStorage.getItem("confidenceRange") || "100");
     setYesDisabled(true);
 
     const ws = wavesurfers[index]?.instance;
@@ -195,11 +200,13 @@ const AudioPlayer: React.FC = () => {
           const species: Species = region.data.species as Species;
           console.log("label: ", region.data.species);
           const confidence = Number.parseInt(region.data?.confidence as string);
-          // TODO: Labeller id & confidence
-          console.log("creating new annoations")
+          const username = localStorage.getItem("username") ?? "";
+          const email = localStorage.getItem("email") ?? "";
+          const labelerId = await window.api.getOrCreateLabeler(username, email);
+          console.log("creating new annotations");
           await window.api.createAnnotation(
             wavesurfers[index].recording.recordingId,
-            0,
+            labelerId,
             regionId,
             species.speciesId,
             confidence,
@@ -265,7 +272,7 @@ const AudioPlayer: React.FC = () => {
       return;
     }
     setNoDisabled(true);
-    setConfidence("10");
+    setConfidence(localStorage.getItem("confidenceRange") || "100");
     if (index == 0) {
       let currentWaveSurfer = wavesurfers[index].instance;
       if (wavesurfers.length === 1) {
@@ -706,7 +713,7 @@ const AudioPlayer: React.FC = () => {
                 ...region.data,
                 species: selectedSpecies,
                 label: selectedSpecies.species,
-                confidence: confidence,
+                confidence: confidenceRef.current,
               };
 
               // Update or create label element
@@ -862,7 +869,7 @@ const AudioPlayer: React.FC = () => {
       ...activeRegionRef.current.data,
       label: species.species,
       species: species,
-      confidence: confidence,
+      confidence: confidenceRef.current,
     };
 
     // TODO: Initialize label when importing
@@ -1205,7 +1212,7 @@ const AudioPlayer: React.FC = () => {
               type="range"
               id="confidence"
               min="0"
-              max="10"
+              max={localStorage.getItem("confidenceRange") || "100"}
               value={confidence}
               onChange={(e) => setConfidence(e.target.value)}
             />

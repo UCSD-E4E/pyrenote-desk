@@ -45,6 +45,7 @@ const exposedMutations: MutationsApi = {
   createSurvey: invokeMutation("createSurvey"),
   // Annotations
   createAnnotation: invokeMutation("createAnnotation"),
+  getOrCreateLabeler: invokeMutation("getOrCreateLabeler"),
   deleteAnnotation: invokeMutation("deleteAnnotation"),
   updateAnnotation: invokeMutation("updateAnnotation"),
   updateAnnotationVerified: invokeMutation("updateAnnotationVerified"),
