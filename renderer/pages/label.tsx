@@ -745,21 +745,23 @@ const AudioPlayer: React.FC = () => {
 					console.log("New region created with ID:", regionId);
 				}
 				if (region.data?.species && region.data?.confidence) {
-					const species: Species = region.data.species as Species;
-					console.log("label: ", region.data.species);
-					const confidence = Number.parseInt(region.data?.confidence as string);
-					// TODO: Labeller id & confidence
-					console.log("creating new annoations")
-					await window.api.createAnnotation(
-						entries[index].recording.recordingId,
-						0,
-						regionId,
-						species.speciesId,
-						confidence,
-					);
-				} else {
-					console.log("no annotation");
-				}
+                    const species: Species = region.data.species as Species;
+                    console.log("label: ", region.data.species);
+                    const confidence = Number.parseInt(region.data?.confidence as string);
+                    const username = localStorage.getItem("username") ?? "";
+                    const email = localStorage.getItem("email") ?? "";
+                    const labelerId = await window.api.getOrCreateLabeler(username, email);
+                    console.log("creating new annotations");
+                    await window.api.createAnnotation(
+                        entries[index].recording.recordingId,
+                        labelerId,
+                        regionId,
+                        species.speciesId,
+                        confidence,
+                    );
+                } else {
+                    console.log("no annotation");
+                }
 				// const startSec = region.start.toFixed(3);
 				// const endSec = region.end.toFixed(3);
 				// lines.push(
