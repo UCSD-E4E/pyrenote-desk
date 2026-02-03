@@ -6,6 +6,7 @@ import SpectrogramPlugin from "wavesurfer.js/dist/plugins/spectrogram";
 import Select, { GroupBase, StylesConfig } from 'react-select';
 import { SingleValue } from 'react-select';
 import { uuid as v4 } from 'uuidv4';
+import { Species } from '../../main/schema';
 
 export interface SpectroRef { // public Spectrogram properties & functions
 	id: number,
@@ -47,7 +48,7 @@ export const Spectrogram = memo(function Spectrogram({
 		audioFiles, updateAudioFile,
 		setHovered,
 		playSpeed,
-		speciesList,
+		speciesMap,
 		toggleModal,
 	} = context;
 	const instanceRef = useRef<WavesurferInstance>(null);
@@ -57,7 +58,7 @@ export const Spectrogram = memo(function Spectrogram({
 	const innerRef = useRef(null); // parent of preloaded container
 
 	let audioFile = audioFiles[index];
-	let speciesIndex = audioFile.speciesIndex;
+	let speciesId = audioFile.speciesId;
 	let status = audioFile.status;
 	let filePath = audioFile.filePath;
 
@@ -227,8 +228,8 @@ export const Spectrogram = memo(function Spectrogram({
 			{id!=-1 && (<div className={styles.filePathOverlay}>{filePath}</div>)} 		
 			{id!=-1 && 
 				<SpeciesDropdown
-					speciesList={speciesList}
-					speciesIndex={speciesIndex}
+					speciesMap={speciesMap}
+					speciesId={speciesId}
 					index={index}
 					updateAudioFile={updateAudioFile}
 					styles={dropdownStyles}
@@ -269,14 +270,14 @@ export function ModalSpectrogram({
 		audioFiles, updateAudioFile,
 		setHovered,
 		playSpeed,
-		speciesList,
+		speciesMap,
 		toggleModal,
 	} = context;
 
 	const audioFile = audioFiles[index];
 
-	const speciesIndex = audioFile.speciesIndex;
-	const [displaySpecies, setDisplaySpecies] = useState(speciesList[speciesIndex].common);
+	const speciesId = audioFile.speciesId;
+	const [displaySpecies, setDisplaySpecies] = useState(speciesMap[speciesId].common);
 
 	return (
 		<div className={styles.modal}>
@@ -299,8 +300,8 @@ export function ModalSpectrogram({
 			<div className={styles.modalControls}>
 				<div>
 					<SpeciesDropdown
-						speciesList={speciesList}
-						speciesIndex={speciesIndex}
+						speciesMap={speciesMap}
+						speciesId={speciesId}
 						index={index}
 						updateAudioFile={updateAudioFile}
 					/>
@@ -395,28 +396,28 @@ const dropdownStyles: StylesConfig<any, false, GroupBase<any>> = {
 }
 
 type SpeciesOption = {
-	value: number;
+	speciesId: number;
 	label: string;
 };
 
 type SpeciesDropdownProps = {
-	speciesList: { common: string }[];
-	speciesIndex: number | "";
+	speciesMap: Record<number, Species>;
+	speciesId: number | "";
 	index: number;
 	updateAudioFile: (index: number, key: string, value: number | "") => void;
 	styles?: StylesConfig<any, false, GroupBase<any>>;
 };
 
 export default function SpeciesDropdown({
-	speciesList,
-	speciesIndex,
+	speciesMap,
+	speciesId,
 	index,
 	updateAudioFile,
 	styles,
 }: SpeciesDropdownProps) {
-	const speciesOptions: SpeciesOption[] = speciesList.map((s, index) => ({
-		value: index,
-		label: s.common,
+	const speciesOptions: SpeciesOption[] = Object.entries(speciesMap).map(([id, species]) => ({
+		speciesId: Number(id),
+		label: species.common,
 	}));
 
 	const [inputValue, setInputValue] = useState("");
@@ -424,12 +425,12 @@ export default function SpeciesDropdown({
 	return (
 		<div className="w-64">
 			<Select
-				value={speciesOptions[speciesIndex] ?? null}
+				value={speciesOptions.find(option => option.speciesId === Number(speciesId)) ?? null}
 				onChange={(selectedOption: SingleValue<SpeciesOption>) =>
 					updateAudioFile(
 						index,
-						"speciesIndex",
-						selectedOption?.value ?? ""
+						"speciesId",
+						selectedOption?.speciesId ?? ""
 					)
 				}
 				styles={styles}

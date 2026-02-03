@@ -44,10 +44,12 @@ interface SaveData { // JSON data structure for save files
 	}[]
 }
 export interface ProcessedAnnotation { // Audio file information
+	annotationId: number;
 	index: number;
 	filePath: string;
 	status: SpectroStatus;
-	speciesIndex: number;
+	speciesId: number;
+	speciesProbability: number;
 	recordingId: number;
 	startOffset: number;
 	endOffset: number;
@@ -75,7 +77,7 @@ interface VerifyContextValue {
 		) => void;
 	setHovered: (upd: number | ((prev: number) => number)) => void;
 	playSpeed: number;
-	speciesList: Species[];
+	speciesMap: Record<number, Species>;
 	toggleModal: () => void;
 }
 
@@ -159,7 +161,7 @@ export default function VerifyPage() {
 
 	// Species
 	const [defaultSpeciesId, setDefaultSpeciesId] = useState(DEFAULT_SPECIES_ID);
-	const [speciesList, setSpeciesList] = useState<Species[]>([]);
+	const [speciesMap, setSpeciesMap] = useState<Record<number, Species>>({});
 
 	// Wrapped Setters
 
@@ -233,13 +235,13 @@ export default function VerifyPage() {
 		audioFiles, updateAudioFile,
 		setHovered,
 		playSpeed,
-		speciesList,
+		speciesMap,
 		toggleModal,
 	}), [
 		audioFiles, updateAudioFile,
 		setHovered,
 		playSpeed,
-		speciesList,
+		speciesMap,
 		toggleModal,
 	])
 
@@ -422,18 +424,21 @@ export default function VerifyPage() {
 
 		const recordings = await window.api.listRecordings();
 		const listOfSpecies: Species[] = await window.api.listSpecies();
-		setSpeciesList(listOfSpecies);
+		setSpeciesMap(listOfSpecies);
 
 		const tasks = recordings.map(async (rec, i) => {
 			try {
 				const regions = await window.api.listRegionOfInterestByRecordingId(rec.recordingId);
 
 				await Promise.all(regions.map(async (region) => {
-					const anns = await window.api.listAnnotationsByRegionId(regions[0].regionId);
+					const anns = await window.api.listAnnotationsByRegionId(region.regionId);
+
+					console.log(region.regionId, anns);
 					if (!anns) {return;}
 
 					await Promise.all(anns.map(async (annotation, i) => {
 						processed.push({
+							annotationId: annotation.annotationId,
 							index: processed.length,
 							filePath: rec.url,
 							recordingId: rec.recordingId,
@@ -441,7 +446,8 @@ export default function VerifyPage() {
 								annotation.verified == "YES" ? SpectroStatus.YES :
 								annotation.verified == "NO" ? SpectroStatus.NO : SpectroStatus.UNVERIFIED
 							),
-							speciesIndex: (annotation.speciesId ?? defaultSpeciesId)-1, // NEED CLARIFICATION HERE
+							speciesId: (annotation.speciesId ?? defaultSpeciesId), // NEED CLARIFICATION HERE
+							speciesProbability: annotation.speciesProbability,
 							startOffset: region.starttime,
 							endOffset: region.endtime,
 						});
@@ -467,7 +473,7 @@ export default function VerifyPage() {
 			const save = audioFiles[i];
 			obj.spectrograms.push({
 				filePath: save.filePath, 
-				species: save.speciesIndex || DEFAULT_SPECIES_ID,
+				species: save.speciesId || DEFAULT_SPECIES_ID,
 				status: save.status
 			});
 		}
@@ -482,7 +488,8 @@ export default function VerifyPage() {
 	const handleSaveToDB = async () => {
 		for (let i = 0; i < audioFiles.length; i++) {
 			const file = audioFiles[i];
-			await window.api.updateAnnotationVerified(file.recordingId, file.status);
+			await window.api.updateAnnotationVerified(file.annotationId, file.status);
+			await window.api.updateAnnotation(file.annotationId, file.speciesId, file.speciesProbability);
 		}
 	}
 	const nextPage = useCallback(() => {
@@ -558,7 +565,19 @@ export default function VerifyPage() {
 		setAudioFiles(remainingFiles);
 		updateSelected([]);
 	};
-	const switchSpeciesOfSelected = () => { selected.forEach((i) => { updateAudioFile(i, "speciesIndex", (prev)=>((prev+1) % speciesList.length)); }) }
+	const switchSpeciesOfSelected = () => {
+		const speciesIds = Object.keys(speciesMap)
+			.map(Number)             // convert keys from string to number
+			.sort((a, b) => a - b); // ensure consistent order
+
+		selected.forEach((i) => {
+			updateAudioFile(i, "speciesId", (prev) => {
+				const currentIndex = speciesIds.indexOf(prev);
+				const nextIndex = (currentIndex + 1) % speciesIds.length;
+				return speciesIds[nextIndex];
+			});
+		});
+	};
 
 
 	//// ================================================================================================================
