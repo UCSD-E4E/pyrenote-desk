@@ -95,9 +95,9 @@ export const updateAnnotation = async (
   }
 };
 
-// New mutation to update verified status for all annotations linked to a recordingId
+// New mutation to update verified status for an annotation
 export const updateAnnotationVerified = async (
-    recordingId: number,
+    annotationId: number,
     status: string,
 ): Promise<void> => {
     
@@ -106,11 +106,17 @@ export const updateAnnotationVerified = async (
 
     const statement = db.prepare(`
         UPDATE annotation
-        SET verified = ?
-        WHERE regionId IN
-            (SELECT regionId FROM RegionOfInterest WHERE recordingId = ?)
+        SET verified = @statusString
+        WHERE annotationId = @annotationId
     `);
-
-    const info = statement.run(statusString, recordingId);
-    console.log(`Updated ${info.changes} annotations for recording ${recordingId}`);
+    
+    try {
+      statement.run({
+        statusString,
+        annotationId,
+      });
+      console.log(`Updated annotation verification status for annotation ${annotationId}`);
+    } catch (e) {
+      console.log("Error: failed to update annotation verification status", e);
+    }
 };

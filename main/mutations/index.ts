@@ -15,10 +15,12 @@ import {
 } from "./regionOfInterest";
 import createSpecies from "./createSpecies";
 import createDeployment from "./createDeployment";
+import { getOrCreateLabeler } from "./createLabeler";
 
 // List of mutations to expose
 export const setupMutations = {
   createAnnotation,
+  getOrCreateLabeler,
   updateAnnotation,
   updateAnnotationVerified,
   deleteAnnotation,
