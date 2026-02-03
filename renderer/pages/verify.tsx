@@ -424,7 +424,12 @@ export default function VerifyPage() {
 
 		const recordings = await window.api.listRecordings();
 		const listOfSpecies: Species[] = await window.api.listSpecies();
-		setSpeciesMap(listOfSpecies);
+
+		const newSpeciesMap: Record<number, Species> = {};
+		listOfSpecies.forEach((spec) => {
+			newSpeciesMap[spec.speciesId] = spec;
+		})
+		setSpeciesMap(newSpeciesMap);
 
 		const tasks = recordings.map(async (rec, i) => {
 			try {
@@ -433,7 +438,6 @@ export default function VerifyPage() {
 				await Promise.all(regions.map(async (region) => {
 					const anns = await window.api.listAnnotationsByRegionId(region.regionId);
 
-					console.log(region.regionId, anns);
 					if (!anns) {return;}
 
 					await Promise.all(anns.map(async (annotation, i) => {

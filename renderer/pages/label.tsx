@@ -73,7 +73,7 @@ const AudioPlayer: React.FC = () => {
   // Region & species
   const regionListRef = useRef<any[]>([]);
   const activeRegionRef = useRef<any>(null);
-  const [speciesList, setSpeciesList] = useState<Species[]>([]);
+  const [speciesMap, setSpeciesMap] = useState<Record<number, Species>>({});
   const [selectedSpecies, setSelectedSpecies] = useState<number>(0);
 
   // Wavesurfer metadata & instances
@@ -295,6 +295,7 @@ const AudioPlayer: React.FC = () => {
     }) as RegionsPlugin;
     ws.registerPlugin(instance.regionsPlugin);
 
+    activeRegionRef.current = null;
     instance.regionsPlugin.enableDragSelection({ color: "rgba(0,255,0,0.3)" }, 3);
 
     const redraw = (region) => {
@@ -313,26 +314,12 @@ const AudioPlayer: React.FC = () => {
       region.element.style.zIndex = "99";
     };
 
-    instance.regionsPlugin.on("region-created", (region: any) => {
-      redraw(region);
-      regionListRef.current.push(region);
-      setTimeout(() => {
-        redraw(region);
-      }, 50);
-    });
-
-    instance.regionsPlugin.on("region-removed", (region: any) => {
-      if (region.id.startsWith("imported-")) {
-        const id = Number.parseInt(region.id.split("imported-")[1]);
-        removeList.push(id);
+    let createdInitialRegions = false;
+    const selectRegion = (region) => {
+      if (!createdInitialRegions) {
+        return;
       }
-    });
 
-    instance.regionsPlugin.on("region-updated", (region: any) => {
-      redraw(region);
-    });
-
-    instance.regionsPlugin.on("region-clicked", (region: any) => {
       if (activeRegionRef.current === region) {
         region.setOptions({ color: "rgba(0,255,0,0.3)" });
         region.data = { ...region.data, loop: false };
@@ -344,11 +331,39 @@ const AudioPlayer: React.FC = () => {
           });
         }
 
-        region.setOptions({ color: "rgba(255,0,0,0.3)" });
-        activeRegionRef.current = region;
+        if (region) {
+          region.setOptions({ color: "rgba(255,0,0,0.3)" });
+          activeRegionRef.current = region;
 
-        region.data = { ...region.data, loop: true };
+          region.data = { ...region.data, loop: true };
+        }
       }
+    }
+
+    instance.regionsPlugin.on("region-created", (region: any) => {
+      redraw(region);
+      selectRegion(region);
+      regionListRef.current.push(region);
+      setTimeout(() => {
+        redraw(region);
+      }, 50);
+    });
+
+    instance.regionsPlugin.on("region-removed", (region: any) => {
+      selectRegion(null);
+      if (region.id.startsWith("imported-")) {
+        const id = Number.parseInt(region.id.split("imported-")[1]);
+        removeList.push(id);
+      }
+    });
+
+    instance.regionsPlugin.on("region-updated", (region: any) => {
+      redraw(region);
+      selectRegion(region);
+    });
+
+    instance.regionsPlugin.on("region-clicked", (region: any) => {
+      selectRegion(region);
     });
 
     instance.regionsPlugin.on("region-out", (region: any) => {
@@ -360,13 +375,13 @@ const AudioPlayer: React.FC = () => {
     instance.regionsPlugin.on("region-double-clicked", (region: any) => {
       const select = document.createElement("select");
 
-      speciesList.forEach((sp) => {
+      Object.entries(speciesMap).forEach(([id, species]) => {
         const option = document.createElement("option");
-        option.value = sp.speciesId.toString();
-        option.textContent = `${sp.common} (${sp.species})`;
+        option.value = species.speciesId.toString();
+        option.textContent = `${species.common} (${species.species})`;
         if (
           region.data?.species &&
-          region.data.species.speciesId === sp.speciesId
+          region.data.species.speciesId === species.speciesId
         ) {
           option.selected = true;
         }
@@ -378,7 +393,7 @@ const AudioPlayer: React.FC = () => {
 
       select.addEventListener("change", () => {
         const selectedId = parseInt(select.value);
-        const selectedSpecies = speciesList.find(
+        const selectedSpecies = Object.values(speciesMap).find(
           (sp) => sp.speciesId === selectedId,
         );
         if (!selectedSpecies) return;
@@ -424,7 +439,7 @@ const AudioPlayer: React.FC = () => {
       document.body.appendChild(select);
       select.focus();
     });
-
+    
     waveEntry.regions.forEach((r) => {
       instance.regionsPlugin.addRegion({
         start: r.starttime,
@@ -433,6 +448,7 @@ const AudioPlayer: React.FC = () => {
         id: "imported-" + r.regionId,
       });
     })
+    createdInitialRegions = true;
 
     ws.on("finish", () => {
       setPlaying(false);
@@ -700,11 +716,7 @@ const AudioPlayer: React.FC = () => {
 
     // Accesses all regions
     const regionPlugin = (ws as any).plugins[1];
-    if (!(ws as any)?.regions?.list) {
-      console.warn("Missing regions plugin or list not ready");
-    }
     const allRegions = regionPlugin?.wavesurfer?.plugins[2]?.regions;
-    const lines: string[] = [];
 
     const removeRegions = async () => {
       for (const removed of removeList) {
@@ -715,7 +727,6 @@ const AudioPlayer: React.FC = () => {
 
 
     if (!allRegions || !Object.keys(allRegions).length) {
-      console.log("No regions");
       await removeRegions();
       //await removeRegionsFromUI(); //clear UI just in case even if no regions exist
     } else {
@@ -725,7 +736,7 @@ const AudioPlayer: React.FC = () => {
       for (let idx = 0; idx < regionValues.length; idx++) {
         const region = regionValues[idx];
         console.log("Saved region id: ", region.id);
-        console.log("region: ", region.start, region.end);
+    
         let regionId;
         if (region.id.startsWith("imported-")) {
           const id = Number.parseInt(region.id.split("imported-")[1]);
@@ -735,7 +746,6 @@ const AudioPlayer: React.FC = () => {
         } else {
           // NOTE: Would this cause issues if newly assigned ids &
           // cur region id not linked?
-          console.log("Creating new region of interest with ",entries[index].recording.recordingId, region.start, region.end);
           const newRegion = await window.api.createRegionOfInterest(
             entries[index].recording.recordingId,
             region.start,
@@ -746,7 +756,7 @@ const AudioPlayer: React.FC = () => {
         }
         if (region.data?.species && region.data?.confidence) {
           const species: Species = region.data.species as Species;
-          console.log("label: ", region.data.species);
+
           const confidence = Number.parseInt(region.data?.confidence as string);
           const username = localStorage.getItem("username") ?? "";
           const email = localStorage.getItem("email") ?? "";
@@ -909,8 +919,13 @@ const AudioPlayer: React.FC = () => {
   useEffect(() => {
     const fetchSpecies = async () => {
       try {
-        const species = await window.api.listSpecies();
-        setSpeciesList(species);
+        const listOfSpecies = await window.api.listSpecies();
+        const newSpeciesMap: Record<number, Species> = {};
+        listOfSpecies.forEach((spec) => {
+          newSpeciesMap[spec.speciesId] = spec;
+        })
+        setSpeciesMap(newSpeciesMap);
+        setSelectedSpecies(listOfSpecies[0].speciesId);
       } catch (error) {
         console.error("Failed to fetch species list:", error);
       }
@@ -1005,6 +1020,7 @@ const AudioPlayer: React.FC = () => {
 
   // Download regions data only (maybe repurpose logic later)
   // TODO: Fix this
+  /*
   const saveLabelsToSpecies = () => {
     const ws = instances.current[currentEntryId];
     if (!ws) return;
@@ -1027,6 +1043,7 @@ const AudioPlayer: React.FC = () => {
     setSpeciesList(Array.from(newSet));
     console.log("Updated speciesList:", Array.from(newSet));
   };
+  */
 
   // Saves selected category as label
   const assignSpecies = (species: Species) => {
@@ -1236,21 +1253,22 @@ const AudioPlayer: React.FC = () => {
               <select
                 name="Species"
                 id="species-names"
-                value={speciesList[selectedSpecies]?.speciesId ?? ""}
-                onChange={(e) => {
-                  const selectedId = Number(e.target.value);
-                  const selectedIdx = speciesList.findIndex(
-                    (sp) => sp.speciesId === selectedId
-                  );
-                  if (selectedIdx !== -1) {
-                    assignSpecies(speciesList[selectedIdx]);
-                    setSelectedSpecies(selectedIdx);
+                value={selectedSpecies ?? ""}
+                onClick={(e) => {
+                  const value = (e.target as HTMLSelectElement).value;
+                  if (value !== "") {
+                    const selectedId = Number(value);
+                    assignSpecies(speciesMap[selectedId]);
                   }
                 }}
+                onChange={(e) => {
+                  const selectedId = Number(e.target.value);
+                  setSelectedSpecies(selectedId);
+                }}
               >
-                {speciesList.map((sp) => (
-                  <option key={sp.speciesId} value={sp.speciesId}>
-                    {sp.common} ({sp.species})
+                {Object.entries(speciesMap).map(([id, species]) => (
+                  <option key={species.speciesId} value={species.speciesId}>
+                    {species.common} ({species.species})
                   </option>
                 ))}
               </select>
