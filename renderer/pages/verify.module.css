@@ -28,14 +28,13 @@
 .smallContainer {
 	display: flex; 
 	flex-direction: column; 
-	align-items: center;
-	justify-content: flex-start;
+	align-items: left;
+	justify-content: start;
 }
 
 .smallContainerRow {
 	display: flex; 
 	flex-direction: row; 
-	justify-content: space-between;
 }
 
 .smallButton {
@@ -254,104 +253,6 @@
 	pointer-events: none;
 	max-width: 90%;
 }
-
-/* Help icon and tooltip styles */
-.helpIcon {
-	position: relative;
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	width: 30px;
-	height: 30px;
-	background-color: #0078d7;
-	color: white;
-	border-radius: 50%;
-	font-size: 18px;
-	font-weight: bold;
-	cursor: pointer;
-	user-select: none;
-	transition: background-color 0.2s ease;
-}
-
-.helpIcon:hover {
-	background-color: #106ebe;
-}
-
-/* HELP KEYBIND TABLE */
-
-.helpTooltip {
-	position: absolute;
-	top: 100%;
-	right: -150px;
-	background-color: rgba(0, 0, 0, 0.9);
-	color: white;
-	padding: 15px;
-	border-radius: 8px;
-	font-size: 12px;
-	width: 300px;
-	z-index: 1000;
-	pointer-events: none;
-	opacity: 0;
-	transform: translateY(10px);
-	transition: opacity 0.2s ease, transform 0.2s ease;
-}
-
-.helpTable {
-	width: 100%;
-}
-
-.helpTableHeader {
-	font-weight: bold;
-	font-size: 14px;
-	margin-bottom: 10px;
-	text-align: center;
-}
-
-.helpTable table {
-	width: 100%;
-	border-collapse: collapse;
-}
-
-.helpTable th,
-.helpTable td {
-	padding: 4px 8px;
-	text-align: left;
-	border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-}
-
-.helpTable th {
-	background-color: rgba(255, 255, 255, 0.1);
-	font-weight: bold;
-	font-size: 11px;
-}
-
-.helpTable td {
-	font-size: 11px;
-}
-
-.helpTable td:first-child {
-	font-family: 'Courier New', monospace;
-	width: 40%;
-}
-
-.helpKey {
-	display: inline-block;
-	background-color: #2a2a2a;
-	border: 1px solid #555;
-	border-radius: 3px;
-	padding: 2px 6px;
-	margin: 1px;
-	font-size: 10px;
-	font-weight: bold;
-	color: #fff;
-	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
-}
-
-.helpIcon:hover .helpTooltip {
-	opacity: 1;
-	transform: translateY(0);
-}
-
 
 .noSpectrosContainer {
 	display: flex;

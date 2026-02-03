@@ -53,7 +53,6 @@
 }
 
 .spectrogramContainer canvas {
-	z-index: 1 !important;
 	position: relative;
 }
 
@@ -238,32 +237,4 @@
 	justify-content: space-between;
 	width: 100%;
 	gap: 10px;
-}
-
-.selectPopup {
-	position: fixed;
-	display: flex;
-	flex-direction: column;
-	justify-content: center;
-	gap: 0.4rem;
-	width: 450px;
-	padding: 1.3rem;
-	top: 20%;
-	background-color: white;
-	border: 1px solid #ddd;
-	border-radius: 15px;
-	z-index: 2;
-}
-
-.modalParent {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  background: rgba(0, 0, 0, 0.5); 
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 999; 
 }
