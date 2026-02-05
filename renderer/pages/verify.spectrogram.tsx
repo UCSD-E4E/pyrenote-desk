@@ -7,6 +7,7 @@ import Select, { GroupBase, StylesConfig } from 'react-select';
 import { SingleValue } from 'react-select';
 import { uuid as v4 } from 'uuidv4';
 import { Species } from '../../main/schema';
+import { computeColormap } from '../utils/colormaps';
 
 export interface SpectroRef { // public Spectrogram properties & functions
 	id: number,
@@ -50,9 +51,11 @@ export const Spectrogram = memo(function Spectrogram({
 		playSpeed,
 		speciesMap,
 		toggleModal,
+		colormap,
 	} = context;
 	const instanceRef = useRef<WavesurferInstance>(null);
 	const wavesurferRef = useRef<WaveSurfer>(null);
+	const spectrogramPluginRef = useRef<SpectrogramPlugin>();
 
 	const outerRef = useRef(null);
 	const innerRef = useRef(null); // parent of preloaded container
@@ -82,6 +85,7 @@ export const Spectrogram = memo(function Spectrogram({
 
 		instanceRef.current = instance;
 		wavesurferRef.current = instance.wavesurfer;
+		spectrogramPluginRef.current = instance.spectrogramPlugin;
 
 		const preloadedContainer = instance.preloadedContainer;
 		preloadedContainer.className = `${styles.mountedInstance}`
@@ -94,6 +98,13 @@ export const Spectrogram = memo(function Spectrogram({
 
 		isMounted.current = true;
 		isMounting.current = false;
+
+		if ((spectrogramPluginRef.current as any).currentColormap !== colormap) {
+			(spectrogramPluginRef.current as any).currentColormap = colormap;
+			(spectrogramPluginRef.current as any).colorMap = computeColormap(colormap);
+			(spectrogramPluginRef.current as any).render();
+		}
+
 		
 		if (!instance.isAudioLoaded) {
 			await instance.audioLoaded;
@@ -135,15 +146,17 @@ export const Spectrogram = memo(function Spectrogram({
 				cursorWidth: 2,
 				sampleRate: 16000,
 			});
-			wavesurferRef.current.registerPlugin(
-				SpectrogramPlugin.create({
-					colorMap: 'roseus',
-					scale: "linear",
-					fftSamples: 512, // <<< (SPECTROGRAM QUALITY)	zoomed : unzoomed
-					labels: true,
-					height: 256, 
-				}),
-			)
+
+			spectrogramPluginRef.current = SpectrogramPlugin.create({
+				colorMap: computeColormap(colormap),
+				scale: "linear",
+				fftSamples: (id==-1) ? 512 : 64, // <<< (SPECTROGRAM QUALITY)	zoomed : unzoomed
+				labels: (id==-1),
+				labelsColor: '#00FFFF',
+				height: (id==-1) ? 256 : 90, 
+			});
+			(spectrogramPluginRef.current as any).currentColormap = colormap; // super hacky
+			wavesurferRef.current.registerPlugin(spectrogramPluginRef.current);
 
 			// on load
 			wavesurferRef.current.load(audioUrl).catch((e) => {
@@ -190,6 +203,13 @@ export const Spectrogram = memo(function Spectrogram({
 	const setPlaybackRate = (i) => { wavesurferRef.current.setPlaybackRate(i); }
 	const setTime = (time) => { wavesurferRef.current.setTime(time) }
 	const getTime = () => { return wavesurferRef.current.getCurrentTime() }
+
+	useEffect(() => { // change colormap when changed in context
+		if (!spectrogramPluginRef.current) return;
+		(spectrogramPluginRef.current as any).currentColormap = colormap; 
+		(spectrogramPluginRef.current as any).colorMap = computeColormap(colormap);
+		(spectrogramPluginRef.current as any).render();
+	}, [colormap]);
 
 	useImperativeHandle(ref, () => {
 		return {
