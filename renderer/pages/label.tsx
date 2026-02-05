@@ -321,7 +321,7 @@ const AudioPlayer: React.FC = () => {
         return;
       }
 
-      if (activeRegionRef.current === region) {
+      if (activeRegionRef.current === region && !!region) {
         region.setOptions({ color: "rgba(0,255,0,0.3)" });
         region.data = { ...region.data, loop: false };
         activeRegionRef.current = null;
