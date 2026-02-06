@@ -19,6 +19,7 @@ import { SelectRecordingsButton } from "../components/SelectRecordingsButton";
 import { Slider, LogSlider } from "../components/Slider";
 import { COLORMAP_OPTIONS, ColormapOption, computeColormap } from "../utils/colormaps";
 import { ColormapPicker } from "../components/ColormapPicker/ColormapPicker"
+import createElement from "wavesurfer.js/dist/dom";
 
 type Entry = {
   recording: Recording;
@@ -222,6 +223,25 @@ const AudioPlayer: React.FC = () => {
     }
 
     // ===================================================================================
+    // Hacking Wavesurfer DOM
+
+    const container = document.querySelector<HTMLElement>(`#waveform-${index}`);
+
+    if (!container) return;
+
+    // the inner div is the actual shadow host
+    const shadowHost = container.querySelector<HTMLElement>('div');
+
+    if (shadowHost?.shadowRoot) {
+      const wrapper =
+        shadowHost.shadowRoot.querySelector<HTMLElement>('.wrapper');
+
+      if (wrapper) {
+        wrapper.style.height = '384px';
+      }
+    }
+
+    // ===================================================================================
     // Timeline Plugin
 
     instance.timelinePlugin = TimelinePlugin.create({
@@ -305,7 +325,9 @@ const AudioPlayer: React.FC = () => {
       const waveSpectroContainer = waveEl?.parentElement;
       if (!waveEl || !spectroEl || !waveSpectroContainer) return;
 
-      waveSpectroContainer.appendChild(region.element);
+      //waveSpectroContainer.appendChild(region.element);
+
+      // this actually makes the region extend down to spectrogram
 
       const waveHeight = waveEl.offsetHeight;
       const spectroHeight = spectroEl.offsetHeight;
@@ -586,7 +608,7 @@ const AudioPlayer: React.FC = () => {
       labels: true,
       colorMap: computeColormap(colormap),
       fftSamples: 256,
-      height: 230,
+      height: 256,
     })
     ws.registerPlugin(spectrogramPlugin);
 
