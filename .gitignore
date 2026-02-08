@@ -21,3 +21,5 @@ dist
 /renderer/public/masterdb.json
 
 .venv
+
+/pyfiles/usermodels/*

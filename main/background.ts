@@ -360,7 +360,7 @@ ipcMain.handle("pick-model-file", async () => {
   });
   if (result.canceled || !result.filePaths[0]) return null;
   const sourcePath = result.filePaths[0];
-  const pyfilesDir = path.join(process.cwd(), "pyfiles");
+  const pyfilesDir = path.join(process.cwd(), "pyfiles/usermodels");
   await mkdir(pyfilesDir, { recursive: true });
   const destPath = path.join(pyfilesDir, path.basename(sourcePath));
   await copyFile(sourcePath, destPath);
