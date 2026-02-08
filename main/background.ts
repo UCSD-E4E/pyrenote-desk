@@ -8,7 +8,7 @@ import { setupQueries as queries } from "./queries";
 import { ensureMasterDbInitialized } from "./queries/listDatabases";
 import { setupMutations as mutations } from "./mutations";
 import { app, ipcMain, dialog } from "electron";
-import { readFile, writeFile, mkdir } from "fs/promises";
+import { readFile, writeFile, mkdir, copyFile } from "fs/promises";
 import os from "os";
 import { spawn } from "child_process";
 
@@ -348,6 +348,23 @@ ipcMain.handle("saveMultipleRecordings", async (_event, { files, deploymentId, d
   }
   db.close();
   return { skippedCount };
+});
+
+ipcMain.handle("pick-model-file", async () => {
+  const result = await dialog.showOpenDialog({
+    properties: ["openFile"],
+    filters: [
+      { name: "Python files", extensions: ["py"] },
+      { name: "All Files", extensions: ["*"] },
+    ],
+  });
+  if (result.canceled || !result.filePaths[0]) return null;
+  const sourcePath = result.filePaths[0];
+  const pyfilesDir = path.join(process.cwd(), "pyfiles");
+  await mkdir(pyfilesDir, { recursive: true });
+  const destPath = path.join(pyfilesDir, path.basename(sourcePath));
+  await copyFile(sourcePath, destPath);
+  return destPath;
 });
 
 ipcMain.handle("run-script", async () => {

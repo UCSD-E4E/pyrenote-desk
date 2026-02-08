@@ -15,6 +15,7 @@ import {
 } from "./regionOfInterest";
 import createSpecies from "./createSpecies";
 import createDeployment from "./createDeployment";
+import createModel from "./createModel";
 
 // List of mutations to expose
 export const setupMutations = {
@@ -32,7 +33,8 @@ export const setupMutations = {
   updateRegionOfInterest,
   createSpecies,
   createRecorder,
-  createDeployment
+  createDeployment,
+  createModel
 };
 
 export type MutationsApi = typeof setupMutations;
