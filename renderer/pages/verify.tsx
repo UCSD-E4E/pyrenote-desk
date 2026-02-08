@@ -12,6 +12,7 @@ import { KeybindGuide } from './verify.keybind-guide'
 import { useBoxSelection } from './verify.box-select'
 import WaveSurfer from "wavesurfer.js";
 import SpectrogramPlugin from "wavesurfer.js/dist/plugins/spectrogram";
+import RecordingFilter from './recordingFilter.module.tsx';
 
 // CONSTANTS //
 // modification in Settings page to be implemented
@@ -427,12 +428,19 @@ export default function VerifyPage() {
 		setDefaultSpeciesId(defaultSpeciesId_);
 	}, [])
 
+	// Recording filtering arguments
+	const [modalEnable, setModalEnable] = useState(false);
+
+	function toggleRecordingSelect() {
+		setModalEnable(!modalEnable);
+	}
+
 	// initial DB load
-	async function handleFileSelectionFromDB() {
+	async function handleFileSelectionFromDB(recordings, skippedCount = 0) {
+		console.log(recordings);
 		let processed: ProcessedAnnotation[] = [...audioFiles];
 		let spawnPage = 1;
 
-		const recordings = await window.api.listRecordings();
 		const listOfSpecies: Species[] = await window.api.listSpecies();
 		setSpeciesList(listOfSpecies);
 
@@ -663,13 +671,12 @@ export default function VerifyPage() {
 						className = {styles.verifyButtonMenu}
 						onMouseDown={(e) => {if (!showModal) {e.stopPropagation(); handleMouseDown(e, false)}}}
 					>
-
-						<label className={styles.pickFiles} onClick={(e) => {
-							e.stopPropagation();
-							handleFileSelectionFromDB();
-						}}>
-							<p>Import files from Database</p>
-						</label> 
+						<button onClick={toggleRecordingSelect}>Select Recordings</button>
+						<RecordingFilter
+							open={modalEnable}      // data
+							onClose={toggleRecordingSelect}       // callback
+							onImport={handleFileSelectionFromDB} // callback
+						/>
 						{audioFiles.length > 0 && (
 							<>
 								<div className={styles.smallContainer}>

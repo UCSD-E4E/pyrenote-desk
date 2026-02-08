@@ -155,18 +155,19 @@ export default function RecordingFilter({
             </details>
             <br />
             <button onClick={ async () => {
-            onClose();
-            let filter = {
-                deployments: selectedDeployments,
-                sites: selectedSites,
-                recorders: selectedRecorders,
-                surveys: selectedSurveys,
-                species: selectedSpecies,
-                verifications: selectedVerifications
-            };
-            console.log(filter);
-            const result  = await window.api.listRecordingsByFilters(filter);
-            onImport(result.recordings, result.skippedCount);
+                onClose();
+                let filter = {
+                    deployments: selectedDeployments,
+                    sites: selectedSites,
+                    recorders: selectedRecorders,
+                    surveys: selectedSurveys,
+                    species: selectedSpecies,
+                    verifications: selectedVerifications
+                };
+                const result = await window.api.listRecordingsByFilters(filter);
+                if (result != null) {
+                    onImport(result.recordings, result.skippedCount);
+                }
             }}>Import Selected</button>
             <button onClick={async () => {
             onClose();
