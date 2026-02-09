@@ -18,8 +18,6 @@ import {
 import { SelectRecordingsButton } from "../components/SelectRecordingsButton";
 import { Slider, LogSlider } from "../components/Slider";
 import { COLORMAP_OPTIONS, ColormapOption, computeColormap } from "../utils/colormaps";
-import { ColormapPicker } from "../components/ColormapPicker/ColormapPicker"
-import createElement from "wavesurfer.js/dist/dom";
 
 type Entry = {
   recording: Recording;
@@ -53,6 +51,7 @@ const AudioPlayer: React.FC = () => {
     if (confidence > Number(localStorage.getItem('confidenceRange'))) {
       setConfidence(Number(localStorage.getItem('confidenceRange')));
     }
+    setColormap(localStorage.getItem('labelColorScheme') as ColormapOption);
   }, []);
 
   // UI state
@@ -1125,9 +1124,6 @@ const AudioPlayer: React.FC = () => {
               importFromDB={importFromDB} 
             />
             <div>
-              <ColormapPicker 
-								selected={colormap}
-								setSelected={setColormap} />
               <label htmlFor="species-names">Choose a species: </label>
               <select
                 name="Species"

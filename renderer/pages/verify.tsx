@@ -13,7 +13,6 @@ import { useBoxSelection } from './verify.box-select'
 import WaveSurfer from "wavesurfer.js";
 import SpectrogramPlugin from "wavesurfer.js/dist/plugins/spectrogram";
 import { LogSlider, Slider } from '../components/Slider'
-import { ColormapPicker } from '../components/ColormapPicker/ColormapPicker'
 import { COLORMAP_OPTIONS, ColormapOption, computeColormap } from '../utils/colormaps'
 
 // CONSTANTS //
@@ -105,6 +104,7 @@ export default function VerifyPage() {
 		setPlaySpeed(Number(localStorage.getItem('playbackRate')) || DEFAULT_PLAYSPEED);
 		setCOLS(Number(localStorage.getItem('defaultColumns')) || DEFAULT_COLUMNS);
 		setDefaultSpeciesId(Number(localStorage.getItem('defaultSpeciesId')) || DEFAULT_SPECIES_ID);
+		setColormap(localStorage.getItem('verifyColorScheme') as ColormapOption);
 	}, []);
 
 	//// ================================================================================================================
@@ -815,11 +815,6 @@ export default function VerifyPage() {
 								onChange={() => { updateSelected([]); }}
 							/>
 						</div>
-
-						<ColormapPicker
-							selected={colormap}
-							setSelected={setColormap}
-						/>
 
 						<div>
 							<p className={styles.smallLabel}>Selected: 
