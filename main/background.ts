@@ -8,7 +8,7 @@ import { setupQueries as queries } from "./queries";
 import { ensureMasterDbInitialized } from "./queries/listDatabases";
 import { setupMutations as mutations } from "./mutations";
 import { app, ipcMain, dialog } from "electron";
-import { readFile, writeFile, mkdir, copyFile } from "fs/promises";
+import { readFile, writeFile, mkdir } from "fs/promises";
 import os from "os";
 import { spawn } from "child_process";
 
@@ -360,11 +360,7 @@ ipcMain.handle("pick-model-file", async () => {
   });
   if (result.canceled || !result.filePaths[0]) return null;
   const sourcePath = result.filePaths[0];
-  const pyfilesDir = path.join(process.cwd(), "pyfiles/usermodels");
-  await mkdir(pyfilesDir, { recursive: true });
-  const destPath = path.join(pyfilesDir, path.basename(sourcePath));
-  await copyFile(sourcePath, destPath);
-  return destPath;
+  return sourcePath;
 });
 
 ipcMain.handle("run-script", async () => {
