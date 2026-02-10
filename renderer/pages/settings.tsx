@@ -3,6 +3,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
 import Image from 'next/image';
+import { ColormapPicker } from "../components/ColormapPicker/ColormapPicker";
+import { COLORMAP_OPTIONS } from "../utils/colormaps";
 
 const defaultDatabasePath = './pyrenoteDeskDatabase.db';
 export default function SettingsPage() {
@@ -21,7 +23,7 @@ export default function SettingsPage() {
     const [modelVersion, setModelVersion] = useState(localStorage.getItem('modelVersion'));
     const [modelParameters, setModelParameters] = useState(localStorage.getItem('modelParameters'));
     const [sampleRate, setSampleRate] = useState(localStorage.getItem('sampleRate'));
-    const [colorScheme, setColorScheme] = useState(localStorage.getItem('colorScheme'));
+    const [labelColorScheme, setLabelColorScheme] = useState(localStorage.getItem('labelColorScheme'));
     const [disableAdditional, setDisableAdditional] = useState(localStorage.getItem('disableAdditional'));
     const [disableConfidence, setDisableConfidence] = useState(localStorage.getItem('disableConfidence'));
     const [verifyColorScheme, setVerifyColorScheme] = useState(localStorage.getItem('verifyColorScheme'));
@@ -103,9 +105,9 @@ export default function SettingsPage() {
         localStorage.setItem('sampleRate', rate);
         setSampleRate(localStorage.getItem('sampleRate'));
     }
-    function newColorScheme (scheme) {
-        localStorage.setItem('colorScheme', scheme);
-        setColorScheme(localStorage.getItem('colorScheme'));
+    function newLabelColorScheme (scheme) {
+        localStorage.setItem('labelColorScheme', scheme);
+        setLabelColorScheme(localStorage.getItem('labelColorScheme'));
     }
     function newDisableAdditional (disable) {
         localStorage.setItem('disableAdditional', disable);
@@ -154,10 +156,10 @@ export default function SettingsPage() {
         localStorage.setItem('modelVersion', '1.0.0');
         localStorage.setItem('modelParameters', 'default');
         localStorage.setItem('sampleRate', '44100');
-        localStorage.setItem('colorScheme', 'black and white');
+        localStorage.setItem('labelColorScheme', COLORMAP_OPTIONS[0]);
         localStorage.setItem('disableAdditional', 'false');
         localStorage.setItem('disableConfidence', 'false');
-        localStorage.setItem('verifyColorScheme', 'black and white');
+        localStorage.setItem('verifyColorScheme', COLORMAP_OPTIONS[0]);
         localStorage.setItem('confidenceRange', '100');
         localStorage.setItem('defaultColumns', '4');
 		localStorage.setItem('defaultSpeciesId', 'Default');
@@ -173,10 +175,10 @@ export default function SettingsPage() {
         setModelVersion('1.0.0');
         setModelParameters('default');
         setSampleRate('44100');
-        setColorScheme('black and white');
+        setLabelColorScheme(COLORMAP_OPTIONS[0]);
         setDisableAdditional('false');
         setDisableConfidence('false');
-        setVerifyColorScheme('black and white');
+        setVerifyColorScheme(COLORMAP_OPTIONS[0]);
         setConfidenceRange('100');
         setDefaultColumns('4');
 		setDefaultSpeciesId('Default')
@@ -199,7 +201,7 @@ export default function SettingsPage() {
             modelVersion,
             modelParameters,
             sampleRate,
-            colorScheme,
+            colorScheme: labelColorScheme,
             disableAdditional,
             disableConfidence,
             verifyColorScheme,
@@ -243,10 +245,10 @@ export default function SettingsPage() {
                     setModelVersion(importedSettings.modelVersion || "1.0.0");
                     setModelParameters(importedSettings.modelParameters || "default");
                     setSampleRate(importedSettings.sampleRate || "44100");
-                    setColorScheme(importedSettings.colorScheme || "black and white");
+                    setLabelColorScheme(importedSettings.colorScheme || COLORMAP_OPTIONS[0]);
                     setDisableAdditional(importedSettings.disableAdditional || "false");
                     setDisableConfidence(importedSettings.disableConfidence || "false");
-                    setVerifyColorScheme(importedSettings.verifyColorScheme || "black and white");
+                    setVerifyColorScheme(importedSettings.verifyColorScheme || COLORMAP_OPTIONS[0]);
                     setConfidenceRange(importedSettings.confidenceRange || "100");
                     setDefaultColumns(importedSettings.defaultColumns || "4");
 					setDefaultSpeciesId(importedSettings.defaultSpeciesId || 'Default');
@@ -261,10 +263,10 @@ export default function SettingsPage() {
                     localStorage.setItem("modelVersion", importedSettings.modelVersion || "1.0.0");
                     localStorage.setItem("modelParameters", importedSettings.modelParameters || "default");
                     localStorage.setItem("sampleRate", importedSettings.sampleRate || "44100");
-                    localStorage.setItem("colorScheme", importedSettings.colorScheme || "black and white");
+                    localStorage.setItem("labelColorScheme", importedSettings.colorScheme || COLORMAP_OPTIONS[0]);
                     localStorage.setItem("disableAdditional", importedSettings.disableAdditional || "false");
                     localStorage.setItem("disableConfidence", importedSettings.disableConfidence || "false");
-                    localStorage.setItem("verifyColorScheme", importedSettings.verifyColorScheme || "black and white");
+                    localStorage.setItem("verifyColorScheme", importedSettings.verifyColorScheme || COLORMAP_OPTIONS[0]);
                     localStorage.setItem("confidenceRange", importedSettings.confidenceRange || "100");
                     localStorage.setItem("defaultColumns", importedSettings.defaultColumns || "4");
 					localStorage.setItem("defaultSpeciesId", importedSettings.defaultSpeciesId || 'Default');
@@ -372,11 +374,6 @@ export default function SettingsPage() {
                             onChange={(e) => newSampleRate(e.target.value)}
                             value = {sampleRate}>
                         </input><br></br>
-                        <label>Color Scheme: </label>
-                        <input type="text" id="lname" name="lname"
-                            onChange={(e) => newColorScheme(e.target.value)}
-                            value = {colorScheme}>
-                        </input><br></br>
                         <label >Disable Additional: </label>
                         <input type="checkbox" id="disableAdditional" name="disableAdditional"
                             onChange={(e) => newDisableAdditional(e.target.value)}
@@ -392,17 +389,17 @@ export default function SettingsPage() {
                             onChange={(e) => newConfidenceRange(e.target.value)}
                             value = {confidenceRange}>
                         </input><br></br>
+                        <label>Color Scheme: </label>
+                        <ColormapPicker
+                            selected={labelColorScheme}
+                            onChange={(e) => newLabelColorScheme(e.target.value)}
+                        /><br></br>
                     </form>
                 </div>}
             {!showLabel && <br></br>}<br></br><button type="button" className={styles.collapsible} onClick={collapseVerify}>Verify</button>
                 {showVerify && <div id="content">
                     <br></br>
                     <form>
-                        <label>Color Scheme: </label>
-                        <input type="text" id="lname" name="lname"
-                            onChange={(e) => newVerifyColorScheme(e.target.value)}
-                            value = {verifyColorScheme}>
-                        </input><br></br>
                         <label>Default Skip Interval: </label>
                         <input type="number" id="skip" name="skip"
                             onChange={(e) => newSkipInterval(e.target.value)}
@@ -423,6 +420,11 @@ export default function SettingsPage() {
                             onChange={(e) => newDefaultSpeciesId(e.target.value)}
                             value = {defaultSpeciesId}>
                         </input><br></br>
+                        <label>Color Scheme: </label>
+                        <ColormapPicker
+                            selected={verifyColorScheme}
+                            onChange={(e) => newVerifyColorScheme(e.target.value)}
+                        /><br></br>
                     </form>
                 </div>}
             <br></br>

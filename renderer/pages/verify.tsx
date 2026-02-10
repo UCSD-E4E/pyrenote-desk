@@ -8,21 +8,23 @@ import { Species } from '../../main/schema'
 import arrayEqual from 'array-equal'
 import { createContext } from 'react'
 import { ModalSpectrogram, Spectrogram, SpectroRef } from './verify.spectrogram'
-import { KeybindGuide } from './verify.keybind-guide'
+import { KeybindGuide } from '../components/KeybindGuide'
 import { useBoxSelection } from './verify.box-select'
 import WaveSurfer from "wavesurfer.js";
 import SpectrogramPlugin from "wavesurfer.js/dist/plugins/spectrogram";
+import { LogSlider, Slider } from '../components/Slider'
+import { COLORMAP_OPTIONS, ColormapOption, computeColormap } from '../utils/colormaps'
 
 // CONSTANTS //
 // modification in Settings page to be implemented
 
 const MAX_SKIPINTERVAL = 8;
-const MIN_SKIPINTERVAL = 0.5
+const MIN_SKIPINTERVAL = 0.0625;
 
-const MAX_PLAYSPEED = 4;
-const MIN_PLAYSPEED = 0.25;
+const MAX_PLAYSPEED = 2;
+const MIN_PLAYSPEED = 0.0625;
 
-const MAX_COLUMNS = 8;
+const MAX_COLUMNS = 4;
 const MIN_COLUMNS = 1;
 
 
@@ -79,6 +81,7 @@ interface VerifyContextValue {
 	playSpeed: number;
 	speciesMap: Record<number, Species>;
 	toggleModal: () => void;
+	colormap: ColormapOption;
 }
 
 export const VerifyContext = createContext<VerifyContextValue | null>(null);
@@ -101,6 +104,7 @@ export default function VerifyPage() {
 		setPlaySpeed(Number(localStorage.getItem('playbackRate')) || DEFAULT_PLAYSPEED);
 		setCOLS(Number(localStorage.getItem('defaultColumns')) || DEFAULT_COLUMNS);
 		setDefaultSpeciesId(Number(localStorage.getItem('defaultSpeciesId')) || DEFAULT_SPECIES_ID);
+		setColormap(localStorage.getItem('verifyColorScheme') as ColormapOption);
 	}, []);
 
 	//// ================================================================================================================
@@ -154,10 +158,11 @@ export default function VerifyPage() {
 	const [showModal, _setShowModal] = useState(false);
 	const [isModalInputFocused, setIsModalInputFocused] = useState(false);
 
-	// Playback
+	// Settings
 	const currentlyPlayingId = useRef<number | null>(null); // screen index (-1 for modal)
 	const [skipInterval, setSkipInterval] = useState(DEFAULT_SKIPINTERVAL);
 	const [playSpeed, _setPlaySpeed] = useState(DEFAULT_PLAYSPEED);
+	const [colormap, setColormap] = useState(COLORMAP_OPTIONS[0]);
 
 	// Species
 	const [defaultSpeciesId, setDefaultSpeciesId] = useState(DEFAULT_SPECIES_ID);
@@ -237,12 +242,14 @@ export default function VerifyPage() {
 		playSpeed,
 		speciesMap,
 		toggleModal,
+		colormap
 	}), [
 		audioFiles, updateAudioFile,
 		setHovered,
 		playSpeed,
 		speciesMap,
 		toggleModal,
+		colormap
 	])
 
 	//// ================================================================================================================
@@ -348,12 +355,13 @@ export default function VerifyPage() {
 				sampleRate: 16000,
 			});
 			const spectrogramPlugin = SpectrogramPlugin.create({
-				colorMap: 'roseus',
+				colorMap: computeColormap(colormap),
 				scale: "linear",
 				fftSamples: 64, // unzoomed quality for preload
 				labels: false,
 				height: 90,
 			});
+			(spectrogramPlugin as any).currentColormap = colormap;
 			wavesurfer.registerPlugin(spectrogramPlugin);
 
 			// assign instant variables
@@ -450,7 +458,7 @@ export default function VerifyPage() {
 								annotation.verified == "YES" ? SpectroStatus.YES :
 								annotation.verified == "NO" ? SpectroStatus.NO : SpectroStatus.UNVERIFIED
 							),
-							speciesId: (annotation.speciesId ?? defaultSpeciesId), // NEED CLARIFICATION HERE
+							speciesId: (Math.trunc(annotation.speciesId) ?? defaultSpeciesId), // NEED CLARIFICATION HERE
 							speciesProbability: annotation.speciesProbability,
 							startOffset: region.starttime,
 							endOffset: region.endtime,
@@ -613,7 +621,7 @@ export default function VerifyPage() {
 		"r": {func: resetIncrements, label: "Reset increments"},
 		"o": {func: toggleModal, label: "Toggle detailed view"},
 		"Backspace": {func: deleteSelected, label: "Delete selected"},
-		"Shift": {func: switchSpeciesOfSelected, label: "Start/Exit labeling mode"},
+		"Shift": {func: switchSpeciesOfSelected, label: "Shift label"},
 		"\\": {func: prevPage, label: "Next/Prev page"},
 	}
 
@@ -776,27 +784,36 @@ export default function VerifyPage() {
 						)}
 						
 						<div className={styles.smallContainer}>
-							<p className={styles.smallLabel}>Skip Interval: {skipInterval}</p>
-							<div className={styles.smallContainerRow}>
-								<button className={styles.smallButton} onClick={(e) => {halveSkipInterval(); e.stopPropagation()}}>-</button>
-								<button className={styles.smallButton} onClick={(e) => {doubleSkipInterval(); e.stopPropagation()}}>+</button>
-							</div>
+							<LogSlider
+								displayLabel="Skip Interval"
+								value={skipInterval}
+								setValue={setSkipInterval}
+								min={MIN_SKIPINTERVAL}
+								max={MAX_SKIPINTERVAL}
+								logBase={2}
+							/>
 						</div>
 						
 						<div className={styles.smallContainer}>
-							<p className={styles.smallLabel}>Playback Speed: {playSpeed}</p>
-							<div className={styles.smallContainerRow}>
-								<button className={styles.smallButton} onClick={(e) => {halvePlaySpeed(); e.stopPropagation()}}>-</button>
-								<button className={styles.smallButton} onClick={(e) => {doublePlaySpeed(); e.stopPropagation()}}>+</button>
-							</div>
+							<LogSlider
+								displayLabel="Playback Rate"
+								value={playSpeed}
+								setValue={setPlaySpeed}
+								min={MIN_PLAYSPEED}
+								max={MAX_PLAYSPEED}
+								logBase={2}
+							/>
 						</div>
 
 						<div className={styles.smallContainer}>
-							<p className={styles.smallLabel}>COLUMNS: {COLS}</p>
-							<div className={styles.smallContainerRow}>
-								<button className={styles.smallButton} onClick={(e) => {lessColumns(); e.stopPropagation()}}>-</button>
-								<button className={styles.smallButton} onClick={(e) => {moreColumns(); e.stopPropagation()}}>+</button>
-							</div>
+							<Slider
+								displayLabel="Columns"
+								value={COLS}
+								setValue={setCOLS}
+								min={MIN_COLUMNS}
+								max={MAX_COLUMNS}
+								onChange={() => { updateSelected([]); }}
+							/>
 						</div>
 
 						<div>
@@ -820,12 +837,7 @@ export default function VerifyPage() {
 						</div>
 						
 						{/* Help icon with tooltip */}
-						<div className={styles.helpIcon}>
-							?
-							<div className={styles.helpTooltip}>
-								<KeybindGuide keybinds={keybinds} />
-							</div>
-						</div>
+						<KeybindGuide keybinds={keybinds} />
 					</div>
 
 					{audioFiles.length > 0 && (

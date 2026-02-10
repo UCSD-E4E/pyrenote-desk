@@ -15,6 +15,10 @@ import {
   Species,
 } from "../../main/schema";
 
+import { SelectRecordingsButton } from "../components/SelectRecordingsButton";
+import { Slider, LogSlider } from "../components/Slider";
+import { COLORMAP_OPTIONS, ColormapOption, computeColormap } from "../utils/colormaps";
+
 type Entry = {
   recording: Recording;
   regions: RegionOfInterest[];
@@ -34,13 +38,6 @@ type WavesurferInstance = {
   timelinePlugin?: TimelinePlugin;
 }
 
-// Generate ColorMap for Spectrogram
-const spectrogramColorMap = [];
-for (let i = 0; i < 256; i++) {
-  const val = (255 - i) / 256;
-  spectrogramColorMap.push([val / 2, val / 3, val, 1]);
-}
-
 const AudioPlayer: React.FC = () => {
   // Settings
   const [useConfidence, setUseConfidence] = useState(false);
@@ -54,6 +51,7 @@ const AudioPlayer: React.FC = () => {
     if (confidence > Number(localStorage.getItem('confidenceRange'))) {
       setConfidence(Number(localStorage.getItem('confidenceRange')));
     }
+    setColormap(localStorage.getItem('labelColorScheme') as ColormapOption);
   }, []);
 
   // UI state
@@ -67,7 +65,7 @@ const AudioPlayer: React.FC = () => {
   const [notes, setNotes] = useState("");
 
   // Playback controls
-  const [playbackRate, setPlaybackRate] = useState("1");
+  const [playbackRate, setPlaybackRate] = useState(1);
   const [sampleRate, setSampleRate] = useState('44100');
 
   // Region & species
@@ -126,6 +124,9 @@ const AudioPlayer: React.FC = () => {
   const removeList: number[] = [];
 
   const timelineDotRef = useRef<HTMLDivElement | null>(null);
+
+  // Preferences
+	const [colormap, setColormap] = useState<ColormapOption>(COLORMAP_OPTIONS[0]);
 
   // =====================================================================================================
   // Wavesurfer Management
@@ -221,6 +222,25 @@ const AudioPlayer: React.FC = () => {
     }
 
     // ===================================================================================
+    // Hacking Wavesurfer DOM
+
+    const container = document.querySelector<HTMLElement>(`#waveform-${index}`);
+
+    if (!container) return;
+
+    // the inner div is the actual shadow host
+    const shadowHost = container.querySelector<HTMLElement>('div');
+
+    if (shadowHost?.shadowRoot) {
+      const wrapper =
+        shadowHost.shadowRoot.querySelector<HTMLElement>('.wrapper');
+
+      if (wrapper) {
+        wrapper.style.height = '384px';
+      }
+    }
+
+    // ===================================================================================
     // Timeline Plugin
 
     instance.timelinePlugin = TimelinePlugin.create({
@@ -304,7 +324,9 @@ const AudioPlayer: React.FC = () => {
       const waveSpectroContainer = waveEl?.parentElement;
       if (!waveEl || !spectroEl || !waveSpectroContainer) return;
 
-      waveSpectroContainer.appendChild(region.element);
+      //waveSpectroContainer.appendChild(region.element);
+
+      // this actually makes the region extend down to spectrogram
 
       const waveHeight = waveEl.offsetHeight;
       const spectroHeight = spectroEl.offsetHeight;
@@ -320,7 +342,7 @@ const AudioPlayer: React.FC = () => {
         return;
       }
 
-      if (activeRegionRef.current === region) {
+      if (activeRegionRef.current === region && !!region) {
         region.setOptions({ color: "rgba(0,255,0,0.3)" });
         region.data = { ...region.data, loop: false };
         activeRegionRef.current = null;
@@ -574,7 +596,7 @@ const AudioPlayer: React.FC = () => {
 
     await ws.load(audioURL); 
     
-    ws.setPlaybackRate(parseFloat(playbackRate), false);
+    ws.setPlaybackRate(playbackRate, false);
 
 
     // ===================================================================================
@@ -583,9 +605,9 @@ const AudioPlayer: React.FC = () => {
     const spectrogramPlugin = SpectrogramPlugin.create({
       container: `#${waveEntry.spectrogramId}`,
       labels: true,
-      colorMap: "roseus",
+      colorMap: computeColormap(colormap),
       fftSamples: 256,
-      height: 230,
+      height: 256,
     })
     ws.registerPlugin(spectrogramPlugin);
 
@@ -648,6 +670,20 @@ const AudioPlayer: React.FC = () => {
       cleanupAll();
     };
   }, []);
+
+  // Rerenders spectrograms on colormap change
+	useEffect(() => {
+		instances.current && Object.entries(instances.current).forEach(async ([key, instance]) => {
+			const waveEntry = entries.find((entry) => (entry.id == key));
+			if (!waveEntry) cleanupWavesurfer(key);
+			if (!instance.spectrogramPlugin) return;
+
+			// super hacky but actually works
+			(instance.spectrogramPlugin as any).colorMap = computeColormap(colormap);
+			(instance.spectrogramPlugin as any).render();
+		});
+	}, [colormap]);
+
 
   // =====================================================================================================
   // Button Handlers 
@@ -1072,171 +1108,6 @@ const AudioPlayer: React.FC = () => {
   };
 
   const [modalEnable, setModalEnable] = useState(false);
-  function toggleRecordingSelect() {setModalEnable(prev => !prev);}
-
-  function SelectRecordings() {
-    if (!modalEnable) {
-      return null;
-    }
-
-    const [siteList, setSiteList] = useState([]);
-    const [recorderList, setRecorderList] = useState([]);
-    const [deploymentList, setDeploymentList] = useState([]);
-    const [surveyList, setSurveyList] = useState([]);
-    const [speciesList, setspeciesList] = useState([]);
-    const verificationList = ["YES", "NO", "UNVERIFIED"]
-
-    const [selectedSites, setSelectedSites] = useState([]);
-    const [selectedRecorders, setSelectedRecorders] = useState([]);
-    const [selectedDeployments, setSelectedDeployments] = useState([]);
-    const [selectedSurveys, setSelectedSurveys] = useState([]);
-    const [selectedSpecies, setSelectedSpecies] = useState([]);
-    const [selectedVerifications, setSelectedVerifications] = useState([]);
-
-    useEffect(() => {
-      if (!modalEnable) {
-        return null;
-      }
-
-      const fetchData = async () => {
-        const sites = await window.api.listSites();
-        const recorders = await window.api.listRecorders();
-        const deployments = await window.ipc.invoke("listDeployments");
-        const surveys = await window.api.listSurveys();
-        const species = await window.api.listSpecies();
-
-        setSiteList(sites);
-        setRecorderList(recorders);
-        setDeploymentList(deployments);
-        setSurveyList(surveys);
-        setspeciesList(species);
-      }
-
-      fetchData();
-    }, [modalEnable]);
-
-    return (
-      <div className={styles.modalParent}>
-        <section className={styles.selectPopup}>
-          <h1>Select Recordings</h1>
-          <p>Filter by:</p>
-          <details>
-            <summary>Recorders</summary>
-            {recorderList.map((recorder) => (
-              <div key={recorder.recorderId}>
-                <input type="checkbox" onChange={(e) => {
-                  if (e.target.checked) {
-                    setSelectedRecorders([...selectedRecorders, recorder.recorderId]);
-                  } else {
-                    setSelectedRecorders(selectedRecorders.filter(val => val != recorder.recorderId));
-                  }
-                }}/>
-                <label>Recorder {recorder.code}</label>
-                <br />
-              </div>
-            ))}
-          </details>
-          <details>
-            <summary>Surveys</summary>
-            {surveyList.map((survey) => (
-              <div key={survey.surveyId}>
-                <input type="checkbox" onChange={(e) => {
-                  if (e.target.checked) {
-                    setSelectedSurveys([...selectedSurveys, survey.surveyId]);
-                  } else {
-                    setSelectedSurveys(selectedSurveys.filter(val => val != survey.surveyId));
-                  }
-                }}/>
-                <label>{survey.surveyname}</label>
-                <br />
-              </div>
-            ))}
-          </details>
-          <details>
-            <summary>Sites</summary>
-            {siteList.map((site) => (
-              <div key={site.siteId}>
-                <input type="checkbox" onChange={(e) => {
-                  if (e.target.checked) {
-                    setSelectedSites([...selectedSites, site.siteId]);
-                  } else {
-                    setSelectedSites(selectedSites.filter(val => val != site.siteId));
-                  }
-                }}/>
-                <label>{site.site_code}</label>
-                <br />
-              </div>
-            ))}
-          </details>
-          <details>
-            <summary>Deployments</summary>
-            {deploymentList.map((deployment) => (
-              <div key={deployment.deploymentId}>
-                <input type="checkbox" onChange={(e) => {
-                  if (e.target.checked) {
-                    setSelectedDeployments([...selectedDeployments, deployment.deploymentId]);
-                  } else {
-                    setSelectedDeployments(selectedDeployments.filter(val => val != deployment.deploymentId));
-                  }
-                }}/>
-                <label>{deployment.deploymentId} - {deployment.note}</label>
-                <br />
-              </div>
-            ))}
-          </details>
-          <details>
-            <summary>Species</summary>
-            {speciesList.map((species) => (
-              <div key={species.speciesId}>
-                <input type="checkbox" onChange={(e) => {
-                    if (e.target.checked) {
-                      setSelectedSpecies([...selectedSpecies, species.speciesId]);
-                    } else {
-                      setSelectedDeployments(selectedSpecies.filter(val => val != species.speciesId));
-                    }
-                  }}/>
-                <label>{species.common} ({species.species})</label>
-              </div>
-            ))}
-          </details>
-          <details>
-            <summary>Verification</summary>
-            {verificationList.map((verification) => (
-              <div key={verification}>
-                <input type="checkbox" onChange={(e) => {
-                  if (e.target.checked) {
-                    setSelectedVerifications([...selectedVerifications, verification]);
-                  } else {
-                    setSelectedVerifications(selectedVerifications.filter(val => val != verification));
-                  }
-                }}/>
-                <label>{verification}</label>
-              </div>
-            ))}
-          </details>
-          <br />
-          <button onClick={ async () => {
-            toggleRecordingSelect();
-            const result  = await window.api.listRecordingsByFilters({
-              deployments: selectedDeployments,
-              sites: selectedSites,
-              recorders: selectedRecorders,
-              surveys: selectedSurveys,
-              species: selectedSpecies,
-              verifications: selectedVerifications
-            });
-            importFromDB(result.recordings, result.skippedCount);
-          }}>Import Selected</button>
-            <button onClick={async () => {
-              toggleRecordingSelect();
-              const recordings = await window.api.listRecordings();
-              importFromDB(recordings);
-            }}>Import All</button>
-          <button onClick={toggleRecordingSelect}>Cancel</button>
-        </section>
-      </div>
-    );
-  }
 
   return (
     <React.Fragment>
@@ -1246,9 +1117,13 @@ const AudioPlayer: React.FC = () => {
       <div className={styles.container}>
         <div className={styles.main}>
           <div className={styles.header}>
-            <button onClick={toggleRecordingSelect}>Select Recordings</button>
-            <SelectRecordings />
-              <div>
+            <button onClick={() => setModalEnable(prev => !prev)}>Select Recordings</button>
+            <SelectRecordingsButton
+              modalEnable={modalEnable} 
+              setModalEnable={setModalEnable} 
+              importFromDB={importFromDB} 
+            />
+            <div>
               <label htmlFor="species-names">Choose a species: </label>
               <select
                 name="Species"
@@ -1377,39 +1252,29 @@ const AudioPlayer: React.FC = () => {
               </div>
               
               {useConfidence && (
-                <>
-                  <label className={styles.confidenceLabel} htmlFor="confidence">
-                    Confidence: {confidence}
-                  </label>
-                  <input
-                    type="range"
-                    id="confidence"
-                    min="0"
-                    max={maxConfidence}
-                    value={confidence}
-                    onChange={(e) => setConfidence(Number(e.target.value))}
-                  />
-                </>
+                <Slider
+									displayLabel="Confidence"
+									value={confidence}
+									setValue={setConfidence}
+									min={0}
+									max={maxConfidence}
+								/>
               )}
 
-              <label className={styles.confidenceLabel} htmlFor="confidence">
-                Speed: {playbackRate}
-              </label>
-              <input
-                type="range"
-                id="speed"
-                min="0.5"
-                max="2"
-                step="0.1"
-                value={playbackRate}
-                onChange={(e) => {
-                  setPlaybackRate(e.target.value);
-                  const ws = instances.current[currentEntryId]?.wavesurfer;
-                  if (ws) {
-                    ws.setPlaybackRate(parseFloat(e.target.value), false);
-                  }
-                }}
-              />
+              <LogSlider
+								displayLabel="Playback Rate"
+								value={playbackRate}
+								setValue={setPlaybackRate}
+								min={0.0625}
+								max={2}
+								logBase={2}
+								onChange={(val) => {
+									const ws = instances.current[currentEntryId]?.wavesurfer;
+									if (ws) {
+										ws.setPlaybackRate(val, false);
+									}
+								}}
+							/>
             </div>
             
             <div className={styles.annotationSection}>
