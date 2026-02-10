@@ -10,7 +10,7 @@ const App: React.FC<AppProps> = ({
   pageProps: { session, ...pageProps },
 }) => {
   useEffect(() => {
-    const lastDbPath = localStorage.getItem('databasePath') || './pyrenoteDeskDatabase.db';
+    const lastDbPath = localStorage.getItem('databasePath') || './databases/pyrenoteDeskDatabase.db';
     if (window.ipc) {
       window.ipc.invoke('set-db-path', lastDbPath);
       console.log("db set to last used: ", lastDbPath);
