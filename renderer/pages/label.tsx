@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
+import { createPortal } from 'react-dom'
 import Head from "next/head";
 import Image from "next/image";
 import styles from "./label.module.css";
@@ -18,6 +19,7 @@ import {
 import { SelectRecordingsButton } from "../components/SelectRecordingsButton";
 import { Slider, LogSlider } from "../components/Slider";
 import { COLORMAP_OPTIONS, ColormapOption, computeColormap } from "../utils/colormaps";
+import { SpeciesDropdown } from "../components/SpeciesDropdown";
 
 type Entry = {
   recording: Recording;
@@ -76,7 +78,15 @@ const AudioPlayer: React.FC = () => {
   const regionListRef = useRef<any[]>([]);
   const activeRegionRef = useRef<any>(null);
   const [speciesMap, setSpeciesMap] = useState<Record<number, Species>>({});
-  const [selectedSpecies, setSelectedSpecies] = useState<number>(0);
+  const [selectedSpeciesId, setSelectedSpeciesId] = useState<number>(0);
+  const selectedSpeciesIdRef = useRef(0);
+  const [speciesDropdownState, setSpeciesDropdownState] = useState<{
+    region: any;
+    top: number;
+    left: number;
+  } | null>(null);
+
+  selectedSpeciesIdRef.current = selectedSpeciesId;
 
   // Wavesurfer metadata & instances
   const [entries, _setEntries] = useState<Entry[]>([]);
@@ -363,71 +373,14 @@ const AudioPlayer: React.FC = () => {
     });
 
     instance.regionsPlugin.on("region-double-clicked", (region: any) => {
-      const select = document.createElement("select");
-
-      Object.entries(speciesMap).forEach(([id, species]) => {
-        const option = document.createElement("option");
-        option.value = species.speciesId.toString();
-        option.textContent = `${species.common} (${species.species})`;
-        if (
-          region.data?.species &&
-          region.data.species.speciesId === species.speciesId
-        ) {
-          option.selected = true;
-        }
-        select.appendChild(option);
-      });
-
-      select.addEventListener("mousedown", (e) => e.stopPropagation());
-      select.addEventListener("click", (e) => e.stopPropagation());
-
-      select.addEventListener("change", () => {
-        const selectedId = parseInt(select.value);
-        const selectedSpecies = Object.values(speciesMap).find(
-          (sp) => sp.speciesId === selectedId,
-        );
-        if (!selectedSpecies) return;
-
-        region.data = {
-          ...region.data,
-          species: selectedSpecies,
-          label: selectedSpecies.species,
-          confidence: confidence,
-        };
-
-        let labelElem = region.element.querySelector(".region-label");
-        if (!labelElem) {
-          labelElem = document.createElement("span");
-          labelElem.className = "region-label";
-          region.element.appendChild(labelElem);
-        }
-        labelElem.textContent = selectedSpecies.species;
-
-        if (document.body.contains(select)) {
-          document.body.removeChild(select);
-        }
-      });
-
-      select.addEventListener("blur", () => {
-        if (document.body.contains(select)) {
-          document.body.removeChild(select);
-        }
-      });
+      assignSpecies(region, speciesMap[selectedSpeciesIdRef.current]);
 
       const rect = region.element.getBoundingClientRect();
-      select.style.position = "absolute";
-      select.style.top = `${rect.top}px`;
-      select.style.left = `${rect.left}px`;
-      select.style.zIndex = "10000";
-      select.style.backgroundColor = "white";
-      select.style.border = "1px solid black";
-      select.style.padding = "4px";
-      select.style.boxSizing = "border-box";
-      select.style.maxHeight = "200px";
-      select.style.overflow = "auto";
-
-      document.body.appendChild(select);
-      select.focus();
+      setSpeciesDropdownState({
+        region,
+        top: rect.top + window.scrollY,
+        left: rect.left + window.scrollX,
+      });
     });
     
     waveEntry.regions.forEach((r) => {
@@ -956,7 +909,7 @@ const AudioPlayer: React.FC = () => {
           newSpeciesMap[spec.speciesId] = spec;
         })
         setSpeciesMap(newSpeciesMap);
-        setSelectedSpecies(listOfSpecies[0].speciesId);
+        setSelectedSpeciesId(listOfSpecies[0].speciesId);
       } catch (error) {
         console.error("Failed to fetch species list:", error);
       }
@@ -1046,27 +999,36 @@ const AudioPlayer: React.FC = () => {
     }
   };
 
-  const assignSpecies = (species: Species) => {
-    if (!activeRegionRef.current) {
+  const assignSpecies = (region: any, species: Species) => {
+    if (!region) {
       console.log("No active region selected.");
       return;
     }
 
-    activeRegionRef.current.data = {
-      ...activeRegionRef.current.data,
-      label: species.species,
-      species: species,
-      confidence: confidence,
-    };
+    if (!species) {
+      region.data = {
+        ...region.data,
+        label: undefined,
+        species: undefined,
+        confidence: confidence,
+      };
+    } else {
+      region.data = {
+        ...region.data,
+        label: species.species,
+        species: species,
+        confidence: confidence,
+      };
+    }
 
-    const regionEl = activeRegionRef.current.element;
+    const regionEl = region.element;
     let labelElem = regionEl.querySelector(".region-label");
     if (!labelElem) {
       labelElem = document.createElement("span");
       labelElem.className = "region-label";
       regionEl.appendChild(labelElem);
     }
-    labelElem.textContent = species.species;
+    labelElem.textContent = species?.common;
   };
 
   const [modalEnable, setModalEnable] = useState(false);
@@ -1085,30 +1047,18 @@ const AudioPlayer: React.FC = () => {
               setModalEnable={setModalEnable} 
               importFromDB={importFromDB} 
             />
-            <div>
-              <label htmlFor="species-names">Choose a species: </label>
-              <select
-                name="Species"
-                id="species-names"
-                value={selectedSpecies ?? ""}
-                onClick={(e) => {
-                  const value = (e.target as HTMLSelectElement).value;
-                  if (value !== "") {
-                    const selectedId = Number(value);
-                    assignSpecies(speciesMap[selectedId]);
-                  }
+
+            <div className="w-64">
+              Default Species:
+              <SpeciesDropdown
+                speciesMap={speciesMap}
+                speciesId={selectedSpeciesId}
+                onChange={(selectedOption) => {
+                  setSelectedSpeciesId(selectedOption.speciesId);
+                  assignSpecies(activeRegionRef.current, speciesMap[selectedOption.speciesId]);
                 }}
-                onChange={(e) => {
-                  const selectedId = Number(e.target.value);
-                  setSelectedSpecies(selectedId);
-                }}
-              >
-                {Object.entries(speciesMap).map(([id, species]) => (
-                  <option key={species.speciesId} value={species.speciesId}>
-                    {species.common} ({species.species})
-                  </option>
-                ))}
-              </select>
+                onMenuOpen={() => assignSpecies(activeRegionRef.current, speciesMap[selectedSpeciesId])}
+              />
             </div>
           </div>
           {showSpec && (
@@ -1303,7 +1253,45 @@ const AudioPlayer: React.FC = () => {
           </div>
         </>
       )}
-        
+      
+      {speciesDropdownState &&
+        createPortal(
+          <div
+            style={{
+              position: "absolute",
+              top: speciesDropdownState.top + 20,
+              left: speciesDropdownState.left,
+              zIndex: 10000,
+              width: 256,
+            }}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <SpeciesDropdown
+              speciesMap={speciesMap}
+              speciesId={speciesDropdownState.region.data?.species?.speciesId ?? selectedSpeciesId}
+              onChange={(option) => {
+                if (!option) {
+                  assignSpecies(speciesDropdownState.region, null);
+                  return;
+                };
+
+                const selectedSpecies =
+                  speciesMap[option.speciesId];
+
+                if (!selectedSpecies) return;
+
+                assignSpecies(speciesDropdownState.region, selectedSpecies);
+
+                setSpeciesDropdownState(null); // close after selection
+              }}
+              onMenuClose={() => {setSpeciesDropdownState(null);}}
+              allowNull={true}
+              defaultMenuIsOpen={true}
+            />
+          </div>,
+          document.body
+        )}
+
     </React.Fragment>
   );
 };
