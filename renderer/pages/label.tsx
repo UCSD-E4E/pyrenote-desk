@@ -220,19 +220,6 @@ const AudioPlayer: React.FC = () => {
     }
 
     // ===================================================================================
-    // Hacking Wavesurfer DOM
-
-    const shadowHost = waveformContainer.querySelector<HTMLElement>('div');
-
-    if (shadowHost?.shadowRoot) {
-      const wrapper =
-        shadowHost.shadowRoot.querySelector<HTMLElement>('.wrapper');
-      if (wrapper) {
-        wrapper.style.height = '384px';
-      }
-    }
-    
-    // ===================================================================================
     // Timeline Plugin
 
     instance.timelinePlugin = TimelinePlugin.create({
@@ -531,6 +518,9 @@ const AudioPlayer: React.FC = () => {
       ${styles.prefetchWave}
     `;
 
+    // ===================================================================================
+    // Setup DOM Nodes
+
     // waveform
     const waveformWrapper = document.createElement("div");
     waveformWrapper.classList.add(styles.waveContainerWrapper);
@@ -554,7 +544,50 @@ const AudioPlayer: React.FC = () => {
     document.body.appendChild(wavesurferContainer);
 
     // ===================================================================================
-    // Scroll
+    // Wavesurfer
+
+    const ws = WaveSurfer.create({
+      container: `#${waveEntry.id}`,
+      waveColor: "violet",
+      progressColor: "purple",
+      sampleRate: parseInt(sampleRate),
+      height: 128,
+    });
+    
+    const audioFile = await window.ipc.invoke('read-file-for-verification', waveEntry.recording.url);
+    const audioURL = URL.createObjectURL(new Blob([audioFile.data]));
+
+    await ws.load(audioURL); 
+    
+    ws.setPlaybackRate(playbackRate, false);
+
+    // ===================================================================================
+    // Spectrogram Plugin
+
+    const spectrogramPlugin = SpectrogramPlugin.create({
+      container: `#${waveEntry.spectrogramId}`,
+      colorMap: computeColormap(colormap),
+      fftSamples: fftSamplesForZoom(zoomX),
+      height: BASE_SPECTRO_HEIGHT * zoomY,
+      labels: true,
+    })
+    ws.registerPlugin(spectrogramPlugin);
+
+    // ===================================================================================
+    // Resize Clickable Area to Combined Height Of Waveform + Spectrogram
+
+    const shadowHost = waveformContainer.querySelector<HTMLElement>('div');
+
+    if (shadowHost?.shadowRoot) {
+      const wrapper =
+        shadowHost.shadowRoot.querySelector<HTMLElement>('.wrapper');
+      if (wrapper) {
+        wrapper.style.height = '384px';
+      }
+    }
+
+    // ===================================================================================
+    // Scroll Forwarding (For Zoom)
 
     const handleScroll = (e: WheelEvent) => {
       if (e.ctrlKey || e.metaKey || e.shiftKey) return;
@@ -578,36 +611,6 @@ const AudioPlayer: React.FC = () => {
     };
 
     wavesurferContainer.addEventListener("wheel", handleScroll as EventListener, { passive: false });
-
-    // ===================================================================================
-    // Wavesurfer
-
-    const ws = WaveSurfer.create({
-      container: `#${waveEntry.id}`,
-      waveColor: "violet",
-      progressColor: "purple",
-      sampleRate: parseInt(sampleRate),
-      height: 128,
-    });
-
-    const audioFile = await window.ipc.invoke('read-file-for-verification', waveEntry.recording.url);
-    const audioURL = URL.createObjectURL(new Blob([audioFile.data]));
-
-    await ws.load(audioURL); 
-    
-    ws.setPlaybackRate(playbackRate, false);
-
-    // ===================================================================================
-    // Spectrogram Plugin
-
-    const spectrogramPlugin = SpectrogramPlugin.create({
-      container: `#${waveEntry.spectrogramId}`,
-      labels: true,
-      colorMap: computeColormap(colormap),
-      fftSamples: fftSamplesForZoom(zoomX),
-      height: BASE_SPECTRO_HEIGHT * zoomY,
-    })
-    ws.registerPlugin(spectrogramPlugin);
 
     // ===================================================================================
     // Finalize
