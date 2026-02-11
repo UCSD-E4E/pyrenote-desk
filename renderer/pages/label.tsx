@@ -268,15 +268,13 @@ const AudioPlayer: React.FC = () => {
       dot.style.left = fraction * timelineWidth + "px";
     });
     
-    const clickHandler = (event: MouseEvent) => {
+    const clickHandler = (event: MouseEvent) => { // for moving timeline dot when seeking (ws internally handles seek)
       const rect = timelineContainer.getBoundingClientRect();
-      const clickX = event.clientX - rect.left;
-      dot.style.left = clickX + "px";
-      const fraction =
-        timelineContainer.offsetWidth === 0
-          ? 0
-          : clickX / timelineContainer.offsetWidth;
-      ws.seekTo(fraction);
+      const clickX = event.clientX - rect.left + waveformWrapper.scrollLeft;
+      const fraction = clickX / waveformWrapper.scrollWidth;
+      
+      const timelineWidth = timelineContainer?.offsetWidth || 0;
+      dot.style.left = fraction * timelineWidth + "px";
     };
 
     waveformContainer.addEventListener("click", clickHandler);
@@ -316,29 +314,29 @@ const AudioPlayer: React.FC = () => {
 
     let createdInitialRegions = false;
     const selectRegion = (region) => {
-      if (!createdInitialRegions) {
-        return;
-      }
+      if (!createdInitialRegions || !region) return;
 
-      if (activeRegionRef.current === region && !!region) {
+      const activeRegion = activeRegionRef.current;
+
+      if (activeRegion === region) {
+        // Deselect the region
         region.setOptions({ color: "rgba(0,255,0,0.3)" });
         region.data = { ...region.data, loop: false };
         activeRegionRef.current = null;
       } else {
-        if (activeRegionRef.current) {
-          activeRegionRef.current.setOptions({
-            color: "rgba(0,255,0,0.3)",
-          });
+        // Reset previously active region
+        if (activeRegion) {
+          activeRegion.setOptions({ color: "rgba(0,255,0,0.3)" });
+          activeRegion.data = { ...activeRegion.data, loop: false };
         }
 
-        if (region) {
-          region.setOptions({ color: "rgba(255,0,0,0.3)" });
-          activeRegionRef.current = region;
-
-          region.data = { ...region.data, loop: true };
-        }
+        // Select new region
+        region.setOptions({ color: "rgba(255,0,0,0.3)" });
+        region.data = { ...region.data, loop: true };
+        activeRegionRef.current = region;
       }
-    }
+    };
+
 
     instance.regionsPlugin.on("region-created", (region: any) => {
       //redraw(region);
@@ -367,7 +365,7 @@ const AudioPlayer: React.FC = () => {
     });
 
     instance.regionsPlugin.on("region-out", (region: any) => {
-      if (region.data?.loop) {
+      if (playing && region.data?.loop) {
         region.play();
       }
     });
