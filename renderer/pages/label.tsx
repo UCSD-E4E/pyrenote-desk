@@ -1041,12 +1041,7 @@ const AudioPlayer: React.FC = () => {
       <div className={styles.container}>
         <div className={styles.main}>
           <div className={styles.header}>
-            <button onClick={() => setModalEnable(prev => !prev)}>Select Recordings</button>
-            <SelectRecordingsButton
-              modalEnable={modalEnable} 
-              setModalEnable={setModalEnable} 
-              importFromDB={importFromDB} 
-            />
+            <SelectRecordingsButton importFromDB={importFromDB} />
 
             <div className="w-64">
               Default Species:
