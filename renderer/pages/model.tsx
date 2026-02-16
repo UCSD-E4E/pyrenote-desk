@@ -60,6 +60,8 @@ export default function ModelPage() {
     React.useState(true);
   const [imageIndex, setImageIndex] = React.useState(0);
   const [messageIndex, setMessageIndex] = React.useState(0);
+  const [models, setModels] = React.useState([]);
+  const [selectedModelId, setSelectedModelId] = React.useState(null);
 
   //variables can have values NODEJS.Timeout OR null - initialize both to null
   const imageIntervalRef = React.useRef<NodeJS.Timeout | null>(null);
@@ -108,6 +110,22 @@ export default function ModelPage() {
     //stop message cycle
   };
 
+  // Fetch all models when the component mounts
+  React.useEffect(() => {
+    const fetchModels = async () => {
+      try {
+        const models = await window.api.listModels();
+        setModels(models);
+        if (models.length > 0) {
+          setSelectedModelId(models[0].modelId); // default to first model
+        }
+      } catch (err) {
+        console.error("Failed to fetch models:", err);
+      }
+    };
+
+    fetchModels();
+  }, []);
 
   // function HandleClick() {
   //   alert("Running inference script");
@@ -121,6 +139,10 @@ export default function ModelPage() {
   //   startImageRotation();
   // }
   async function HandleClick() {
+    if (!selectedModelId) {
+      alert("Please select a model first");
+      return;
+    }
     setIsButtonVisible(false);
     setOrigionalImageVisible(false);
     setOrigionalTextVisible(false);
@@ -179,10 +201,27 @@ export default function ModelPage() {
       <div className={styles.magnus}>
         <div className={styles.images}>
           <div>
+            {/* Add model dropdown */}
+            <div style={{ marginBottom: "10px" }}>
+              <label htmlFor="model-select">Select Model: </label>
+              <select
+                id="model-select"
+                value={selectedModelId || ""}
+                onChange={(e) => setSelectedModelId(Number(e.target.value))}
+                style={{ padding: "5px", fontSize: "14px" }}
+              >
+                {models.length === 0 && <option value="">No models available</option>}
+                {models.map((model) => (
+                  <option key={model.modelId} value={model.modelId}>
+                    {model.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            
             {isButtonVisible && <FileUploadButton onClick={HandleClick} />}
             {/* {!isButtonVisible && <CancelButton onClick={HandleCancelClick} />} */}
           </div>
-
           <div style={{ textAlign: "center" }}>
             {origionalImageVisible && (
               <Image

@@ -35,6 +35,7 @@ const exposedQueries: QueriesApi = {
   listDatabases: (...args) => invokeQuery("listDatabases")(...args),
   listModelAccuracyBySpecies: () => invokeQuery("listModelAccuracyBySpecies")(),
   listUnlabeledRecordings: () => invokeQuery("listUnlabeledRecordings")(),
+  listModels: () => invokeQuery("listModels")()
 };
 
 // Mutations that are exposed to renderer process
