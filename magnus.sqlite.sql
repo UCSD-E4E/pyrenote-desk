@@ -97,5 +97,6 @@ CREATE TABLE Labeler(
     email TEXT,
     isHuman BOOLEAN, -- stores as 1 or 0
     modelId INTEGER,
+    UNIQUE(name, email),
     FOREIGN KEY (modelId) REFERENCES Model (modelId) ON DELETE CASCADE
 );

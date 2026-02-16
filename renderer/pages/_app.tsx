@@ -2,6 +2,8 @@ import type { AppProps } from "next/app";
 import Layout from "./layout";
 import "./globals.css";
 import { useEffect } from "react";
+import RegionsPlugin from "wavesurfer.js/dist/plugins/regions";
+import createElement from "wavesurfer.js/dist/dom";
 
 const App: React.FC<AppProps> = ({
   Component,
