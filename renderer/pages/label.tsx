@@ -50,6 +50,8 @@ const AudioPlayer: React.FC = () => {
   // UI state
   const [showSpec, setShowSpec] = useState(false);
   const [playing, setPlaying] = useState(false);
+  const playingRef = useRef(playing);
+  playingRef.current = playing; // we need this ref since wavesurfer region's capture stale playing state
   const [index, setIndex] = useState(0);
 
   // Annotation state
@@ -698,14 +700,12 @@ const AudioPlayer: React.FC = () => {
       }
     };
 
-
     if (!allRegions || !Object.keys(allRegions).length) {
       await removeRegions();
     } else {
       const regionValues = Object.values(allRegions) as Region[];
       for (let idx = 0; idx < regionValues.length; idx++) {
         const region = regionValues[idx];
-        console.log("Saved region id: ", region.id);
     
         let regionId;
         if (region.id.startsWith("imported-")) {
@@ -720,8 +720,10 @@ const AudioPlayer: React.FC = () => {
             region.end,
           );
           regionId = newRegion.regionId;
-          console.log("New region created with ID:", regionId);
+          console.log("New region created with ID:", regionId, region);
         }
+
+        console.log(region.data);
         if (region.data?.species && region.data?.confidence) {
           const species: Species = region.data.species as Species;
 
@@ -916,6 +918,12 @@ const AudioPlayer: React.FC = () => {
     if (!ws || !activeRegionRef.current) return;
 
     activeRegionRef.current.remove();
+    
+    // Remove the region from regionList
+    regionListRef.current = regionListRef.current.filter(
+      region => region !== activeRegionRef.current
+    );
+    
     activeRegionRef.current = null;
   };
 
@@ -923,8 +931,7 @@ const AudioPlayer: React.FC = () => {
     const ws = instances.current[currentId];
     if (!ws) return;
 
-    const regionPlugin = (ws as any).plugins[1];
-    const allRegions = regionPlugin?.wavesurfer?.plugins[2]?.regions;
+    const allRegions = (instances.current[currentId].regionsPlugin as any).regions;
     if (!allRegions) return;
 
     Object.keys(allRegions).forEach((r) => {
@@ -953,6 +960,7 @@ const AudioPlayer: React.FC = () => {
       return;
     }
 
+    console.log(region, species)
     if (!species) {
       region.data = {
         ...region.data,
@@ -968,6 +976,8 @@ const AudioPlayer: React.FC = () => {
         confidence: confidence,
       };
     }
+
+    console.log(region.data)
 
     const regionEl = region.element;
     let labelElem = regionEl.querySelector(".region-label");
@@ -998,9 +1008,7 @@ const AudioPlayer: React.FC = () => {
                 speciesId={selectedSpeciesId}
                 onChange={(selectedOption) => {
                   setSelectedSpeciesId(selectedOption.speciesId);
-                  assignSpecies(activeRegionRef.current, speciesMap[selectedOption.speciesId]);
                 }}
-                onMenuOpen={() => assignSpecies(activeRegionRef.current, speciesMap[selectedSpeciesId])}
               />
             </div>
           </div>
