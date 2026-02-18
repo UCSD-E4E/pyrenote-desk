@@ -25,20 +25,7 @@ type Entry = {
   recording: Recording;
   regions: RegionOfInterest[];
   id: string;
-  spectrogramId: string;
-  class: "spectrogramContainer";
-  isCreating: boolean;
-  isMounted: boolean;
 };
-
-type WavesurferInstance = {
-  audioURL: string;
-  wavesurfer: WaveSurfer;
-  preloadedContainer: HTMLDivElement;
-  spectrogramPlugin: SpectrogramPlugin;
-  regionsPlugin?: RegionsPlugin;
-  timelinePlugin?: TimelinePlugin;
-}
 
 const DEFAULT_ZOOM_X = 1;
 const DEFAULT_ZOOM_Y = 1;
@@ -88,7 +75,7 @@ const AudioPlayer: React.FC = () => {
 
   selectedSpeciesIdRef.current = selectedSpeciesId;
 
-  // Wavesurfer metadata & instances
+  // Data entries
   const [entries, _setEntries] = useState<Entry[]>([]);
   const setEntries = useCallback(
     (
@@ -108,9 +95,418 @@ const AudioPlayer: React.FC = () => {
     [],
   );
 
+  // Wavesurfers
+  class WavesurferInstance {
+    id: string; // entry id
+    audioURL: string = "";
+    entry: Entry;
+
+    container!: HTMLDivElement;
+      waveformWrapper!: HTMLDivElement;
+        waveformContainer!: HTMLDivElement;
+      spectrogramWrapper!: HTMLDivElement;
+        spectrogramContainer!: HTMLDivElement;
+
+    wavesurfer: WaveSurfer;
+    spectrogramPlugin: SpectrogramPlugin;
+    regionsPlugin: RegionsPlugin | null; // exists only when mounted
+    timelinePlugin: TimelinePlugin | null; // exists only when mounted
+
+    isMounted: boolean = false;
+    isLoading: boolean = false;
+    toBeCleanedUp: boolean = false;
+
+    public constructor(entry: Entry) {
+      const id = entry.id;
+      this.id = id;
+      this.entry = entry;
+
+      // ===================================================================================
+      // Setup DOM Nodes
+
+      // container
+      const container = document.createElement('div');
+      container.className = `
+        ${styles.wavesurferContainer} 
+        ${styles.prefetchWave}
+      `;
+
+      // waveform container
+      const waveformWrapper = document.createElement("div");
+      waveformWrapper.classList.add(styles.waveContainerWrapper);
+      container.appendChild(waveformWrapper);
+
+      const waveformContainer = document.createElement("div");
+      waveformContainer.id = `waveform-${id}`;
+      waveformContainer.classList.add(styles.waveContainer);
+      waveformWrapper.appendChild(waveformContainer);
+
+      // spectrogram container
+      const spectrogramWrapper = document.createElement("div");
+      spectrogramWrapper.classList.add(styles.spectrogramContainerWrapper);
+      container.appendChild(spectrogramWrapper);
+
+      const spectrogramContainer = document.createElement("div");
+      spectrogramContainer.id = `spectrogram-${id}`;
+      spectrogramContainer.classList.add(styles.spectrogramContainer);
+      spectrogramWrapper.appendChild(spectrogramContainer);
+      
+      // final
+      this.container = container;
+      this.waveformWrapper = waveformWrapper;
+      this.waveformContainer = waveformContainer;
+      this.spectrogramWrapper = spectrogramWrapper;
+      this.spectrogramContainer = spectrogramContainer;
+      document.body.appendChild(container);
+
+      // ===================================================================================
+      // Wavesurfer
+
+      const ws = WaveSurfer.create({
+        container: this.waveformContainer,
+        waveColor: "violet",
+        progressColor: "purple",
+        sampleRate: parseInt(sampleRate),
+        height: 128,
+      });
+      ws.setPlaybackRate(playbackRate, false);
+      this.wavesurfer = ws;
+    }
+
+    public static async create(entry: Entry): Promise<WavesurferInstance> {
+      const id = entry.id;
+      const filePath = entry.recording.url;
+
+      if (instances.current[id]) {
+        console.warn(`Entry ${id} already exists. Create aborted`); // shouldn't happen since we always check before create()
+        return instances.current[id];
+      }
+
+      const instance = new WavesurferInstance(entry);
+      instances.current[id] = instance;
+
+      instance.isLoading = true;
+
+      const ws = instance.wavesurfer;
+
+      const audioFile = await window.ipc.invoke('read-file-for-verification', filePath);
+      instance.audioURL = URL.createObjectURL(new Blob([audioFile.data]));
+      await ws.load(instance.audioURL); 
+
+      if (instance.toBeCleanedUp) {
+        instance.isLoading = false;
+        instance.cleanup(); // early cleanup
+      }
+
+      // ===================================================================================
+      // Spectrogram Plugin
+
+      const spectrogramPlugin = SpectrogramPlugin.create({
+        container: instance.spectrogramContainer,
+        colorMap: computeColormap(colormap),
+        fftSamples: fftSamplesForZoom(zoomX),
+        height: BASE_SPECTRO_HEIGHT * zoomY,
+        labels: true,
+      })
+      ws.registerPlugin(spectrogramPlugin);
+
+      // ===================================================================================
+      // Resize Clickable Area to Combined Height Of Waveform + Spectrogram
+
+      const shadowHost = instance.waveformContainer.querySelector<HTMLElement>('div');
+
+      if (shadowHost?.shadowRoot) {
+        const wrapper =
+          shadowHost.shadowRoot.querySelector<HTMLElement>('.wrapper');
+        if (wrapper) {
+          wrapper.style.height = '384px';
+        }
+      }
+
+      // ===================================================================================
+      // Scroll Forwarding (For Zoom)
+
+      const handleScroll = (e: WheelEvent) => {
+        if (e.ctrlKey || e.metaKey || e.shiftKey) return;
+
+        e.preventDefault();
+        e.stopPropagation();
+
+        const dx = e.deltaX;
+        const dy = e.deltaY;
+
+        // Forward x-scroll to waveContainerWrapper and spectrogramContainer
+        if (dx !== 0) {
+          instance.waveformWrapper.scrollLeft += dx;
+          instance.spectrogramWrapper.scrollLeft += dx;
+        }
+
+        // Forward y-scroll to spectrogramContainer only
+        if (dy !== 0) {
+          instance.spectrogramWrapper.scrollTop += dy;
+        }
+      };
+      instance.container.addEventListener("wheel", handleScroll as EventListener, { passive: false });
+      instance.isLoading = false;
+
+      return instance;
+    }
+  
+    public mount() {
+      if (this.isMounted) return;
+
+      this.container.parentElement.removeChild(this.container);
+      this.container.className = `
+        ${styles.wavesurferContainer} 
+        ${styles.activeWave}
+      `;
+      stageRef.current.appendChild(this.container);
+
+      const ws = this.wavesurfer;
+
+      // ===================================================================================
+      // Timeline Plugin
+      
+      const timelineContainer = document.getElementById("wave-timeline");
+      if (!timelineContainer) {
+        console.error("Missing timeline container, abort mount");
+        return;
+      }
+
+      this.timelinePlugin = TimelinePlugin.create({
+        container: "#wave-timeline",
+        height: 20,
+      });
+      ws.registerPlugin(this.timelinePlugin);
+
+      timelineContainer.style.position = "relative";
+      timelineContainer.style.overflow = "visible";
+
+      const existingDots = timelineContainer.querySelectorAll("div[data-timeline-dot]");
+      existingDots.forEach((dot) => timelineContainer.removeChild(dot));
+
+      const dot = document.createElement("div");
+      dot.setAttribute("data-timeline-dot", "true");
+      dot.style.position = "absolute";
+      dot.style.width = "8px";
+      dot.style.height = "8px";
+      dot.style.borderRadius = "50%";
+      dot.style.backgroundColor = "black";
+      dot.style.top = "50%";
+      dot.style.transform = "translateY(-50%)";
+      dot.style.left = "0px";
+
+      timelineContainer.appendChild(dot);
+      timelineDotRef.current = dot;
+
+      ws.on("audioprocess", (currentTime) => {
+        const duration = ws.getDuration();
+        if (!duration) return;
+        const fraction = currentTime / duration;
+        const timelineWidth = timelineContainer?.offsetWidth || 0;
+        dot.style.left = fraction * timelineWidth + "px";
+      });
+      
+      const clickHandler = (event: MouseEvent) => { // for moving timeline dot when seeking (ws internally handles seek)
+        const rect = timelineContainer.getBoundingClientRect();
+        const clickX = event.clientX - rect.left + this.waveformWrapper.scrollLeft;
+        const fraction = clickX / this.waveformWrapper.scrollWidth;
+        
+        const timelineWidth = timelineContainer?.offsetWidth || 0;
+        dot.style.left = fraction * timelineWidth + "px";
+      };
+
+      this.waveformContainer.addEventListener("click", clickHandler);
+      ws.on("destroy", () => {
+        this.waveformContainer.removeEventListener("click", clickHandler);
+      });
+      
+      // ===================================================================================
+      // Regions Plugin
+
+      this.regionsPlugin = (RegionsPlugin as any).create({
+        name: "regions",
+        regions: [],
+        drag: true,
+        resize: true,
+        color: "rgba(0, 255, 0, 0.3)",
+        dragSelection: true,
+      }) as RegionsPlugin;
+      ws.registerPlugin(this.regionsPlugin);
+
+      activeRegionRef.current = null;
+      this.regionsPlugin.enableDragSelection({ color: "rgba(0,255,0,0.3)" }, 3);
+
+      const redraw = (region) => {
+        const waveHeight = this.waveformContainer.offsetHeight;
+        const spectroHeight = this.spectrogramContainer.offsetHeight;
+        region.element.style.position = "absolute";
+        region.element.style.top = "0px";
+        region.element.style.height = `${waveHeight + spectroHeight}px`;
+        region.element.style.zIndex = "99";
+      };
+
+      let createdInitialRegions = false;
+      const selectRegion = (region) => {
+        if (!createdInitialRegions || !region) return;
+
+        const activeRegion = activeRegionRef.current;
+
+        if (activeRegion === region) {
+          // Deselect the region
+          region.setOptions({ color: "rgba(0,255,0,0.3)" });
+          region.data = { ...region.data, loop: false };
+          activeRegionRef.current = null;
+        } else {
+          // Reset previously active region
+          if (activeRegion) {
+            activeRegion.setOptions({ color: "rgba(0,255,0,0.3)" });
+            activeRegion.data = { ...activeRegion.data, loop: false };
+          }
+          // Select new region
+          region.setOptions({ color: "rgba(255,0,0,0.3)" });
+          region.data = { ...region.data, loop: true };
+          activeRegionRef.current = region;
+        }
+      };
+
+      this.regionsPlugin.on("region-created", (region: any) => {
+        //redraw(region);
+        selectRegion(region);
+        regionListRef.current.push(region);
+        setTimeout(() => {
+          redraw(region);
+        }, 50);
+      });
+
+      this.regionsPlugin.on("region-removed", (region: any) => {
+        selectRegion(null);
+        if (region.id.startsWith("imported-")) {
+          const id = Number.parseInt(region.id.split("imported-")[1]);
+          removeList.push(id);
+        }
+      });
+
+      this.regionsPlugin.on("region-updated", (region: any) => {
+        redraw(region);
+        selectRegion(region);
+      });
+
+      this.regionsPlugin.on("region-clicked", (region: any) => {
+        selectRegion(region);
+      });
+
+      this.regionsPlugin.on("region-out", (region: any) => {
+        if (playing && region.data?.loop) {
+          region.play();
+        }
+      });
+
+      this.regionsPlugin.on("region-double-clicked", (region: any) => {
+        assignSpecies(region, speciesMap[selectedSpeciesIdRef.current]);
+
+        const rect = region.element.getBoundingClientRect();
+        setSpeciesDropdownState({
+          region,
+          top: rect.top + window.scrollY,
+          left: rect.left + window.scrollX,
+        });
+      });
+
+      this.entry.regions.forEach((r) => {
+        this.regionsPlugin.addRegion({
+          start: r.starttime,
+          end: r.endtime,
+          color: "rgba(0, 255, 0, 0.3)",
+          id: "imported-" + r.regionId,
+        });
+      })
+      createdInitialRegions = true;
+
+      ws.on("finish", () => {
+        setPlaying(false);
+      });
+
+      this.isMounted = true;
+    }
+
+    public unmount() {
+      if (!this.isMounted) return;
+
+      try {
+        this.wavesurfer.unAll();
+
+        this.regionsPlugin.unAll();
+        this.regionsPlugin.destroy();
+        this.regionsPlugin = null;
+
+        this.timelinePlugin.unAll();
+        this.timelinePlugin.destroy();
+        this.timelinePlugin = null;
+
+        const timelineContainer = document.getElementById("wave-timeline");
+        if (timelineContainer && timelineDotRef.current) {
+          try {
+            timelineContainer.removeChild(timelineDotRef.current);
+          } catch (e) {
+            // Dot might already be removed
+          }
+          timelineDotRef.current = null;
+        }
+
+        this.isMounted = false;
+      } catch (e) {
+        console.warn("Error destroying plugins:", e);
+      }
+
+      const container = this.container;
+      //if (container.parentElement) {
+        container.parentElement.removeChild(container);
+      //}
+      container.className = `
+        ${styles.wavesurferContainer} 
+        ${styles.prefetchWave}
+      `;
+      
+      document.body.appendChild(container);
+    }
+
+    public cleanup() {
+      this.toBeCleanedUp = true;
+      if (this.isLoading) return; // should never happen
+      if (this.isMounted) { // can happen
+        this.unmount();
+      }
+
+      try {
+        this.wavesurfer.destroy();
+
+        if (timelineDotRef.current) {
+          const timelineContainer = document.getElementById("wave-timeline");
+          if (timelineContainer) {
+            try {
+              timelineContainer.removeChild(timelineDotRef.current);
+            } catch (e) {
+              // Dot might already be removed
+            }
+          }
+          timelineDotRef.current = null;
+        }
+      } catch (e) {
+        console.warn("Error destroying wavesurfer:", e);
+      }
+      
+      URL.revokeObjectURL(this.audioURL);
+
+      this.container.remove();
+      delete instances.current[this.id]; // handles removing from instances array for us
+    }
+  }
   const instances = useRef<Record<string, WavesurferInstance>>({})
   const idsToPreload = entries.slice(Math.max(0, index-1), Math.min(entries.length, index+2)).map(entry => entry.id);
-  const currentEntryId = entries[index]?.id ?? null;
+  const currentId = entries[index]?.id ?? null;
+  const currentEntry = entries[index];
+  const currentInstance = currentId ? instances.current[currentId] : null;
 
   const stageRef = useRef<HTMLElement>()
   useEffect(() => {
@@ -146,441 +542,9 @@ const AudioPlayer: React.FC = () => {
     return 256;
   };
 
-  const cleanupWavesurfer = (key = currentEntryId) => {
-    const instance = instances.current[key];
-    if (!instance) {
-      return;
-    }
-
-    const waveEntry = entries.find((entry) => (entry.id == key));
-    if (waveEntry) {
-      if (waveEntry.isMounted) {
-        unmountWavesurfer(key);
-      }
-      waveEntry.isMounted = false;
-    }
-
-    const ws = instance.wavesurfer;
-    if (ws) {
-      try {
-        ws.destroy();
-
-        if (key === currentEntryId && timelineDotRef.current) {
-          const timelineContainer = document.getElementById("wave-timeline");
-          if (timelineContainer) {
-            try {
-              timelineContainer.removeChild(timelineDotRef.current);
-            } catch (e) {
-              // Dot might already be removed
-            }
-          }
-          timelineDotRef.current = null;
-        }
-
-      } catch (e) {
-        console.warn("Error destroying wavesurfer:", e);
-      }
-    }
-
-    const audioURL = instance.audioURL;
-    if (audioURL) {
-      URL.revokeObjectURL(audioURL);
-    }
-
-    const container = instance.preloadedContainer;
-    if (container && container.parentElement === document.body) {
-      container.remove();
-    }
-    delete instances.current[key];
-  }
-  const cleanupAll = () => {
-    Object.entries(instances.current).forEach(async ([key, url]) => {
-      cleanupWavesurfer(key);
-    })
-  }
-
-  const mountWavesurfer = async (key: string) => {
-    const waveEntry = entries.find((entry) => (entry.id == key));
-    const instance = instances.current[key];
-    const ws = instance?.wavesurfer;
-
-    const wavesurferContainer = instance?.preloadedContainer;
-    const waveformContainer = document.querySelector<HTMLElement>(`#${waveEntry.id}`);
-    const spectrogramContainer = document.querySelector<HTMLElement>(`#${waveEntry.spectrogramId}`);
-    const waveformWrapper = waveformContainer?.parentElement;
-    const spectrogramWrapper = spectrogramContainer?.parentElement;
-    const timelineContainer = document.getElementById("wave-timeline");
-
-    if (!instance || !wavesurferContainer || !ws || !waveEntry || !waveformContainer || !timelineContainer || !waveformWrapper || !spectrogramWrapper || !timelineContainer) {
-      console.error("Missing instance or HTML element: ", instance,wavesurferContainer,ws,waveEntry,waveformContainer,timelineContainer,waveformWrapper,spectrogramWrapper);
-      return;
-    }
-
-    wavesurferContainer.parentElement.removeChild(wavesurferContainer);
-
-    wavesurferContainer.className = `
-      ${styles.wavesurferContainer} 
-      ${styles.activeWave}
-    `;
-  
-    stageRef.current.appendChild(wavesurferContainer);
-
-    if (waveEntry.isMounted) {
-      return;
-    }
-
-    // ===================================================================================
-    // Timeline Plugin
-
-    instance.timelinePlugin = TimelinePlugin.create({
-      container: "#wave-timeline",
-      height: 20,
-    });
-    ws.registerPlugin(instance.timelinePlugin);
-
-    timelineContainer.style.position = "relative";
-    timelineContainer.style.overflow = "visible";
-
-    const existingDots = timelineContainer.querySelectorAll(
-      "div[data-timeline-dot]",
-    );
-    existingDots.forEach((dot) => timelineContainer.removeChild(dot));
-
-    const dot = document.createElement("div");
-    dot.setAttribute("data-timeline-dot", "true");
-    dot.style.position = "absolute";
-    dot.style.width = "8px";
-    dot.style.height = "8px";
-    dot.style.borderRadius = "50%";
-    dot.style.backgroundColor = "black";
-    dot.style.top = "50%";
-    dot.style.transform = "translateY(-50%)";
-    dot.style.left = "0px";
-
-    timelineContainer.appendChild(dot);
-    timelineDotRef.current = dot;
-
-    ws.on("audioprocess", (currentTime) => {
-      const duration = ws.getDuration();
-      if (!duration) return;
-      const fraction = currentTime / duration;
-      const timelineWidth = timelineContainer?.offsetWidth || 0;
-      dot.style.left = fraction * timelineWidth + "px";
-    });
-    
-    const clickHandler = (event: MouseEvent) => { // for moving timeline dot when seeking (ws internally handles seek)
-      const rect = timelineContainer.getBoundingClientRect();
-      const clickX = event.clientX - rect.left + waveformWrapper.scrollLeft;
-      const fraction = clickX / waveformWrapper.scrollWidth;
-      
-      const timelineWidth = timelineContainer?.offsetWidth || 0;
-      dot.style.left = fraction * timelineWidth + "px";
-    };
-
-    waveformContainer.addEventListener("click", clickHandler);
-    ws.on("destroy", () => {
-      waveformContainer.removeEventListener("click", clickHandler);
-    });
-    
-    // ===================================================================================
-    // Regions Plugin
-
-    instance.regionsPlugin = (RegionsPlugin as any).create({
-      name: "regions",
-      regions: [],
-      drag: true,
-      resize: true,
-      color: "rgba(0, 255, 0, 0.3)",
-      dragSelection: true,
-    }) as RegionsPlugin;
-    ws.registerPlugin(instance.regionsPlugin);
-
-    activeRegionRef.current = null;
-    instance.regionsPlugin.enableDragSelection({ color: "rgba(0,255,0,0.3)" }, 3);
-
-    const redraw = (region) => {
-      const waveEl = document.getElementById(waveEntry.id);
-      const spectroEl = document.getElementById(waveEntry.spectrogramId);
-      const wavesurferContainer = waveEl?.parentElement;
-      if (!waveEl || !spectroEl || !wavesurferContainer) return;
-
-      const waveHeight = waveEl.offsetHeight;
-      const spectroHeight = spectroEl.offsetHeight;
-      region.element.style.position = "absolute";
-      region.element.style.top = "0px";
-      region.element.style.height = `${waveHeight + spectroHeight}px`;
-      region.element.style.zIndex = "99";
-    };
-
-    let createdInitialRegions = false;
-    const selectRegion = (region) => {
-      if (!createdInitialRegions || !region) return;
-
-      const activeRegion = activeRegionRef.current;
-
-      if (activeRegion === region) {
-        // Deselect the region
-        region.setOptions({ color: "rgba(0,255,0,0.3)" });
-        region.data = { ...region.data, loop: false };
-        activeRegionRef.current = null;
-      } else {
-        // Reset previously active region
-        if (activeRegion) {
-          activeRegion.setOptions({ color: "rgba(0,255,0,0.3)" });
-          activeRegion.data = { ...activeRegion.data, loop: false };
-        }
-
-        // Select new region
-        region.setOptions({ color: "rgba(255,0,0,0.3)" });
-        region.data = { ...region.data, loop: true };
-        activeRegionRef.current = region;
-      }
-    };
-
-
-    instance.regionsPlugin.on("region-created", (region: any) => {
-      //redraw(region);
-      selectRegion(region);
-      regionListRef.current.push(region);
-      setTimeout(() => {
-        redraw(region);
-      }, 50);
-    });
-
-    instance.regionsPlugin.on("region-removed", (region: any) => {
-      selectRegion(null);
-      if (region.id.startsWith("imported-")) {
-        const id = Number.parseInt(region.id.split("imported-")[1]);
-        removeList.push(id);
-      }
-    });
-
-    instance.regionsPlugin.on("region-updated", (region: any) => {
-      redraw(region);
-      selectRegion(region);
-    });
-
-    instance.regionsPlugin.on("region-clicked", (region: any) => {
-      selectRegion(region);
-    });
-
-    instance.regionsPlugin.on("region-out", (region: any) => {
-      if (playing && region.data?.loop) {
-        region.play();
-      }
-    });
-
-    instance.regionsPlugin.on("region-double-clicked", (region: any) => {
-      assignSpecies(region, speciesMap[selectedSpeciesIdRef.current]);
-
-      const rect = region.element.getBoundingClientRect();
-      setSpeciesDropdownState({
-        region,
-        top: rect.top + window.scrollY,
-        left: rect.left + window.scrollX,
-      });
-    });
-    
-    waveEntry.regions.forEach((r) => {
-      instance.regionsPlugin.addRegion({
-        start: r.starttime,
-        end: r.endtime,
-        color: "rgba(0, 255, 0, 0.3)",
-        id: "imported-" + r.regionId,
-      });
-    })
-    createdInitialRegions = true;
-
-    ws.on("finish", () => {
-      setPlaying(false);
-    });
-
-    waveEntry.isMounted = true;
-  }
-
-  const unmountWavesurfer = (key: string) => {
-    const waveEntry = entries.find((entry) => (entry.id == key));
-    const instance = instances.current[key];
-
-    if (!instance) {
-      return; 
-    }
-
-    const ws = instance.wavesurfer;
-    const wavesurferContainer = instance.preloadedContainer;
-
-    if (ws && waveEntry?.isMounted) {
-      try {
-        ws.unAll();
-
-        instance.regionsPlugin.unAll();
-        instance.regionsPlugin.destroy();
-        delete instance.regionsPlugin;
-
-        instance.timelinePlugin.unAll();
-        instance.timelinePlugin.destroy();
-        delete instance.timelinePlugin;
-
-        const timelineContainer = document.getElementById("wave-timeline");
-        if (timelineContainer && timelineDotRef.current) {
-          try {
-            timelineContainer.removeChild(timelineDotRef.current);
-          } catch (e) {
-            // Dot might already be removed
-          }
-          timelineDotRef.current = null;
-        }
-
-        waveEntry.isMounted = false;
-      } catch (e) {
-        console.warn("Error destroying plugins:", e);
-      }
-    }
-
-    if (wavesurferContainer.parentElement) {
-      wavesurferContainer.parentElement.removeChild(wavesurferContainer);
-    }
-
-    wavesurferContainer.className = `
-      ${styles.wavesurferContainer} 
-      ${styles.prefetchWave}
-    `;
-    
-    document.body.appendChild(wavesurferContainer);
-  };
-
-  const createWavesurfer = async (key: string) => {
-    const waveEntry = entries.find((entry) => (entry.id == key));
-
-    if (
-      !waveEntry ||
-      waveEntry.isCreating ||
-      instances.current[key]
-    ) {
-      return;
-    }
-
-    waveEntry.isCreating = true;
-    waveEntry.isMounted = false;
-
-    const wavesurferContainer = document.createElement('div');
-    wavesurferContainer.className = `
-      ${styles.wavesurferContainer} 
-      ${styles.prefetchWave}
-    `;
-
-    // ===================================================================================
-    // Setup DOM Nodes
-
-    // waveform
-    const waveformWrapper = document.createElement("div");
-    waveformWrapper.classList.add(styles.waveContainerWrapper);
-    wavesurferContainer.appendChild(waveformWrapper);
-
-    const waveformContainer = document.createElement("div");
-    waveformContainer.id = waveEntry.id;
-    waveformContainer.classList.add(styles.waveContainer);
-    waveformWrapper.appendChild(waveformContainer);
-
-    // spectrogram
-    const spectrogramWrapper = document.createElement("div");
-    spectrogramWrapper.classList.add(styles.spectrogramContainerWrapper);
-    wavesurferContainer.appendChild(spectrogramWrapper);
-
-    const spectrogramContainer = document.createElement("div");
-    spectrogramContainer.id = waveEntry.spectrogramId;
-    spectrogramContainer.classList.add(styles.spectrogramContainer);
-    spectrogramWrapper.appendChild(spectrogramContainer);
-
-    document.body.appendChild(wavesurferContainer);
-
-    // ===================================================================================
-    // Wavesurfer
-
-    const ws = WaveSurfer.create({
-      container: `#${waveEntry.id}`,
-      waveColor: "violet",
-      progressColor: "purple",
-      sampleRate: parseInt(sampleRate),
-      height: 128,
-    });
-    
-    const audioFile = await window.ipc.invoke('read-file-for-verification', waveEntry.recording.url);
-    const audioURL = URL.createObjectURL(new Blob([audioFile.data]));
-
-    await ws.load(audioURL); 
-    
-    ws.setPlaybackRate(playbackRate, false);
-
-    // ===================================================================================
-    // Spectrogram Plugin
-
-    const spectrogramPlugin = SpectrogramPlugin.create({
-      container: `#${waveEntry.spectrogramId}`,
-      colorMap: computeColormap(colormap),
-      fftSamples: fftSamplesForZoom(zoomX),
-      height: BASE_SPECTRO_HEIGHT * zoomY,
-      labels: true,
-    })
-    ws.registerPlugin(spectrogramPlugin);
-
-    // ===================================================================================
-    // Resize Clickable Area to Combined Height Of Waveform + Spectrogram
-
-    const shadowHost = waveformContainer.querySelector<HTMLElement>('div');
-
-    if (shadowHost?.shadowRoot) {
-      const wrapper =
-        shadowHost.shadowRoot.querySelector<HTMLElement>('.wrapper');
-      if (wrapper) {
-        wrapper.style.height = '384px';
-      }
-    }
-
-    // ===================================================================================
-    // Scroll Forwarding (For Zoom)
-
-    const handleScroll = (e: WheelEvent) => {
-      if (e.ctrlKey || e.metaKey || e.shiftKey) return;
-
-      e.preventDefault();
-      e.stopPropagation();
-
-      const dx = e.deltaX;
-      const dy = e.deltaY;
-
-      // Forward x-scroll to waveContainerWrapper and spectrogramContainer
-      if (dx !== 0) {
-        if (waveformWrapper) waveformWrapper.scrollLeft += dx;
-        if (spectrogramWrapper) spectrogramWrapper.scrollLeft += dx;
-      }
-
-      // Forward y-scroll to spectrogramContainer only
-      if (dy !== 0 && spectrogramWrapper) {
-        spectrogramWrapper.scrollTop += dy;
-      }
-    };
-
-    wavesurferContainer.addEventListener("wheel", handleScroll as EventListener, { passive: false });
-
-    // ===================================================================================
-    // Finalize
-
-    waveEntry.isCreating = false;
-
-    instances.current[key] = {
-      audioURL: audioURL,
-      wavesurfer: ws,
-      preloadedContainer: wavesurferContainer,
-      spectrogramPlugin: spectrogramPlugin,
-    }
-  }
-
   // Unmount, create, and mount on page update or entries update
   useEffect(() => {
-    if (!showSpec || !entries[index]) {
-      return;
-    }
+    if (!showSpec || !currentEntry) return;
     if (entries.length === 0) {
       setShowSpec(false);
       setIndex(0);
@@ -588,85 +552,73 @@ const AudioPlayer: React.FC = () => {
       return;
     }
 
-    Object.entries(instances.current).forEach(([key, container]) => {
+    // cleanup
+    Object.entries(instances.current).forEach(([key, instance]) => {
       if (!idsToPreload.includes(key)) { 
-        cleanupWavesurfer(key)
+        instance.cleanup();
       }
     });
 
-    async function handleMounting() {
-      if (index + 1 < entries.length) {
-        createWavesurfer(entries[index+1].id);
-      }
-      await createWavesurfer(entries[index].id);
-      await mountWavesurfer(currentEntryId);
+    // optional preload
+    if (index + 1 < entries.length && !instances.current[entries[index+1].id]) {
+      WavesurferInstance.create(entries[index+1]);
     }
 
-    handleMounting();
+    (async () => {
+      let instance;
+      if (!instances.current[currentId]) { // create new
+        instance = await WavesurferInstance.create(currentEntry);
+      } else { // get existing one
+        instance = instances.current[currentId];
+      }
+      instance.mount();
+    })();
 
     return () => {
-      unmountWavesurfer(currentEntryId);
+      instances.current[currentId].unmount();
     }
-  }, 
-  [
-    showSpec,
-    index,
-    entries,
-  ]);
+  }, [index, entries]);
 
   // Cleanup everything on component unmount
   useEffect(() => {
     return () => {
-      cleanupAll();
+      Object.entries(instances.current).forEach(([key, instance]) => {
+        instance.cleanup();
+      });
     };
   }, []);
 
-  // Rerenders spectrograms on colormap change
-	useEffect(() => {
-		instances.current && Object.entries(instances.current).forEach(async ([key, instance]) => {
-			const waveEntry = entries.find((entry) => (entry.id == key));
-			if (!waveEntry) cleanupWavesurfer(key);
-			if (!instance.spectrogramPlugin) return;
-
-			(instance.spectrogramPlugin as any).colorMap = computeColormap(colormap);
-      (instance.spectrogramPlugin as any).fftSamples = fftSamplesForZoom(zoomX);
-			(instance.spectrogramPlugin as any).render();
-		});
-	}, [colormap]);
-
-  // Update zoom on changes - resize divs directly (no CSS transform)
+  // Update zoom on changes - resize divs directly
   useEffect(() => {
-    const instance = instances.current[currentEntryId];
+    const instance = instances.current[currentId];
     if (!instance) return;
 
-    const hiddenContainer = instance.preloadedContainer;
-    if (!hiddenContainer) return;
-
-    const waveContainer = hiddenContainer.querySelector<HTMLElement>('[class*="waveContainerWrapper"]').querySelector<HTMLElement>('[class*="waveContainer"]');
-    const spectroContainer = hiddenContainer.querySelector<HTMLElement>('[class*="spectrogramContainerWrapper"]').querySelector<HTMLElement>('[class*="spectrogramContainer"]');
+    const hiddenContainer = instance.container;
+    const waveformContainer = instance.waveformContainer;
+    const spectrogramContainer = instance.spectrogramContainer;
 
     // Base width is the visible stage width; zooming expands beyond it (stage scrolls)
     const stageEl = document.getElementById("stage");
     const baseWidth = stageEl ? stageEl.clientWidth : hiddenContainer.offsetWidth;
 
-    if (waveContainer) {
-      waveContainer.style.transform = '';
-      waveContainer.style.transformOrigin = '';
-      waveContainer.style.width = `${baseWidth * zoomX}px`;
+    if (waveformContainer) {
+      waveformContainer.style.transform = '';
+      waveformContainer.style.transformOrigin = '';
+      waveformContainer.style.width = `${baseWidth * zoomX}px`;
     }
 
-    if (spectroContainer) {
-      spectroContainer.style.transform = '';
-      spectroContainer.style.transformOrigin = '';
-      spectroContainer.style.width = `${baseWidth * zoomX}px`;
-      spectroContainer.style.height = `${BASE_SPECTRO_HEIGHT * zoomY}px`;
+    if (spectrogramContainer) {
+      spectrogramContainer.style.transform = '';
+      spectrogramContainer.style.transformOrigin = '';
+      spectrogramContainer.style.width = `${baseWidth * zoomX}px`;
+      spectrogramContainer.style.height = `${BASE_SPECTRO_HEIGHT * zoomY}px`;
     }
 
     if (instance.spectrogramPlugin) {
       (instance.spectrogramPlugin as any).height = BASE_SPECTRO_HEIGHT * zoomY;
       (instance.spectrogramPlugin as any).render();
     }
-  }, [zoomX, zoomY, currentEntryId]);
+  }, [zoomX, zoomY, currentId]);
 
   // =====================================================================================================
   // Zoom Button Handlers
@@ -713,8 +665,9 @@ const AudioPlayer: React.FC = () => {
   };
 
   const clickPlay = useCallback(async () => {
-    const wsInstance = instances.current[currentEntryId].wavesurfer;
-    if (wsInstance && activeRegionRef.current) {
+    if (!currentInstance) return;
+    const wsInstance = currentInstance.wavesurfer;
+    if (activeRegionRef.current) {
       activeRegionRef.current.play();
     } else if (wsInstance) {
       wsInstance.playPause();
@@ -723,10 +676,9 @@ const AudioPlayer: React.FC = () => {
   }, [entries, index]);
 
   const clickPause = useCallback(async () => {
-    const wsInstance = instances.current[currentEntryId].wavesurfer;
-    if (wsInstance) {
-      wsInstance.playPause();
-    }
+    if (!currentInstance) return;
+    const wsInstance = currentInstance.wavesurfer;
+    wsInstance.playPause();
     setPlaying(false);
   }, [entries, index]);
 
@@ -735,9 +687,7 @@ const AudioPlayer: React.FC = () => {
     setConfidence(maxConfidence);
     setYesDisabled(true);
 
-    const ws = instances.current[currentEntryId].wavesurfer;
-    if (!ws) return;
-
+    const ws = currentInstance.wavesurfer;
     const regionPlugin = (ws as any).plugins[1];
     const allRegions = regionPlugin?.wavesurfer?.plugins[2]?.regions;
 
@@ -765,7 +715,7 @@ const AudioPlayer: React.FC = () => {
           regionId = id;
         } else {
           const newRegion = await window.api.createRegionOfInterest(
-            entries[index].recording.recordingId,
+            currentEntry.recording.recordingId,
             region.start,
             region.end,
           );
@@ -781,7 +731,7 @@ const AudioPlayer: React.FC = () => {
           const labelerId = await window.api.getOrCreateLabeler(username, email);
           console.log("creating new annotations");
           await window.api.createAnnotation(
-            entries[index].recording.recordingId,
+            currentEntry.recording.recordingId,
             labelerId,
             regionId,
             species.speciesId,
@@ -798,10 +748,10 @@ const AudioPlayer: React.FC = () => {
     if (index === 0) {
       if (entries.length === 1) {
         setShowSpec(false);
-        await cleanupWavesurfer();
+        await currentInstance.cleanup();
         setEntries([]);
       } else {
-        await cleanupWavesurfer();
+        await currentInstance.cleanup();
         setEntries((arr) => arr.slice(1));
         setIndex(0);
       }
@@ -809,7 +759,7 @@ const AudioPlayer: React.FC = () => {
       return;
     }
 
-    await cleanupWavesurfer();
+    await currentInstance.cleanup();
     setEntries((arr) => arr.filter((_, i) => i !== index));
     if (entries.length - 1 >= index) setIndex((i) => i - 1);
     setTimeout(() => setYesDisabled(false), 500);
@@ -822,7 +772,7 @@ const AudioPlayer: React.FC = () => {
     setNoDisabled(true);
     setConfidence(maxConfidence);
     if (index == 0) {
-      await cleanupWavesurfer();
+      await currentInstance.cleanup();
       
       if (entries.length === 1) {
         setShowSpec(false);
@@ -835,7 +785,7 @@ const AudioPlayer: React.FC = () => {
       }, 500);
       return;
     }
-    await cleanupWavesurfer();
+    await currentInstance.cleanup();
     setEntries((wavesurfers) => wavesurfers.filter((_, i) => i !== index));
 
     if (entries.length == 0) {
@@ -853,7 +803,9 @@ const AudioPlayer: React.FC = () => {
   const importFromDB = async (recordings, skippedCount = 0) => {
     console.log("recordings:", recordings);
 
-    await cleanupAll();
+    Object.entries(instances.current).forEach(([key, instance]) => {
+      instance.cleanup();
+    });
 
     if (!Array.isArray(recordings)) {
       console.error("Expected recordings to be an array, got:", recordings);
@@ -877,13 +829,11 @@ const AudioPlayer: React.FC = () => {
         const regions = await window.api.listRegionOfInterestByRecordingId(
           rec.recordingId,
         );
-        const containerId = `waveform-${i}`;
-        const spectrogramId = `spectrogram-${i}`;
+
         return {
           recording: rec,
           regions: regions || [],
-          id: containerId,
-          spectrogramId: spectrogramId,
+          id: String(i),
           class: "spectrogramContainer" as const,
           isCreating: false,
           isMounted: false,
@@ -962,7 +912,7 @@ const AudioPlayer: React.FC = () => {
   // Regions & Species 
   
   const deleteActiveRegion = async () => {
-    const ws = instances.current[currentEntryId];
+    const ws = instances.current[currentId];
     if (!ws || !activeRegionRef.current) return;
 
     activeRegionRef.current.remove();
@@ -970,7 +920,7 @@ const AudioPlayer: React.FC = () => {
   };
 
   const clearAllRegions = () => {
-    const ws = instances.current[currentEntryId];
+    const ws = instances.current[currentId];
     if (!ws) return;
 
     const regionPlugin = (ws as any).plugins[1];
@@ -986,7 +936,7 @@ const AudioPlayer: React.FC = () => {
   };
 
   const undoLastRegion = () => {
-    if (!instances.current[currentEntryId]) return;
+    if (!instances.current[currentId]) return;
     if (regionListRef.current.length === 0) return;
 
     const lastRegion = regionListRef.current.pop();
@@ -1060,7 +1010,7 @@ const AudioPlayer: React.FC = () => {
                 <div className={styles.audioInfo}>
                   <p>
                     File {index + 1} of {entries.length}:{" "}
-                    {entries[index]?.recording.url}
+                    {currentEntry?.recording.url}
                   </p>
                 </div>
               )}
@@ -1216,7 +1166,7 @@ const AudioPlayer: React.FC = () => {
 								max={2}
 								logBase={2}
 								onChange={(val) => {
-									const ws = instances.current[currentEntryId]?.wavesurfer;
+									const ws = instances.current[currentId]?.wavesurfer;
 									if (ws) {
 										ws.setPlaybackRate(val, false);
 									}
