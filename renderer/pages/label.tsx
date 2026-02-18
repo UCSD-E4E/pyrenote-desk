@@ -41,9 +41,7 @@ const AudioPlayer: React.FC = () => {
     setUseAdditional(localStorage.getItem('disableAdditional') === 'false');
     setSampleRate(localStorage.getItem('sampleRate') || sampleRate);
     setMaxConfidence(Number(localStorage.getItem('confidenceRange') || maxConfidence));
-    if (confidence > Number(localStorage.getItem('confidenceRange'))) {
-      setConfidence(Number(localStorage.getItem('confidenceRange')));
-    }
+    setConfidence(Number(localStorage.getItem('confidenceRange')));
     setColormap(localStorage.getItem('labelColorScheme') as ColormapOption);
   }, []);
 
@@ -370,6 +368,8 @@ const AudioPlayer: React.FC = () => {
           region.data = { ...region.data, loop: true };
           activeRegionRef.current = region;
         }
+
+        console.log(region.data);
       };
 
       this.regionsPlugin.on("region-created", (region: any) => {
@@ -399,7 +399,7 @@ const AudioPlayer: React.FC = () => {
       });
 
       this.regionsPlugin.on("region-out", (region: any) => {
-        if (playing && region.data?.loop) {
+        if (playingRef.current && region.data?.loop) {
           region.play();
         }
       });
@@ -508,7 +508,6 @@ const AudioPlayer: React.FC = () => {
   const idsToPreload = entries.slice(Math.max(0, index-1), Math.min(entries.length, index+2)).map(entry => entry.id);
   const currentId = entries[index]?.id ?? null;
   const currentEntry = entries[index];
-  const currentInstance = currentId ? instances.current[currentId] : null;
 
   const stageRef = useRef<HTMLElement>()
   useEffect(() => {
@@ -577,7 +576,9 @@ const AudioPlayer: React.FC = () => {
     })();
 
     return () => {
-      instances.current[currentId].unmount();
+      if (instances.current[currentId]) {
+        instances.current[currentId].unmount();
+      }
     }
   }, [index, entries]);
 
@@ -667,8 +668,10 @@ const AudioPlayer: React.FC = () => {
   };
 
   const clickPlay = useCallback(async () => {
-    if (!currentInstance) return;
-    const wsInstance = currentInstance.wavesurfer;
+    const instance = instances.current[currentId];
+    if (!instance) return;
+
+    const wsInstance = instance.wavesurfer;
     if (activeRegionRef.current) {
       activeRegionRef.current.play();
     } else if (wsInstance) {
@@ -678,8 +681,10 @@ const AudioPlayer: React.FC = () => {
   }, [entries, index]);
 
   const clickPause = useCallback(async () => {
-    if (!currentInstance) return;
-    const wsInstance = currentInstance.wavesurfer;
+    const instance = instances.current[currentId];
+    if (!instance) return;
+
+    const wsInstance = instance.wavesurfer;
     wsInstance.playPause();
     setPlaying(false);
   }, [entries, index]);
@@ -689,7 +694,10 @@ const AudioPlayer: React.FC = () => {
     setConfidence(maxConfidence);
     setYesDisabled(true);
 
-    const ws = currentInstance.wavesurfer;
+    const instance = instances.current[currentId];
+    if (!instance) return;
+
+    const ws = instance.wavesurfer;
     const regionPlugin = (ws as any).plugins[1];
     const allRegions = regionPlugin?.wavesurfer?.plugins[2]?.regions;
 
@@ -750,10 +758,10 @@ const AudioPlayer: React.FC = () => {
     if (index === 0) {
       if (entries.length === 1) {
         setShowSpec(false);
-        await currentInstance.cleanup();
+        await instance.cleanup();
         setEntries([]);
       } else {
-        await currentInstance.cleanup();
+        await instance.cleanup();
         setEntries((arr) => arr.slice(1));
         setIndex(0);
       }
@@ -761,7 +769,7 @@ const AudioPlayer: React.FC = () => {
       return;
     }
 
-    await currentInstance.cleanup();
+    await instance.cleanup();
     setEntries((arr) => arr.filter((_, i) => i !== index));
     if (entries.length - 1 >= index) setIndex((i) => i - 1);
     setTimeout(() => setYesDisabled(false), 500);
@@ -773,8 +781,12 @@ const AudioPlayer: React.FC = () => {
     }
     setNoDisabled(true);
     setConfidence(maxConfidence);
+
+    const instance = instances.current[currentId];
+    if (!instance) return;
+
     if (index == 0) {
-      await currentInstance.cleanup();
+      await instance.cleanup();
       
       if (entries.length === 1) {
         setShowSpec(false);
@@ -787,7 +799,7 @@ const AudioPlayer: React.FC = () => {
       }, 500);
       return;
     }
-    await currentInstance.cleanup();
+    await instance.cleanup();
     setEntries((wavesurfers) => wavesurfers.filter((_, i) => i !== index));
 
     if (entries.length == 0) {
@@ -960,7 +972,6 @@ const AudioPlayer: React.FC = () => {
       return;
     }
 
-    console.log(region, species)
     if (!species) {
       region.data = {
         ...region.data,
