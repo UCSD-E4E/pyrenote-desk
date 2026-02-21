@@ -23,6 +23,7 @@ type SpeciesDropdownProps = {
 	onChange: (v: SingleValue<SpeciesOption>)  => void;
     onMenuOpen?: () => void;
     onMenuClose?: () => void;
+    onBlur?: () => void;
 };
 
 export function SpeciesDropdown({
@@ -33,6 +34,7 @@ export function SpeciesDropdown({
 	onChange,
     onMenuOpen,
     onMenuClose,
+    onBlur,
 }: SpeciesDropdownProps) {
 	const speciesOptions: SpeciesOption[] = Object.entries(speciesMap).map(([id, species]) => ({
 		speciesId: Number(id),
@@ -55,6 +57,7 @@ export function SpeciesDropdown({
             onKeyDown={(e) => e.stopPropagation()} // prevent global keybinds
             onMenuOpen={onMenuOpen}
             onMenuClose={onMenuClose}
+            onBlur={onBlur}
             defaultMenuIsOpen={defaultMenuIsOpen}
             filterOption={(option, rawInput) =>
                 option.label.toLowerCase().includes(rawInput.toLowerCase())
