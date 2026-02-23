@@ -25,3 +25,9 @@
   align-items: center;
   z-index: 999; 
 }
+
+.selectionToggle {
+	display: flex;
+    flex-flow: row wrap;
+    justify-content: space-around;
+}

@@ -27,6 +27,41 @@ export function SelectRecordingsButton({modalEnable, setModalEnable, importFromD
 	const [selectedSpecies, setSelectedSpecies] = useState([]);
 	const [selectedVerifications, setSelectedVerifications] = useState([]);
 
+	const clearSelections = () => {
+		setSelectedSites([]);
+		setSelectedRecorders([]);
+		setSelectedDeployments([]);
+		setSelectedSurveys([]);
+		setSelectedSpecies([]);
+		setSelectedVerifications([]);
+	}
+
+	const handleSaveSelection = () => {
+		const selection = {
+			sites: selectedSites,
+			recorders: selectedRecorders,
+			deployments: selectedDeployments,
+			surveys: selectedSurveys,
+			species: selectedSpecies,
+			verifications: selectedVerifications
+		};
+		if (Object.values(selection).length == 0) {
+			alert("No selection found!");
+		}
+		localStorage.setItem("recordingSelection", JSON.stringify(selection));
+	};
+
+	const handleLoadSelection = () => {
+		const selection = JSON.parse(localStorage.getItem("recordingSelection"));
+
+		setSelectedSites(selection.sites);
+		setSelectedRecorders(selection.recorders);
+		setSelectedDeployments(selection.deployments);
+		setSelectedSurveys(selection.surveys);
+		setSelectedSpecies(selection.species);
+		setSelectedVerifications(selection.verifications);
+	}
+
 	useEffect(() => {
 		if (!modalEnable) {
 			return null;
@@ -53,12 +88,17 @@ export function SelectRecordingsButton({modalEnable, setModalEnable, importFromD
 		<div className={styles.modalParent}>
 			<section className={styles.selectPopup}>
 				<h1>Select Recordings</h1>
+				<div className={styles.selectionToggle}>
+					<button onClick={clearSelections}>Clear Selection</button>
+					<button onClick={handleSaveSelection}>Save Selection</button>
+					<button onClick={handleLoadSelection}>Load Saved Selection</button>
+				</div>
 				<p>Filter by:</p>
 				<details>
 					<summary>Recorders</summary>
 					{recorderList.map((recorder) => (
 						<div key={recorder.recorderId}>
-							<input type="checkbox" onChange={(e) => {
+							<input type="checkbox" checked={selectedRecorders.includes(recorder.recorderId)} onChange={(e) => {
 								if (e.target.checked) {
 									setSelectedRecorders([...selectedRecorders, recorder.recorderId]);
 								} else {
@@ -74,7 +114,7 @@ export function SelectRecordingsButton({modalEnable, setModalEnable, importFromD
 					<summary>Surveys</summary>
 					{surveyList.map((survey) => (
 						<div key={survey.surveyId}>
-							<input type="checkbox" onChange={(e) => {
+							<input type="checkbox" checked={selectedSurveys.includes(survey.surveyId)} onChange={(e) => {
 								if (e.target.checked) {
 									setSelectedSurveys([...selectedSurveys, survey.surveyId]);
 								} else {
@@ -90,7 +130,7 @@ export function SelectRecordingsButton({modalEnable, setModalEnable, importFromD
 					<summary>Sites</summary>
 					{siteList.map((site) => (
 						<div key={site.siteId}>
-							<input type="checkbox" onChange={(e) => {
+							<input type="checkbox" checked={selectedSites.includes(site.siteId)} onChange={(e) => {
 								if (e.target.checked) {
 									setSelectedSites([...selectedSites, site.siteId]);
 								} else {
@@ -106,7 +146,7 @@ export function SelectRecordingsButton({modalEnable, setModalEnable, importFromD
 					<summary>Deployments</summary>
 					{deploymentList.map((deployment) => (
 						<div key={deployment.deploymentId}>
-							<input type="checkbox" onChange={(e) => {
+							<input type="checkbox" checked={selectedDeployments.includes(deployment.deploymentId)} onChange={(e) => {
 								if (e.target.checked) {
 									setSelectedDeployments([...selectedDeployments, deployment.deploymentId]);
 								} else {
@@ -122,11 +162,11 @@ export function SelectRecordingsButton({modalEnable, setModalEnable, importFromD
 					<summary>Species</summary>
 					{speciesList.map((species) => (
 						<div key={species.speciesId}>
-							<input type="checkbox" onChange={(e) => {
+							<input type="checkbox" checked={selectedSpecies.includes(species.speciesId)} onChange={(e) => {
 									if (e.target.checked) {
 										setSelectedSpecies([...selectedSpecies, species.speciesId]);
 									} else {
-										setSelectedDeployments(selectedSpecies.filter(val => val != species.speciesId));
+										setSelectedSpecies(selectedSpecies.filter(val => val != species.speciesId));
 									}
 								}}/>
 							<label>{species.common} ({species.species})</label>
@@ -137,7 +177,7 @@ export function SelectRecordingsButton({modalEnable, setModalEnable, importFromD
 					<summary>Verification</summary>
 					{verificationList.map((verification) => (
 						<div key={verification}>
-							<input type="checkbox" onChange={(e) => {
+							<input type="checkbox" checked={selectedVerifications.includes(verification)} onChange={(e) => {
 								if (e.target.checked) {
 									setSelectedVerifications([...selectedVerifications, verification]);
 								} else {
@@ -148,7 +188,6 @@ export function SelectRecordingsButton({modalEnable, setModalEnable, importFromD
 						</div>
 					))}
 				</details>
-				<br />
 				<button onClick={ async () => {
 					setModalEnable(prev => !prev);
 					const result = await window.api.listRecordingsByFilters({
