@@ -1058,8 +1058,8 @@ export default function databasePage() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((row, rowIndex) => ( 
-                <tr key={rowIndex} className="hover:bg-gray-50"> {/* better to use sql primary key as key. However, diff queries use this same generic table. Have to find a way for React to find the primary key automatically. */}
+              {rows.map((row, rowIndex) => (
+                <tr key={rowIndex} className="hover:bg-gray-50">{/* better to use sql primary key as key. However, diff queries use this same generic table. Have to find a way for React to find the primary key automatically. */}
                   {Object.values(row).map((value, colIndex) => (
                     <td key={colIndex} className="px-4 py-3 border-b border-gray-200 text-gray-700 text-sm">
                     {(() => {
