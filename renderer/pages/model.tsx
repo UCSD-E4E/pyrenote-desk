@@ -22,6 +22,14 @@ function FileUploadButton({ onClick }) {
     ></button>
   );
 }
+
+// function ModelDropdown() {
+//   return (
+//     <select name="model-names" id="model-names">
+//       <option value="acoustic-multiclass-training">acoustic-multiclass-training</option>
+//     </select>
+//   );
+// }
 //Cancel Button appears while model is running, replacing file select button
 // function CancelButton({ onClick }) {
 //   return (
@@ -136,13 +144,13 @@ export default function ModelPage() {
       console.error("Inference error:", err);
       alert("Inference failed. Check logs.");
       // optional: revert to original UI on failure
-      setIsButtonVisible(true);
       setOrigionalImageVisible(true);
       setOrigionalTextVisible(true);
       setSuccessTextVisible(false);
     } finally {
       setLoadingTextVisible(false);
       stopImageRotation();
+      setIsButtonVisible(true);
     }
   }
 

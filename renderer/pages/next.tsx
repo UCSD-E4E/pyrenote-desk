@@ -19,6 +19,7 @@ export default function databasePage() {
   const [recording, setRecording] = useState(false);
   const [speciesPage, setSpeciesPage] = useState(false);
   const [databases, setDatabases] = useState(false);
+  const [modelPage, setModelPage] = useState(false);
 
   const [analyticsPage, setAnalyticsPage] = useState(false);
   const [rows, setRows] = useState<any[]>([]);
@@ -70,6 +71,7 @@ export default function databasePage() {
     setSpeciesPage(false);
     setDatabases(false);
     setAnalyticsPage(false);
+    setModelPage(false);
   }
 
   function toSpeciesForm() {
@@ -112,6 +114,11 @@ export default function databasePage() {
     setAnalyticsPage(true);
   }
 
+  function toModelForm() {
+    setEntry(false);
+    setModelPage(true);
+  }
+
   function EntryHomepage() {
     if (!entry) {
       return null;
@@ -130,6 +137,7 @@ export default function databasePage() {
           <button onClick={toDeploymentForm}>Add Deployment</button>
           <button onClick={toRecordingForm}>Add Recordings</button>
           <button onClick={toSpeciesForm}>Add Species</button>
+          <button onClick={toModelForm}>Add Model</button>
         </div>
         
       </div>
@@ -781,7 +789,7 @@ export default function databasePage() {
     const [newDatabaseName, setNewDatabaseName] = useState('');
     const [editingDatabase, setEditingDatabase] = useState(null);
     const [editDatabaseName, setEditDatabaseName] = useState('');
-    const [selectedDatabase, setSelectedDatabase] = useState(localStorage.getItem('databasePath') || './pyrenoteDeskDatabase.db');
+    const [selectedDatabase, setSelectedDatabase] = useState(localStorage.getItem('databasePath') || './databases/pyrenoteDeskDatabase.db');
 
     useEffect(() => {
       loadDatabases();
@@ -1079,6 +1087,69 @@ export default function databasePage() {
     );
   }
 
+  function ModelPage() {
+    if (!modelPage) {
+      return null;
+    }
+
+    const [loading, setLoading] = useState(false);
+    const [modelName, setModelName] = useState('');
+    const [modelType, setModelType] = useState('');
+    const [modelURL, setModelURL] = useState('');
+
+    const handleSubmit = async (e: React.FormEvent) => {
+      e.preventDefault();
+      setLoading(true);
+      if (!modelName|| !modelURL) {
+        alert('Please fill in model name and filepath.');
+        return;
+      }
+      try {
+        await window.ipc.invoke('createModel', {
+          name: modelName,
+          type: modelType,
+          url: modelURL
+        });
+        alert('Model inserted!');
+        setModelName('');
+        setModelType('');
+        setModelURL('');
+      } catch (err) {
+        alert('Failed to create model: ' + (err?.message || err));
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    return (
+      <div className={styles.magnus}>
+        <h1>Add Model</h1>
+        <form onSubmit={handleSubmit}>
+          <label>Model Name: </label>
+          <input type="text" value={modelName} onChange={(e) => setModelName(e.target.value)} />
+          <label>Model Type: </label>
+          <input type="text" value={modelType} onChange={(e) => setModelType(e.target.value)} />
+          <label>Model file: </label>
+          <div>
+            <button
+              type="button"
+              onClick={async () => {
+                const path = await window.ipc.invoke("pick-model-file");
+                if (path) setModelURL(path);
+              }}
+            >
+              Select model file
+            </button>
+            {modelURL && <span style={{ marginLeft: 8 }}>{modelURL}</span>}
+          </div>
+
+          <button type="submit" disabled={loading}>Submit</button>
+          <button type="button" onClick={toEntryForm}>Cancel</button>
+        </form>
+      </div>
+    );
+  }
+
   return (
     <React.Fragment>
       <Head>
@@ -1096,6 +1167,7 @@ export default function databasePage() {
           <DeploymentEntryPage />
           <RecordingEntryPage />
           <SpeciesEntryPage />
+          <ModelPage />
         </div>
       </div>
 
