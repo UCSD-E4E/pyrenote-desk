@@ -26,14 +26,16 @@ export function SelectRecordingsButton({modalEnable, setModalEnable, importFromD
 	const [selectedSurveys, setSelectedSurveys] = useState([]);
 	const [selectedSpecies, setSelectedSpecies] = useState([]);
 	const [selectedVerifications, setSelectedVerifications] = useState([]);
+	const [unlinkedRecordings, setUnlinkedRecordings] = useState(['unlinked']);
 
-	const clearSelections = () => {
+	const clearSelection = () => {
 		setSelectedSites([]);
 		setSelectedRecorders([]);
 		setSelectedDeployments([]);
 		setSelectedSurveys([]);
 		setSelectedSpecies([]);
 		setSelectedVerifications([]);
+		setUnlinkedRecordings([]);
 	}
 
 	const handleSaveSelection = () => {
@@ -43,23 +45,22 @@ export function SelectRecordingsButton({modalEnable, setModalEnable, importFromD
 			deployments: selectedDeployments,
 			surveys: selectedSurveys,
 			species: selectedSpecies,
-			verifications: selectedVerifications
+			verifications: selectedVerifications,
+			unlinkedRecordings: unlinkedRecordings
 		};
-		if (Object.values(selection).length == 0) {
-			alert("No selection found!");
-		}
+
 		localStorage.setItem("recordingSelection", JSON.stringify(selection));
 	};
 
 	const handleLoadSelection = () => {
 		const selection = JSON.parse(localStorage.getItem("recordingSelection"));
-
 		setSelectedSites(selection.sites);
 		setSelectedRecorders(selection.recorders);
 		setSelectedDeployments(selection.deployments);
 		setSelectedSurveys(selection.surveys);
 		setSelectedSpecies(selection.species);
 		setSelectedVerifications(selection.verifications);
+		setUnlinkedRecordings(selection.unlinkedRecordings);
 	}
 
 	useEffect(() => {
@@ -88,12 +89,17 @@ export function SelectRecordingsButton({modalEnable, setModalEnable, importFromD
 		<div className={styles.modalParent}>
 			<section className={styles.selectPopup}>
 				<h1>Select Recordings</h1>
-				<div className={styles.selectionToggle}>
-					<button onClick={clearSelections}>Clear Selection</button>
-					<button onClick={handleSaveSelection}>Save Selection</button>
-					<button onClick={handleLoadSelection}>Load Saved Selection</button>
+				<p>Filters:</p>
+				<div>
+					<input type="checkbox" checked={unlinkedRecordings.length === 1} onChange={(e) => {
+							if (e.target.checked) {
+								setUnlinkedRecordings(['unlinked']);
+							} else {
+								setUnlinkedRecordings([]);
+							}
+					}} />
+					<label>Select Recordings without associated deployments</label>
 				</div>
-				<p>Filter by:</p>
 				<details>
 					<summary>Recorders</summary>
 					{recorderList.map((recorder) => (
@@ -188,17 +194,28 @@ export function SelectRecordingsButton({modalEnable, setModalEnable, importFromD
 						</div>
 					))}
 				</details>
+				<div>
+					<button onClick={clearSelection}>Clear Selection</button>
+					<button onClick={handleSaveSelection}>Save Selection</button>
+					<button onClick={handleLoadSelection}>Load Saved Selection</button>
+				</div>
 				<button onClick={ async () => {
-					setModalEnable(prev => !prev);
-					const result = await window.api.listRecordingsByFilters({
+					const filter  = {
 						deployments: selectedDeployments,
 						sites: selectedSites,
 						recorders: selectedRecorders,
 						surveys: selectedSurveys,
 						species: selectedSpecies,
-						verifications: selectedVerifications
-					});
-					importFromDB(result.recordings, result.skippedCount);
+						verifications: selectedVerifications,
+						unlinkedRecordings: unlinkedRecordings
+					};
+					if (Object.values(filter).every(f => f.length === 0)) {
+						alert("No selection found! Select what you want to load into the database");
+					} else {
+						setModalEnable(prev => !prev);
+						const result = await window.api.listRecordingsByFilters(filter);
+						importFromDB(result.recordings, result.skippedCount);
+					}
 				}}>Import Selected</button>
 					<button onClick={async () => {
 						setModalEnable(prev => !prev);
