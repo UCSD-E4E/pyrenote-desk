@@ -330,22 +330,36 @@ ipcMain.handle("pick-folder-for-recordings", async (_event) => {
 });
 
 ipcMain.handle("saveMultipleRecordings", async (_event, { files, deploymentId, driveLabel }) => {
-  let db = new BetterSqlite3(selectedDbPath);
-  let url: string;
+  const db = new BetterSqlite3(selectedDbPath);
   let skippedCount = 0;
-  for (const file of files) {
-    url = file.absolutePath;
-    try {
-      db.prepare(`INSERT INTO Recording (deploymentId, url, directory, datetime, duration, samplerate, bitrate) VALUES (?, ?, ?, ?, ?, ?, ?)`)
-      .run(deploymentId=== 0 ? null : deploymentId, url, file.folderPath, new Date().toISOString(), 0, 0, 0);
-    } catch (err: any) {
-      if (err.code === "SQLITE_CONSTRAINT_UNIQUE") {
-        skippedCount++;
-      } else {
-        throw err; // rethrow unknown errors
+  const insert = db.prepare(
+    `INSERT INTO Recording (deploymentId, url, directory, datetime, duration, samplerate, bitrate) VALUES (?, ?, ?, ?, ?, ?, ?)`
+  );
+  const insertAll = db.transaction(
+    (fileList: typeof files, depId: number) => {
+      const isoDate = new Date().toISOString();
+      for (const file of fileList) {
+        try {
+          insert.run(
+            depId === 0 ? null : depId,
+            file.absolutePath,
+            file.folderPath,
+            isoDate,
+            0,
+            0,
+            0
+          );
+        } catch (err: any) {
+          if (err.code === "SQLITE_CONSTRAINT_UNIQUE") {
+            skippedCount++;
+          } else {
+            throw err;
+          }
+        }
       }
     }
-  }
+  );
+  insertAll(files, deploymentId);
   db.close();
   return { skippedCount };
 });
