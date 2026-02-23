@@ -1,1305 +1,580 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import Head from "next/head";
 import Image from "next/image";
 import styles from "./label.module.css";
 
-import WaveSurfer from "wavesurfer.js";
-import SpectrogramPlugin from "wavesurfer.js/dist/plugins/spectrogram";
-import RegionsPlugin from "wavesurfer.js/dist/plugins/regions";
-import TimelinePlugin from "wavesurfer.js/dist/plugins/timeline";
-import { Region } from "wavesurfer.js/src/plugin/regions";
-import {
-  Annotation,
-  Recording,
-  RegionOfInterest,
-  Species,
-} from "../../main/schema";
+import { Species } from "../../main/schema";
+import { WavesurferInstance, Entry, RegionWithData } from "./label.wavesurfer";
 
 import { SelectRecordingsButton } from "../components/SelectRecordingsButton";
 import { Slider, LogSlider } from "../components/Slider";
-import { COLORMAP_OPTIONS, ColormapOption, computeColormap } from "../utils/colormaps";
+import { COLORMAP_OPTIONS, ColormapOption } from "../utils/colormaps";
+import { SpeciesDropdown } from "../components/SpeciesDropdown";
 
-type Entry = {
-  recording: Recording;
-  regions: RegionOfInterest[];
-  id: string;
-  spectrogramId: string;
-  class: "spectrogramContainer";
-  isCreating: boolean;
-  isMounted: boolean;
+const DEFAULT_ZOOM_X = 1;
+const DEFAULT_ZOOM_Y = 1;
+const ZOOM_STEP = 0.25;
+const BASE_WAVE_HEIGHT = 128;
+const BASE_SPECTRO_HEIGHT = 256;
+
+const fftSamplesForZoom = (zoom: number): 256 | 512 | 1024 => {
+  if (zoom >= 4) return 1024;
+  if (zoom >= 2) return 512;
+  return 256;
 };
 
-type WavesurferInstance = {
-  audioURL: string;
-  wavesurfer: WaveSurfer;
-  preloadedContainer: HTMLDivElement;
-  spectrogramPlugin: SpectrogramPlugin;
-  regionsPlugin?: RegionsPlugin;
-  timelinePlugin?: TimelinePlugin;
-}
-
 const AudioPlayer: React.FC = () => {
+  // ================================================================================================================
   // Settings
+
   const [useConfidence, setUseConfidence] = useState(false);
   const [useAdditional, setUseAdditional] = useState(false);
   const [maxConfidence, setMaxConfidence] = useState(10);
+  const [labelerId, setLabelerId] = useState(-1);
+  const [sampleRate, setSampleRate] = useState("44100");
+  const [colormap, setColormap] = useState<ColormapOption>(COLORMAP_OPTIONS[0]);
+
+  // fetch settings
   useEffect(() => {
-    setUseConfidence(localStorage.getItem('disableConfidence') === 'false');
-    setUseAdditional(localStorage.getItem('disableAdditional') === 'false');
-    setSampleRate(localStorage.getItem('sampleRate') || sampleRate);
-    setMaxConfidence(Number(localStorage.getItem('confidenceRange') || maxConfidence));
-    if (confidence > Number(localStorage.getItem('confidenceRange'))) {
-      setConfidence(Number(localStorage.getItem('confidenceRange')));
-    }
-    setColormap(localStorage.getItem('labelColorScheme') as ColormapOption);
+    setUseConfidence(localStorage.getItem("disableConfidence") === "false");
+    setUseAdditional(localStorage.getItem("disableAdditional") === "false");
+    setSampleRate(localStorage.getItem("sampleRate") || "44100");
+    setColormap(localStorage.getItem("labelColorScheme") as ColormapOption);
+
+    const storedConfidence = Number(localStorage.getItem("confidenceRange") || 10);
+    setMaxConfidence(storedConfidence);
+    setConfidence(storedConfidence);
+
+    (async () => {
+      const username = localStorage.getItem("username") ?? "";
+      const email = localStorage.getItem("email") ?? "";
+      const id = await window.api.getOrCreateLabeler(username, email);
+      setLabelerId(id);
+    })();
   }, []);
 
-  // UI state
+  // ================================================================================================================
+  // Species
+
+  const [speciesMap, setSpeciesMap] = useState<Record<number, Species>>({});
+  const [selectedSpeciesId, setSelectedSpeciesId] = useState<number>(0);
+  const selectedSpeciesIdRef = useRef(0);
+  selectedSpeciesIdRef.current = selectedSpeciesId;
+
+  // fetch species
+  useEffect(() => {
+    (async () => {
+      try {
+        const list = await window.api.listSpecies();
+        const map: Record<number, Species> = {};
+        list.forEach((s) => (map[s.speciesId] = s));
+        setSpeciesMap(map);
+        setSelectedSpeciesId(list[0].speciesId);
+      } catch (err) {
+        console.error("Failed to fetch species list:", err);
+      }
+    })();
+  }, []);
+
+  const [speciesDropdownState, setSpeciesDropdownState] = useState<{
+    region: any;
+    top: number;
+    left: number;
+  } | null>(null);
+
+  // ================================================================================================================
+  // UI / playback state
+
   const [showSpec, setShowSpec] = useState(false);
   const [playing, setPlaying] = useState(false);
-  const [index, setIndex] = useState(0);
+  const playingRef = useRef(false);
+  playingRef.current = playing;
 
-  // Annotation state
+  const [index, setIndex] = useState(0);
   const [confidence, setConfidence] = useState(10);
   const [callType, setCallType] = useState("");
   const [notes, setNotes] = useState("");
-
-  // Playback controls
   const [playbackRate, setPlaybackRate] = useState(1);
-  const [sampleRate, setSampleRate] = useState('44100');
 
-  // Region & species
-  const regionListRef = useRef<any[]>([]);
-  const activeRegionRef = useRef<any>(null);
-  const [speciesMap, setSpeciesMap] = useState<Record<number, Species>>({});
-  const [selectedSpecies, setSelectedSpecies] = useState<number>(0);
-
-  // Wavesurfer metadata & instances
-  const [entries, _setEntries] = useState<Entry[]>([]);
-  const setEntries = useCallback(
-    (
-      valueOrUpdater:
-        | Entry[]
-        | ((prev: Entry[]) => Entry[]),
-    ) => {
-      _setEntries((prevMetas) => {
-        const nextMetas =
-          typeof valueOrUpdater === "function"
-            ? (valueOrUpdater as (prev: Entry[]) => Entry[])(prevMetas)
-            : valueOrUpdater;
-
-        /*
-        const prevInstances = wavesurferObjs.current;
-        const prevMap = new Map<string, WaveSurfer | null>();
-        prevMetas.forEach((meta, idx) => {
-          prevMap.set(meta.id, prevInstances[idx] ?? null);
-        });
-
-        wavesurferObjs.current = nextMetas.map(
-          (meta) => prevMap.get(meta.id) ?? null,
-        );
-        */
-
-        return nextMetas;
-      });
-    },
-    [],
-  );
-
-  const instances = useRef<Record<string, WavesurferInstance>>({})
-  const idsToPreload = entries.slice(Math.max(0, index-1), Math.min(entries.length, index+2)).map(entry => entry.id);
-  const currentEntryId = entries[index]?.id ?? null;
-  // the reason we key instances by "entry's id" is because indices themselves will shift as entries get deleted
-
-  const waveStageRef = useRef<HTMLElement>()
-  useEffect(() => {
-    waveStageRef.current = document.getElementById("stage")
-  })
-
-  // Button‑disable flags
+  // Button debounce flags
   const [isPrevDisabled, setPrevDisabled] = useState(false);
   const [isNextDisabled, setNextDisabled] = useState(false);
-  const [isYesDisabled, setYesDisabled] = useState(false);
-  const [isNoDisabled, setNoDisabled] = useState(false);
-  const removeList: number[] = [];
+  const [isSaveDisabled, setSaveDisabled] = useState(false);
+  const [isSkipDisabled, setSkipDisabled] = useState(false);
 
+  // Zoom
+  const [zoomX, setZoomX] = useState(DEFAULT_ZOOM_X);
+  const [zoomY, setZoomY] = useState(DEFAULT_ZOOM_Y);
+
+  // ================================================================================================================
+  // Entries & instances
+
+  const [entries, setEntries] = useState<Entry[]>([]);
+  const currentEntry = entries[index];
+  const currentId = currentEntry?.id ?? null;
+  const idsToPreload = entries
+    .slice(Math.max(0, index - 1), Math.min(entries.length, index + 2))
+    .map((e) => e.id);
+
+  const instances = useRef<Record<string, WavesurferInstance>>({});
+
+  // ================================================================================================================
+  // DOM refs
+
+  const stageRef = useRef<HTMLDivElement>();
   const timelineDotRef = useRef<HTMLDivElement | null>(null);
 
-  // Preferences
-	const [colormap, setColormap] = useState<ColormapOption>(COLORMAP_OPTIONS[0]);
-
-  // =====================================================================================================
-  // Wavesurfer Management
-
-  const cleanupWavesurfer = (key = currentEntryId) => {
-    const instance = instances.current[key];
-    if (!instance) {
-      return;
-    }
-
-    const waveEntry = entries.find((entry) => (entry.id == key));
-    if (waveEntry) {
-      if (waveEntry.isMounted) {
-        unmountWavesurfer(key);
-      }
-      waveEntry.isMounted = false;
-    }
-
-    const ws = instance.wavesurfer;
-    if (ws) {
-      try {
-        ws.destroy();
-
-        // Clean up timeline dot if this is the current index
-        if (key === currentEntryId && timelineDotRef.current) {
-          const timelineContainer = document.getElementById("wave-timeline");
-          if (timelineContainer) {
-            try {
-              timelineContainer.removeChild(timelineDotRef.current);
-            } catch (e) {
-              // Dot might already be removed
-            }
-          }
-          timelineDotRef.current = null;
-        }
-
-      } catch (e) {
-        console.warn("Error destroying wavesurfer:", e);
-      }
-    }
-
-    // Clean up blob URL
-    const audioURL = instance.audioURL;
-    if (audioURL) {
-      URL.revokeObjectURL(audioURL);
-    }
-
-    const container = instance.preloadedContainer;
-    if (container && container.parentElement === document.body) {
-      container.remove();
-    }
-    delete instances.current[key];
-  }
-  const cleanupAll = () => {
-    Object.entries(instances.current).forEach(async ([key, url]) => {
-      cleanupWavesurfer(key);
-    })
-  }
-
-  const mountWavesurfer = async (key: string) => {
-    const waveEntry = entries.find((entry) => (entry.id == key));
-    const instance = instances.current[key];
-
-    if (!instance) {
-      return; // shouldn't happen
-    }
-
-    const ws = instance.wavesurfer;
-    const hiddenContainer = instance.preloadedContainer;
-
-    if (!hiddenContainer || !ws || !waveEntry) {
-      return;
-    }
-
-    // Remove from current parent if it exists
-    if (hiddenContainer.parentElement) {
-      hiddenContainer.parentElement.removeChild(hiddenContainer);
-    }
-
-    // Set class to active (visible) and append to waveStage
-    hiddenContainer.className = `
-      ${styles.waveSpectroContainer} 
-      ${styles.activeWave}
-    `;
-    
-    if (waveStageRef.current) {
-      waveStageRef.current.appendChild(hiddenContainer);
-    }
-
-    // Only register plugins if not already mounted
-    if (waveEntry.isMounted) {
-      return;
-    }
-
-    // ===================================================================================
-    // Hacking Wavesurfer DOM
-
-    const container = document.querySelector<HTMLElement>(`#waveform-${index}`);
-
-    if (!container) return;
-
-    // the inner div is the actual shadow host
-    const shadowHost = container.querySelector<HTMLElement>('div');
-
-    if (shadowHost?.shadowRoot) {
-      const wrapper =
-        shadowHost.shadowRoot.querySelector<HTMLElement>('.wrapper');
-
-      if (wrapper) {
-        wrapper.style.height = '384px';
-      }
-    }
-
-    // ===================================================================================
-    // Timeline Plugin
-
-    instance.timelinePlugin = TimelinePlugin.create({
-      container: "#wave-timeline",
-      height: 20,
-    });
-    ws.registerPlugin(instance.timelinePlugin);
-
-    const timelineContainer = document.getElementById("wave-timeline");
-
-    if (timelineContainer) {
-      timelineContainer.style.position = "relative";
-      timelineContainer.style.overflow = "visible";
-
-      const existingDots = timelineContainer.querySelectorAll(
-        "div[data-timeline-dot]",
-      );
-      existingDots.forEach((dot) => timelineContainer.removeChild(dot));
-    }
-
-    const dot = document.createElement("div");
-    dot.setAttribute("data-timeline-dot", "true");
-    dot.style.position = "absolute";
-    dot.style.width = "8px";
-    dot.style.height = "8px";
-    dot.style.borderRadius = "50%";
-    dot.style.backgroundColor = "black";
-    dot.style.top = "50%";
-    dot.style.transform = "translateY(-50%)";
-    dot.style.left = "0px";
-
-    timelineContainer?.appendChild(dot);
-    timelineDotRef.current = dot;
-
-    ws.on("audioprocess", (currentTime) => {
-      const duration = ws.getDuration();
-      if (!duration) return;
-      const fraction = currentTime / duration;
-      const timelineWidth = timelineContainer?.offsetWidth || 0;
-      dot.style.left = fraction * timelineWidth + "px";
-    });
-    
-    const waveformContainer = document.getElementById(key);
-    if (waveformContainer && timelineContainer) {
-      const clickHandler = (event: MouseEvent) => {
-        const rect = timelineContainer.getBoundingClientRect();
-        const clickX = event.clientX - rect.left;
-        dot.style.left = clickX + "px";
-        const fraction =
-          timelineContainer.offsetWidth === 0
-            ? 0
-            : clickX / timelineContainer.offsetWidth;
-        ws.seekTo(fraction);
-      };
-
-      waveformContainer.addEventListener("click", clickHandler);
-      ws.on("destroy", () => {
-        waveformContainer.removeEventListener("click", clickHandler);
-      });
-    }
-
-    // ===================================================================================
-    // Regions Plugin
-
-    instance.regionsPlugin = (RegionsPlugin as any).create({
-      name: "regions",
-      regions: [],
-      drag: true,
-      resize: true,
-      color: "rgba(0, 255, 0, 0.3)",
-      dragSelection: true,
-    }) as RegionsPlugin;
-    ws.registerPlugin(instance.regionsPlugin);
-
-    activeRegionRef.current = null;
-    instance.regionsPlugin.enableDragSelection({ color: "rgba(0,255,0,0.3)" }, 3);
-
-    const redraw = (region) => {
-      const waveEl = document.getElementById(waveEntry.id);
-      const spectroEl = document.getElementById(waveEntry.spectrogramId);
-      const waveSpectroContainer = waveEl?.parentElement;
-      if (!waveEl || !spectroEl || !waveSpectroContainer) return;
-
-      //waveSpectroContainer.appendChild(region.element);
-
-      // this actually makes the region extend down to spectrogram
-
-      const waveHeight = waveEl.offsetHeight;
-      const spectroHeight = spectroEl.offsetHeight;
-      region.element.style.position = "absolute";
-      region.element.style.top = "0px";
-      region.element.style.height = `${waveHeight + spectroHeight}px`;
-      region.element.style.zIndex = "99";
-    };
-
-    let createdInitialRegions = false;
-    const selectRegion = (region) => {
-      if (!createdInitialRegions) {
-        return;
-      }
-
-      if (activeRegionRef.current === region && !!region) {
-        region.setOptions({ color: "rgba(0,255,0,0.3)" });
-        region.data = { ...region.data, loop: false };
-        activeRegionRef.current = null;
-      } else {
-        if (activeRegionRef.current) {
-          activeRegionRef.current.setOptions({
-            color: "rgba(0,255,0,0.3)",
-          });
-        }
-
-        if (region) {
-          region.setOptions({ color: "rgba(255,0,0,0.3)" });
-          activeRegionRef.current = region;
-
-          region.data = { ...region.data, loop: true };
-        }
-      }
-    }
-
-    instance.regionsPlugin.on("region-created", (region: any) => {
-      redraw(region);
-      selectRegion(region);
-      regionListRef.current.push(region);
-      setTimeout(() => {
-        redraw(region);
-      }, 50);
-    });
-
-    instance.regionsPlugin.on("region-removed", (region: any) => {
-      selectRegion(null);
-      if (region.id.startsWith("imported-")) {
-        const id = Number.parseInt(region.id.split("imported-")[1]);
-        removeList.push(id);
-      }
-    });
-
-    instance.regionsPlugin.on("region-updated", (region: any) => {
-      redraw(region);
-      selectRegion(region);
-    });
-
-    instance.regionsPlugin.on("region-clicked", (region: any) => {
-      selectRegion(region);
-    });
-
-    instance.regionsPlugin.on("region-out", (region: any) => {
-      if (region.data?.loop) {
-        region.play();
-      }
-    });
-
-    instance.regionsPlugin.on("region-double-clicked", (region: any) => {
-      const select = document.createElement("select");
-
-      Object.entries(speciesMap).forEach(([id, species]) => {
-        const option = document.createElement("option");
-        option.value = species.speciesId.toString();
-        option.textContent = `${species.common} (${species.species})`;
-        if (
-          region.data?.species &&
-          region.data.species.speciesId === species.speciesId
-        ) {
-          option.selected = true;
-        }
-        select.appendChild(option);
-      });
-
-      select.addEventListener("mousedown", (e) => e.stopPropagation());
-      select.addEventListener("click", (e) => e.stopPropagation());
-
-      select.addEventListener("change", () => {
-        const selectedId = parseInt(select.value);
-        const selectedSpecies = Object.values(speciesMap).find(
-          (sp) => sp.speciesId === selectedId,
-        );
-        if (!selectedSpecies) return;
-
-        region.data = {
-          ...region.data,
-          species: selectedSpecies,
-          label: selectedSpecies.species,
-          confidence: confidence,
-        };
-
-        let labelElem = region.element.querySelector(".region-label");
-        if (!labelElem) {
-          labelElem = document.createElement("span");
-          labelElem.className = "region-label";
-          region.element.appendChild(labelElem);
-        }
-        labelElem.textContent = selectedSpecies.species;
-
-        if (document.body.contains(select)) {
-          document.body.removeChild(select);
-        }
-      });
-
-      select.addEventListener("blur", () => {
-        if (document.body.contains(select)) {
-          document.body.removeChild(select);
-        }
-      });
-
-      const rect = region.element.getBoundingClientRect();
-      select.style.position = "absolute";
-      select.style.top = `${rect.top}px`;
-      select.style.left = `${rect.left}px`;
-      select.style.zIndex = "10000";
-      select.style.backgroundColor = "white";
-      select.style.border = "1px solid black";
-      select.style.padding = "4px";
-      select.style.boxSizing = "border-box";
-      select.style.maxHeight = "200px";
-      select.style.overflow = "auto";
-
-      document.body.appendChild(select);
-      select.focus();
-    });
-    
-    waveEntry.regions.forEach((r) => {
-      instance.regionsPlugin.addRegion({
-        start: r.starttime,
-        end: r.endtime,
-        color: "rgba(0, 255, 0, 0.3)",
-        id: "imported-" + r.regionId,
-      });
-    })
-    createdInitialRegions = true;
-
-    ws.on("finish", () => {
-      setPlaying(false);
-    });
-
-    waveEntry.isMounted = true;
-  }
-
-  const unmountWavesurfer = (key: string) => {
-    const waveEntry = entries.find((entry) => (entry.id == key));
-    const instance = instances.current[key];
-
-    if (!instance) {
-      return; 
-    }
-
-    const ws = instance.wavesurfer;
-    const container = instance.preloadedContainer;
-
-    // Destroy plugins if wavesurfer exists and is mounted
-    if (ws && waveEntry?.isMounted) {
-      try {
-        // Remove all event listeners
-        ws.unAll();
-
-        instance.regionsPlugin.unAll();
-        instance.regionsPlugin.destroy();
-        delete instance.regionsPlugin;
-
-        instance.timelinePlugin.unAll();
-        instance.timelinePlugin.destroy();
-        delete instance.timelinePlugin;
-
-        // Clean up timeline dot
-        const timelineContainer = document.getElementById("wave-timeline");
-        if (timelineContainer && timelineDotRef.current) {
-          try {
-            timelineContainer.removeChild(timelineDotRef.current);
-          } catch (e) {
-            // Dot might already be removed
-          }
-          timelineDotRef.current = null;
-        }
-
-        // Reset mounted flag
-        waveEntry.isMounted = false;
-      } catch (e) {
-        console.warn("Error destroying plugins:", e);
-      }
-    }
-
-    // Remove from current parent if it exists
-    if (container.parentElement) {
-      container.parentElement.removeChild(container);
-    }
-
-    // Set class to hidden and move to document.body
-    container.className = `
-      ${styles.waveSpectroContainer} 
-      ${styles.prefetchWave}
-    `;
-    
-    document.body.appendChild(container);
+  // ================================================================================================================
+  // Region refs
+
+  const regionListRef = useRef<Record<string, RegionWithData>>({});
+  const selectedRegionRef = useRef<RegionWithData | null>(null);
+  const removeListRef = useRef(new Set<string>());
+
+  const wipeRegions = () => {
+    regionListRef.current = {};
+    selectedRegionRef.current = null;
   };
 
-  const createWavesurfer = async (key: string) => {
-    const waveEntry = entries.find((entry) => (entry.id == key));
+  // ================================================================================================================
+  // Wavesurfer instance management 
 
-    if (
-      !waveEntry ||
-      waveEntry.isCreating || // existing instance
-      instances.current[key]
-    ) {
-      return;
-    }
+  // add any states or refs here if WavesurferInstance needs them
+  const bundleDependencies = () => ({
+    sampleRate,
+    playbackRate,
+    colormap,
+    zoomX,
+    zoomY,
+    fftSamplesForZoom,
+    BASE_SPECTRO_HEIGHT,
+    stageRef,
+    timelineDotRef,
+    instances,
+    regionListRef,
+    selectedRegionRef,
+    removeListRef,
+    wipeRegions,
+    assignSpeciesToRegion,
+    playingRef,
+    selectedSpeciesIdRef,
+    speciesMap,
+    setPlaying,
+    setSpeciesDropdownState,
+  });
 
-    waveEntry.isCreating = true;
-    waveEntry.isMounted = false;
-
-    // create hidden container for preloaded wavesurfer
-    const hiddenContainer = document.createElement('div');
-    hiddenContainer.className = `
-      ${styles.waveSpectroContainer} 
-      ${styles.prefetchWave}
-    `;
-    const waveDiv = document.createElement("div");
-    waveDiv.id = waveEntry.id;
-    waveDiv.classList.add(styles.waveContainer);
-    hiddenContainer.appendChild(waveDiv);
-
-    const spectroDiv = document.createElement("div");
-    spectroDiv.id = waveEntry.spectrogramId;
-    spectroDiv.classList.add(styles.spectrogramContainer);
-    hiddenContainer.appendChild(spectroDiv);
-
-    // Append to document.body as hidden
-    document.body.appendChild(hiddenContainer);
-
-    /*
-    <div
-      className={`
-        ${styles.waveSpectroContainer} 
-        ${(index == targetIndex) ? styles.activeWave : styles.prefetchWave}
-      `}
-    >
-      <div id={waveEntry.id} className={styles.waveContainer}></div>
-      <div
-        id={waveEntry.spectrogramId}
-        className={styles.spectrogramContainer}
-      ></div>
-    </div>
-    */
-
-    const ws = WaveSurfer.create({
-      container: `#${waveEntry.id}`,
-      waveColor: "violet",
-      progressColor: "purple",
-      sampleRate: parseInt(sampleRate),
-    });
-
-    const audioFile = await window.ipc.invoke('read-file-for-verification', waveEntry.recording.url);
-    const audioURL = URL.createObjectURL(new Blob([audioFile.data]));
-
-    await ws.load(audioURL); 
-    
-    ws.setPlaybackRate(playbackRate, false);
-
-
-    // ===================================================================================
-    // Spectrogram Plugin
-
-    const spectrogramPlugin = SpectrogramPlugin.create({
-      container: `#${waveEntry.spectrogramId}`,
-      labels: true,
-      colorMap: computeColormap(colormap),
-      fftSamples: 256,
-      height: 256,
-    })
-    ws.registerPlugin(spectrogramPlugin);
-
-    // ===================================================================================
-    // Finalize
-
-    waveEntry.isCreating = false;
-
-    instances.current[key] = {
-      audioURL: audioURL,
-      wavesurfer: ws,
-      preloadedContainer: hiddenContainer,
-      spectrogramPlugin: spectrogramPlugin,
-    }
-  }
-
-  // Unmount, create, and mount on page update or entries update
+  // Mount, unmount, and preload instances when index or entries change
   useEffect(() => {
-    if (!showSpec || !entries[index]) {
-      return;
-    }
+    if (!showSpec || !currentEntry) return;
     if (entries.length === 0) {
       setShowSpec(false);
       setIndex(0);
-      console.log("No more audioclips");
       return;
     }
 
-    // Destroy containers that are no longer in range (index, index+1)
-    Object.entries(instances.current).forEach(([key, container]) => {
-      if (!idsToPreload.includes(key)) { 
-        cleanupWavesurfer(key)
-      }
+    // Cleanup stale instances
+    Object.entries(instances.current).forEach(([key, inst]) => {
+      if (!idsToPreload.includes(key)) inst.cleanup();
     });
 
-    async function handleMounting() {
-      // Create wavesurfers for next index if they don't exist
-      if (index + 1 < entries.length) {
-        createWavesurfer(entries[index+1].id);
-      }
-      await createWavesurfer(entries[index].id);
-      await mountWavesurfer(currentEntryId);
+    // Preload next
+    if (index + 1 < entries.length && !instances.current[entries[index + 1].id]) {
+      WavesurferInstance.create(entries[index + 1], bundleDependencies());
     }
 
-    handleMounting();
+    let cancelled = false;
+    (async () => {
+      let inst: WavesurferInstance;
+      if (!instances.current[currentId]) {
+        inst = await WavesurferInstance.create(currentEntry, bundleDependencies());
+      } else {
+        inst = instances.current[currentId];
+      }
+      if (!cancelled) inst.mount();
+    })();
 
     return () => {
-      unmountWavesurfer(currentEntryId);
-    }
-  }, 
-  [
-    showSpec,
-    index,
-    entries,
-  ]);
+      cancelled = true;
+      instances.current[currentId]?.unmount();
+    };
+  }, [index, entries]);
 
-  // Cleanup everything on component unmount
+  // Full cleanup on component unmount
   useEffect(() => {
     return () => {
-      cleanupAll();
+      Object.values(instances.current).forEach((inst) => inst.cleanup());
     };
   }, []);
 
-  // Rerenders spectrograms on colormap change
-	useEffect(() => {
-		instances.current && Object.entries(instances.current).forEach(async ([key, instance]) => {
-			const waveEntry = entries.find((entry) => (entry.id == key));
-			if (!waveEntry) cleanupWavesurfer(key);
-			if (!instance.spectrogramPlugin) return;
+  // Zoom resize — update DOM widths / spectrogram height directly
+  useEffect(() => {
+    const inst = instances.current[currentId];
+    if (!inst) return;
 
-			// super hacky but actually works
-			(instance.spectrogramPlugin as any).colorMap = computeColormap(colormap);
-			(instance.spectrogramPlugin as any).render();
-		});
-	}, [colormap]);
+    const baseWidth = stageRef.current?.clientWidth ?? inst.container.offsetWidth;
 
+    inst.waveformContainer.style.width = `${baseWidth * zoomX}px`;
+    inst.spectrogramContainer.style.width = `${baseWidth * zoomX}px`;
+    inst.spectrogramContainer.style.height = `${BASE_SPECTRO_HEIGHT * zoomY}px`;
 
-  // =====================================================================================================
-  // Button Handlers 
+    if (inst.spectrogramPlugin) {
+      (inst.spectrogramPlugin as any).height = BASE_SPECTRO_HEIGHT * zoomY;
+      (inst.spectrogramPlugin as any).render();
+    }
+  }, [zoomX, zoomY, currentId]);
+
+  // ================================================================================================================
+  // Zoom helpers
+
+  const zoomXIn  = () => setZoomX((p) => Math.min(p + ZOOM_STEP, 10));
+  const zoomXOut = () => setZoomX((p) => Math.max(p - ZOOM_STEP, 1));
+  const zoomYIn  = () => setZoomY((p) => Math.min(p + ZOOM_STEP, 10));
+  const zoomYOut = () => setZoomY((p) => Math.max(p - ZOOM_STEP, 1));
+  const resetZoom = () => { setZoomX(DEFAULT_ZOOM_X); setZoomY(DEFAULT_ZOOM_Y); };
+
+  // ================================================================================================================
+  // Playback / navigation
+
+  const resetValues = () => { 
+    setConfidence(maxConfidence); 
+    setPlaying(false); 
+    setSpeciesDropdownState(null);
+  };
 
   const clickPrev = async () => {
-    if (isPrevDisabled) {
-      return;
-    }
-    setConfidence(maxConfidence);
+    if (isPrevDisabled || index === 0) return;
+    resetValues();
+    setIndex((i) => i - 1);
     setPrevDisabled(true);
-    setPlaying(false);
-    if (index === 0) return;
-    setIndex((prevIndex) => prevIndex - 1);
-
-    // Buffer time between presses
-    setTimeout(() => {
-      setPrevDisabled(false);
-    }, 500);
+    setTimeout(() => setPrevDisabled(false), 500);
   };
 
   const clickNext = async () => {
-    if (isNextDisabled) {
-      return;
-    }
-    setConfidence(maxConfidence);
+    if (isNextDisabled || index === entries.length - 1) return;
+    resetValues();
+    setIndex((i) => i + 1);
     setNextDisabled(true);
-    setPlaying(false);
-    if (index === entries.length - 1) return;
-    setIndex((prevIndex) => prevIndex + 1);
-    //buffer time between presses
-    setTimeout(() => {
-      setNextDisabled(false);
-    }, 500);
+    setTimeout(() => setNextDisabled(false), 500);
   };
 
   const clickPlay = useCallback(async () => {
-    const wsInstance = instances.current[currentEntryId].wavesurfer;
-    // Plays the active region
-    if (wsInstance && activeRegionRef.current) {
-      activeRegionRef.current.play();
-    } else if (wsInstance) {
-      wsInstance.playPause();
+    const inst = instances.current[currentId];
+    if (!inst) return;
+    if (selectedRegionRef.current) {
+      selectedRegionRef.current.play();
+    } else {
+      inst.wavesurfer.playPause();
     }
     setPlaying(true);
   }, [entries, index]);
 
   const clickPause = useCallback(async () => {
-    const wsInstance = instances.current[currentEntryId].wavesurfer;
-    if (wsInstance) {
-      wsInstance.playPause();
-    }
+    instances.current[currentId]?.wavesurfer.playPause();
     setPlaying(false);
   }, [entries, index]);
 
-  /* called when confirming audio matches model annotation
-     remove current wavesurfer
-     move rest up
-     save annotation in database */
-  const clickYes = useCallback(async () => {
-    if (isYesDisabled) return;
-    setConfidence(maxConfidence);
-    setYesDisabled(true);
+  // ================================================================================================================
+  // Save / Delete
 
-    const ws = instances.current[currentEntryId].wavesurfer;
-    if (!ws) return;
+  const clickSave = useCallback(async () => {
+    const inst = instances.current[currentId];
+    if (!inst || isSaveDisabled) return;
+    resetValues();
+    setSaveDisabled(true);
 
-    // Accesses all regions
-    const regionPlugin = (ws as any).plugins[1];
-    const allRegions = regionPlugin?.wavesurfer?.plugins[2]?.regions;
+    // Remove deleted pre-existing regions from DB
+    await Promise.all(
+      Array.from(removeListRef.current).map(async (id) => {
+        await window.api.deleteRegionOfInterest(Number(id));
+      }),
+    );
+    removeListRef.current.clear();
 
-    const removeRegions = async () => {
-      for (const removed of removeList) {
-        console.log("removed following region of interest", removed);
-        await window.api.deleteRegionOfInterest(removed);
-      }
-    };
-
-
-    if (!allRegions || !Object.keys(allRegions).length) {
-      await removeRegions();
-      //await removeRegionsFromUI(); //clear UI just in case even if no regions exist
-    } else {
-      // Text document of start/end times
-      //Object.values(allRegions).forEach(async (region: Region, idx: number) => {
-      const regionValues = Object.values(allRegions) as Region[];
-      for (let idx = 0; idx < regionValues.length; idx++) {
-        const region = regionValues[idx];
-        console.log("Saved region id: ", region.id);
-    
-        let regionId;
-        if (region.id.startsWith("imported-")) {
-          const id = Number.parseInt(region.id.split("imported-")[1]);
-          console.log("Calling updateRegionOfInterest with:", id, region.start, region.end);
-          await window.api.updateRegionOfInterest(id, region.start, region.end);
-          regionId = id;
+    // Persist regions + annotations
+    await Promise.all(
+      Object.values(regionListRef.current).map(async (region) => {
+        if (!region.isNew) {
+          await window.api.updateRegionOfInterest(Number(region.id), region.start, region.end);
         } else {
-          // NOTE: Would this cause issues if newly assigned ids &
-          // cur region id not linked?
           const newRegion = await window.api.createRegionOfInterest(
-            entries[index].recording.recordingId,
+            currentEntry.recording.recordingId,
             region.start,
             region.end,
           );
-          regionId = newRegion.regionId;
-          console.log("New region created with ID:", regionId);
+          region.id = String(newRegion.regionId);
         }
-        if (region.data?.species && region.data?.confidence) {
-          const species: Species = region.data.species as Species;
 
-          const confidence = Number.parseInt(region.data?.confidence as string);
-          const username = localStorage.getItem("username") ?? "";
-          const email = localStorage.getItem("email") ?? "";
-          const labelerId = await window.api.getOrCreateLabeler(username, email);
-          console.log("creating new annotations");
+        if (region.species && region.confidence) {
           await window.api.createAnnotation(
-            entries[index].recording.recordingId,
+            currentEntry.recording.recordingId,
             labelerId,
-            regionId,
-            species.speciesId,
-            confidence,
+            Number(region.id),
+            region.species.speciesId,
+            region.confidence,
           );
-        } else {
-          console.log("no annotation");
         }
-        // const startSec = region.start.toFixed(3);
-        // const endSec = region.end.toFixed(3);
-        // lines.push(
-        //   `Region #${idx + 1}: Start = ${startSec}s, End = ${endSec}s`,
-        // );
-      };
-      //
-      // lines.push(
-      //   "",
-      //   `Confidence: ${confidence}`,
-      //   `Call Type: ${callType}`,
-      //   `Additional Notes: ${notes}`,
-      // );
+      }),
+    );
 
-      // Make text file
-      // const blob = new Blob([lines.join("\n")], { type: "text/plain" });
-      // const url = URL.createObjectURL(blob);
-      // const link = document.createElement("a");
-      // link.href = url;
-      // link.download = "regionTimes.txt";
-      // document.body.appendChild(link);
-      // link.click();
-      // document.body.removeChild(link);
-      // URL.revokeObjectURL(url);
-    }
+    inst.cleanup();
+    if (entries.length === 1) setShowSpec(false);
+    else if (index === entries.length - 1) setIndex((i) => i - 1);
+    setEntries((prev) => prev.filter((_, i) => i !== index));
+    setTimeout(() => setSaveDisabled(false), 500);
+  }, [entries, index, isSaveDisabled, confidence, labelerId]);
 
-    await removeRegions();
-    //await removeRegionsFromUI();
+  const clickSkip = useCallback(async () => {
+    const inst = instances.current[currentId];
+    if (!inst || isSkipDisabled) return;
+    setSkipDisabled(true);
+    resetValues();
 
-    // remove or shift current wavesurfer
-    if (index === 0) {
-      if (entries.length === 1) {
-        setShowSpec(false);
-        await cleanupWavesurfer();
-        setEntries([]);
-      } else {
-        await cleanupWavesurfer();
-        setEntries((arr) => arr.slice(1));
-        setIndex(0);
-      }
-      setTimeout(() => setYesDisabled(false), 500);
-      return;
-    }
+    inst.cleanup();
+    if (entries.length === 1) setShowSpec(false);
+    else if (index === entries.length - 1) setIndex(index - 1);
+    setEntries((prev) => prev.filter((_, i) => i !== index));
+    setTimeout(() => setSkipDisabled(false), 500);
+  }, [entries, index, isSkipDisabled]);
 
-    await cleanupWavesurfer();
-    setEntries((arr) => arr.filter((_, i) => i !== index));
-    if (entries.length - 1 >= index) setIndex((i) => i - 1);
-    setTimeout(() => setYesDisabled(false), 500);
-  }, [entries, index, isYesDisabled, confidence, callType, notes]);
+  // ================================================================================================================
+  // Import
 
-  /* called when audio doesn't match model annotation
-    remove current wavesurfer
-    move rest up
-    save annotation in database */
-  const clickNo = useCallback(async () => {
-    if (isNoDisabled) {
-      return;
-    }
-    setNoDisabled(true);
-    setConfidence(maxConfidence);
-    if (index == 0) {
-      await cleanupWavesurfer();
-      
-      // Remove the first WaveSurfer
-      if (entries.length === 1) {
-        setShowSpec(false);
-      }
-      setEntries((wavesurfers) => wavesurfers.slice(1));
-      setIndex(0);
-      
+  const importFromDB = async (recordings: any[], skippedCount = 0) => {
+    Object.values(instances.current).forEach((inst) => inst.cleanup());
 
-      //buffer between button presses
-      setTimeout(() => {
-        setNoDisabled(false);
-      }, 500);
-      return;
-    }
-    await cleanupWavesurfer();
-    setEntries((wavesurfers) => wavesurfers.filter((_, i) => i !== index));
+    if (!Array.isArray(recordings)) return;
 
-    //adjust index if array is shorter than index
-    if (entries.length == 0) {
-      setEntries([]);
-    }
-    if (entries.length - 1 >= index) {
-      setIndex(index - 1);
-    }
-
-    //buffer between button presses
-    setTimeout(() => {
-      setNoDisabled(false);
-    }, 500);
-  }, [entries, index, isNoDisabled]);
-
-  const importFromDB = async (recordings, skippedCount = 0) => {
-    console.log("recordings:", recordings);
-
-    await cleanupAll();
-
-    // Ensure it's an array
-    if (!Array.isArray(recordings)) {
-      console.error("Expected recordings to be an array, got:", recordings);
-      return;
-    }
-
-    if (recordings.length == 0) {
-      const message = skippedCount > 0 
-        ? `No recordings found. ${skippedCount} file(s) were skipped due to missing or unreadable files. Maybe you forgot to plug in an external drive or the drive label changed from last time?`
-        : "No recordings found. Try a different filter or upload recordings!";
-      alert(message);
+    if (recordings.length === 0) {
+      alert(
+        skippedCount > 0
+          ? `No recordings found. ${skippedCount} file(s) were skipped.`
+          : "No recordings found. Try a different filter or upload recordings!",
+      );
       return;
     }
 
     if (skippedCount > 0) {
-      alert(`Warning: ${skippedCount} file(s) were skipped due to missing or unreadable files. Maybe you forgot to plug in an external drive or the drive label changed from last time? Loaded ${recordings.length} recording(s).`);
+      alert(`Warning: ${skippedCount} file(s) were skipped. Loaded ${recordings.length} recording(s).`);
     }
 
-    const newWaveSurfers: Entry[] = await Promise.all(
-      (recordings as Recording[]).map(async (rec, i) => {
-        const regions = await window.api.listRegionOfInterestByRecordingId(
-          rec.recordingId,
-        );
-        const containerId = `waveform-${i}`;
-        const spectrogramId = `spectrogram-${i}`;
-        return {
-          recording: rec,
-          regions: regions || [], //ensure regions is array
-          id: containerId,
-          spectrogramId: spectrogramId,
-          //file: new Blob([rec.fileData as BlobPart]),
-          class: "spectrogramContainer" as const,
-          isCreating: false,
-          isMounted: false,
-        };
-      }),
+    const newEntries: Entry[] = await Promise.all(
+      recordings.map(async (rec, i) => ({
+        recording: rec,
+        regions: (await window.api.listRegionOfInterestByRecordingId(rec.recordingId)) || [],
+        id: String(i),
+      })),
     );
 
-    setEntries(newWaveSurfers);
+    setEntries(newEntries);
     setShowSpec(true);
     setIndex(0);
-    regionListRef.current = [];
-    activeRegionRef.current = null;
+    wipeRegions();
   };
 
-  useEffect(() => {
-    const fetchSpecies = async () => {
-      try {
-        const listOfSpecies = await window.api.listSpecies();
-        const newSpeciesMap: Record<number, Species> = {};
-        listOfSpecies.forEach((spec) => {
-          newSpeciesMap[spec.speciesId] = spec;
-        })
-        setSpeciesMap(newSpeciesMap);
-        setSelectedSpecies(listOfSpecies[0].speciesId);
-      } catch (error) {
-        console.error("Failed to fetch species list:", error);
-      }
-    };
+  // ================================================================================================================
+  // Region actions
 
-    fetchSpecies();
-  }, []);
-
-  // Keydown handler with useCallback to properly track dependencies
-  const handleKeyDown = useCallback(
-    (event: KeyboardEvent) => {
-      const el = document.activeElement;
-      if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA")) {
-        return;
-      }
-
-      switch (event.key) {
-        case "w":
-          clickYes();
-          break;
-        case "p":
-          if (playing) {
-            clickPause();
-          } else {
-            clickPlay();
-          }
-          break;
-        case "d":
-          clickNo();
-          break;
-        case "ArrowRight":
-          clickNext();
-          break;
-        case "a":
-        case "ArrowLeft":
-          clickPrev();
-          break;
-        default:
-          break;
-      }
-    },
-    [playing, clickYes, clickPlay, clickPause, clickNo, clickNext, clickPrev],
-  );
-
-  useEffect(() => {
-    // Attach once on mount (and re‑attach if handleKeyDown identity changes)
-    window.addEventListener("keydown", handleKeyDown);
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [handleKeyDown]);
-
-  // =====================================================================================================
-  // Regions & Species 
-  
-  const deleteActiveRegion = async () => {
-    const ws = instances.current[currentEntryId];
-    if (!ws || !activeRegionRef.current) return;
-
-    activeRegionRef.current.remove();
-    activeRegionRef.current = null;
+  const deleteSelectedRegion = () => {
+    if (!selectedRegionRef.current) return;
+    selectedRegionRef.current.remove();
+    selectedRegionRef.current = null;
   };
 
   const clearAllRegions = () => {
-    const ws = instances.current[currentEntryId];
-    if (!ws) return;
-
-    const regionPlugin = (ws as any).plugins[1];
-    const allRegions = regionPlugin?.wavesurfer?.plugins[2]?.regions;
-    if (!allRegions) return;
-
-    Object.keys(allRegions).forEach((r) => {
-      allRegions[r].remove();
-    });
-
-    regionListRef.current = [];
-    activeRegionRef.current = null;
+    Object.values(regionListRef.current).forEach((r) => r.remove());
+    wipeRegions();
   };
 
-  const undoLastRegion = () => {
-    if (!instances.current[currentEntryId]) return;
-    if (regionListRef.current.length === 0) return;
+  const assignSpeciesToRegion = (region: RegionWithData, species: Species) => {
+    if (!region) return;
+    region.species = species ?? null;
+    region.confidence = species ? confidence : 0;
 
-    const lastRegion = regionListRef.current.pop();
-    lastRegion.remove();
-
-    // If the last region was active, reset activeRegionRef
-    if (activeRegionRef.current === lastRegion) {
-      activeRegionRef.current = null;
-    }
-  };
-
-  // Download regions data only (maybe repurpose logic later)
-  // TODO: Fix this
-  /*
-  const saveLabelsToSpecies = () => {
-    const ws = instances.current[currentEntryId];
-    if (!ws) return;
-
-    const regionPlugin = (ws as any).plugins[1];
-    const allRegions = regionPlugin?.wavesurfer?.plugins[2]?.regions;
-    if (!allRegions) return;
-
-    const newSet = new Set(speciesList);
-
-    // Add non repeated labels to set
-    Object.keys(allRegions).forEach((regionId) => {
-      const region = allRegions[regionId];
-      const label = region.data?.label?.trim();
-      if (label) {
-        newSet.add(label);
-      }
-    });
-
-    setSpeciesList(Array.from(newSet));
-    console.log("Updated speciesList:", Array.from(newSet));
-  };
-  */
-
-  // Saves selected category as label
-  const assignSpecies = (species: Species) => {
-    if (!activeRegionRef.current) {
-      console.log("No active region selected.");
-      return;
-    }
-
-    // TODO: Save and initialize confidence by active region
-    activeRegionRef.current.data = {
-      ...activeRegionRef.current.data,
-      label: species.species,
-      species: species,
-      confidence: confidence,
-    };
-
-    // TODO: Initialize label when importing
-    const regionEl = activeRegionRef.current.element;
-    let labelElem = regionEl.querySelector(".region-label");
+    let labelElem = region.element.querySelector(".region-label");
     if (!labelElem) {
       labelElem = document.createElement("span");
       labelElem.className = "region-label";
-      regionEl.appendChild(labelElem);
+      region.element.appendChild(labelElem);
     }
-    labelElem.textContent = species.species;
+    labelElem.textContent = species?.common ?? "";
   };
 
-  const [modalEnable, setModalEnable] = useState(false);
+  // ================================================================================================================
+  // Keyboard shortcuts
+
+  const handleKeyDown = useCallback(
+    (e: KeyboardEvent) => {
+      const el = document.activeElement;
+      if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA")) return;
+      switch (e.key) {
+        case "w": clickSave(); break;
+        case "p": playing ? clickPause() : clickPlay(); break;
+        case "d": clickSkip(); break;
+        case "ArrowRight": clickNext(); break;
+        case "a":
+        case "ArrowLeft": clickPrev(); break;
+      }
+    },
+    [playing, clickSave, clickPlay, clickPause, clickSkip, clickNext, clickPrev],
+  );
+
+  useEffect(() => {
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [handleKeyDown]);
+
+  // ================================================================================================================
+  // Render
 
   return (
     <React.Fragment>
-      <Head>
-        <title>Label Page</title>
-      </Head>
+      <Head><title>Label Page</title></Head>
       <div className={styles.container}>
         <div className={styles.main}>
           <div className={styles.header}>
-            <button onClick={() => setModalEnable(prev => !prev)}>Select Recordings</button>
-            <SelectRecordingsButton
-              modalEnable={modalEnable} 
-              setModalEnable={setModalEnable} 
-              importFromDB={importFromDB} 
-            />
-            <div>
-              <label htmlFor="species-names">Choose a species: </label>
-              <select
-                name="Species"
-                id="species-names"
-                value={selectedSpecies ?? ""}
-                onClick={(e) => {
-                  const value = (e.target as HTMLSelectElement).value;
-                  if (value !== "") {
-                    const selectedId = Number(value);
-                    assignSpecies(speciesMap[selectedId]);
-                  }
-                }}
-                onChange={(e) => {
-                  const selectedId = Number(e.target.value);
-                  setSelectedSpecies(selectedId);
-                }}
-              >
-                {Object.entries(speciesMap).map(([id, species]) => (
-                  <option key={species.speciesId} value={species.speciesId}>
-                    {species.common} ({species.species})
-                  </option>
-                ))}
-              </select>
+            <SelectRecordingsButton importFromDB={importFromDB} />
+            <div className="w-64">
+              Default Species:
+              <SpeciesDropdown
+                speciesMap={speciesMap}
+                speciesId={selectedSpeciesId}
+                onChange={(opt) => setSelectedSpeciesId(opt.speciesId)}
+              />
             </div>
           </div>
+
           {showSpec && (
             <div>
-              {showSpec && entries.length > 0 && (
+              {entries.length > 0 && (
                 <div className={styles.audioInfo}>
-                  <p>
-                    File {index + 1} of {entries.length}:{" "}
-                    {entries[index]?.recording.url}
-                  </p>
+                  <p>File {index + 1} of {entries.length}: {currentEntry?.recording.url}</p>
                 </div>
               )}
-              {showSpec && (
-                <div id="stage" className={styles.waveStage}>
-
+              <div id="stage" className={styles.stage} ref={stageRef}>
+                {/* Zoom Controls Overlay */}
+                <div className={styles.zoomControls}>
+                  <div className={styles.zoomGroup}>
+                    <span className={styles.zoomLabel}>X</span>
+                    <button className={styles.zoomBtn} onClick={zoomXOut} aria-label="Zoom out horizontal">−</button>
+                    <span className={styles.zoomValue}>{zoomX.toFixed(1)}×</span>
+                    <button className={styles.zoomBtn} onClick={zoomXIn}  aria-label="Zoom in horizontal">+</button>
+                  </div>
+                  <div className={styles.zoomDivider} />
+                  <div className={styles.zoomGroup}>
+                    <span className={styles.zoomLabel}>Y</span>
+                    <button className={styles.zoomBtn} onClick={zoomYOut} aria-label="Zoom out vertical">−</button>
+                    <span className={styles.zoomValue}>{zoomY.toFixed(1)}×</span>
+                    <button className={styles.zoomBtn} onClick={zoomYIn}  aria-label="Zoom in vertical">+</button>
+                  </div>
+                  <div className={styles.zoomDivider} />
+                  <button className={`${styles.zoomBtn} ${styles.zoomReset}`} onClick={resetZoom} aria-label="Reset zoom">↺</button>
                 </div>
-              )}
+              </div>
             </div>
           )}
         </div>
       </div>
+
       {showSpec && (
         <>
           <div id="wave-timeline" style={{ height: "20px", margin: "20px" }} />
 
           <div className={styles.controls}>
-            <button
-              className={styles.prevClip}
-              onClick={clickPrev}
-              disabled={isPrevDisabled || index === 0}
-            >
-              <Image
-                src="/images/LArrow.png"
-                alt="Previous Button"
-                width={45}
-                height={45}
-              />
+            <button className={styles.prevClip} onClick={clickPrev} disabled={isPrevDisabled || index === 0}>
+              <Image src="/images/LArrow.png" alt="Previous Button" width={45} height={45} />
             </button>
-            <button className={styles.modelButton} onClick={clickYes}>
-              Save
-            </button>
-            {!playing && (
-              <button className={styles.play} onClick={clickPlay}>
-                <Image
-                  src="/images/Play.png"
-                  alt="Play Button"
-                  width={45}
-                  height={45}
-                />
-              </button>
-            )}
-            {playing && (
-              <button className={styles.pause} onClick={clickPause}>
-                <Image
-                  src="/images/Pause.png"
-                  alt="Pause Button"
-                  width={45}
-                  height={45}
-                />
-              </button>
-            )}
-            <button className={styles.modelButton} onClick={clickNo}>
-              Delete
-            </button>
-            <button
-              className={styles.nextClip}
-              onClick={clickNext}
-              disabled={isNextDisabled || index === entries.length - 1}
-            >
-              <Image
-                src="/images/RArrow.png"
-                alt="Next Button"
-                width={45}
-                height={45}
-              />
+            <button className={styles.modelButton} onClick={clickSave}>Save</button>
+            {!playing
+              ? <button className={styles.play} onClick={clickPlay}><Image src="/images/Play.png"  alt="Play Button"  width={45} height={45} /></button>
+              : <button className={styles.pause} onClick={clickPause}><Image src="/images/Pause.png" alt="Pause Button" width={45} height={45} /></button>
+            }
+            <button className={styles.modelButton} onClick={clickSkip}>Delete</button>
+            <button className={styles.nextClip} onClick={clickNext} disabled={isNextDisabled || index === entries.length - 1}>
+              <Image src="/images/RArrow.png" alt="Next Button" width={45} height={45} />
             </button>
           </div>
-
 
           <div className={styles.bottomBar}>
             <div className={styles.confidenceSection}>
               <label>Region buttons</label>
               <div className={styles.regionButtons}>
-                <button
-                  className={styles.regionButton}
-                  onClick={deleteActiveRegion}
-                >
-                  Delete
-                </button>
-                <button className={styles.regionButton} onClick={clearAllRegions}>
-                  Clear
-                </button>
-                <button className={styles.regionButton} onClick={undoLastRegion}>
-                  Undo
-                </button>
-                {/* Removed because saves new species to list in UI not database */}
-                {/* <button
-                  className={styles.regionButton}
-                  onClick={saveLabelsToSpecies}
-                >
-                  Save Labels
-                </button> */}
+                <button className={styles.regionButton} onClick={deleteSelectedRegion}>Delete</button>
+                <button className={styles.regionButton} onClick={clearAllRegions}>Clear</button>
               </div>
-              
               {useConfidence && (
-                <Slider
-									displayLabel="Confidence"
-									value={confidence}
-									setValue={setConfidence}
-									min={0}
-									max={maxConfidence}
-								/>
+                <Slider displayLabel="Confidence" value={confidence} setValue={setConfidence} min={0} max={maxConfidence} />
               )}
-
               <LogSlider
-								displayLabel="Playback Rate"
-								value={playbackRate}
-								setValue={setPlaybackRate}
-								min={0.0625}
-								max={2}
-								logBase={2}
-								onChange={(val) => {
-									const ws = instances.current[currentEntryId]?.wavesurfer;
-									if (ws) {
-										ws.setPlaybackRate(val, false);
-									}
-								}}
-							/>
+                displayLabel="Playback Rate"
+                value={playbackRate}
+                setValue={setPlaybackRate}
+                min={0.0625}
+                max={2}
+                logBase={2}
+                onChange={(val) => {
+                  const ws = instances.current[currentId]?.wavesurfer;
+                  if (ws) ws.setPlaybackRate(val, false);
+                }}
+              />
             </div>
-            
+
             <div className={styles.annotationSection}>
               <label>Call Type:</label>
-              <input
-                type="text"
-                value={callType}
-                onChange={(e) => setCallType(e.target.value)}
-              />
+              <input type="text" value={callType} onChange={(e) => setCallType(e.target.value)} />
               {useAdditional && (
                 <>
                   <label>Additional Notes:</label>
-                  <textarea
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                  />
+                  <textarea value={notes} onChange={(e) => setNotes(e.target.value)} />
                 </>
               )}
-              
             </div>
-
           </div>
         </>
       )}
-        
+
+      {speciesDropdownState &&
+        createPortal(
+          <>
+            <div
+              style={{
+                position: "fixed",
+                top: 0,
+                left: 0,
+                width: "100vw",
+                height: "100vh",
+                zIndex: 9999,
+              }}
+              onClick={() => setSpeciesDropdownState(null)}
+            />
+              <div
+                style={{
+                  position: "absolute",
+                  top: speciesDropdownState.top + 20,
+                  left: speciesDropdownState.left,
+                  zIndex: 10000,
+                  width: 256,
+                }}
+              >
+                <SpeciesDropdown
+                  speciesMap={speciesMap}
+                  speciesId={speciesDropdownState.region.data?.species?.speciesId ?? selectedSpeciesId}
+                  onChange={(option) => {
+                    if (!option) { assignSpeciesToRegion(speciesDropdownState.region, null); return; }
+                    const species = speciesMap[option.speciesId];
+                    if (!species) return;
+                    assignSpeciesToRegion(speciesDropdownState.region, species);
+                    setSpeciesDropdownState(null);
+                  }}
+                  onMenuClose={() => setSpeciesDropdownState(null)}
+                  onBlur={() => setSpeciesDropdownState(null)}
+                  allowNull={true}
+                  defaultMenuIsOpen={true}
+                />
+              </div>
+            </>,
+          document.body,
+        )}
     </React.Fragment>
   );
 };
