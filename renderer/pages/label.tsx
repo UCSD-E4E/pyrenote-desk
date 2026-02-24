@@ -326,19 +326,6 @@ const AudioPlayer: React.FC = () => {
     setTimeout(() => setSaveDisabled(false), 500);
   }, [entries, index, isSaveDisabled, confidence, labelerId]);
 
-  const clickSkip = useCallback(async () => {
-    const inst = instances.current[currentId];
-    if (!inst || isSkipDisabled) return;
-    setSkipDisabled(true);
-    resetValues();
-
-    inst.cleanup();
-    if (entries.length === 1) setShowSpec(false);
-    else if (index === entries.length - 1) setIndex(index - 1);
-    setEntries((prev) => prev.filter((_, i) => i !== index));
-    setTimeout(() => setSkipDisabled(false), 500);
-  }, [entries, index, isSkipDisabled]);
-
   // ================================================================================================================
   // Import
 
@@ -412,13 +399,12 @@ const AudioPlayer: React.FC = () => {
       switch (e.key) {
         case "w": clickSave(); break;
         case "p": playing ? clickPause() : clickPlay(); break;
-        case "d": clickSkip(); break;
         case "ArrowRight": clickNext(); break;
         case "a":
         case "ArrowLeft": clickPrev(); break;
       }
     },
-    [playing, clickSave, clickPlay, clickPause, clickSkip, clickNext, clickPrev],
+    [playing, clickSave, clickPlay, clickPause, clickNext, clickPrev],
   );
 
   useEffect(() => {
@@ -484,24 +470,25 @@ const AudioPlayer: React.FC = () => {
             <button className={styles.prevClip} onClick={clickPrev} disabled={isPrevDisabled || index === 0}>
               <Image src="/images/LArrow.png" alt="Previous Button" width={45} height={45} />
             </button>
-            <button className={styles.modelButton} onClick={clickSave}>Save</button>
             {!playing
               ? <button className={styles.play} onClick={clickPlay}><Image src="/images/Play.png"  alt="Play Button"  width={45} height={45} /></button>
               : <button className={styles.pause} onClick={clickPause}><Image src="/images/Pause.png" alt="Pause Button" width={45} height={45} /></button>
             }
-            <button className={styles.modelButton} onClick={clickSkip}>Delete</button>
             <button className={styles.nextClip} onClick={clickNext} disabled={isNextDisabled || index === entries.length - 1}>
               <Image src="/images/RArrow.png" alt="Next Button" width={45} height={45} />
             </button>
           </div>
+          
+          <div className={styles.controls}>
+            <div className={styles.regionButtons}>
+              <button className={styles.modelButton} onClick={clearAllRegions}>Clear regions</button>
+              <button className={styles.modelButton} onClick={deleteSelectedRegion}>Delete region</button>
+              <button className={styles.modelButton} onClick={clickSave}>Finish</button>
+            </div>
+          </div>
 
           <div className={styles.bottomBar}>
             <div className={styles.confidenceSection}>
-              <label>Region buttons</label>
-              <div className={styles.regionButtons}>
-                <button className={styles.regionButton} onClick={deleteSelectedRegion}>Delete</button>
-                <button className={styles.regionButton} onClick={clearAllRegions}>Clear</button>
-              </div>
               {useConfidence && (
                 <Slider displayLabel="Confidence" value={confidence} setValue={setConfidence} min={0} max={maxConfidence} />
               )}
