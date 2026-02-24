@@ -94,6 +94,22 @@ const AudioPlayer: React.FC = () => {
   playingRef.current = playing;
 
   const [index, setIndex] = useState(0);
+  const [indexInput, setIndexInput] = useState(String(index + 1));
+  const commitChange = () => {
+    const value = Number(indexInput);
+
+    if (!isNaN(value)) {
+      const clamped = Math.min(Math.max(value, 1), entries.length);
+      setIndex(clamped - 1);
+      setIndexInput(String(clamped-1));
+    } else {
+      setIndexInput(String(index + 1));
+    }
+  };
+  useEffect(() => {
+    setIndexInput(String(index + 1));
+  }, [index]);
+
   const [confidence, setConfidence] = useState(10);
   const [callType, setCallType] = useState("");
   const [notes, setNotes] = useState("");
@@ -436,8 +452,26 @@ const AudioPlayer: React.FC = () => {
             <div>
               {entries.length > 0 && (
                 <div className={styles.audioInfo}>
-                  <p>File {index + 1} of {entries.length}: {currentEntry?.recording.url}</p>
+                  <p>
+                    File{" "}
+                    <input
+                      type="number"
+                      value={indexInput}
+                      min={1}
+                      max={entries.length}
+                      onChange={(e) => setIndexInput(e.target.value)}
+                      onBlur={commitChange}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.currentTarget.blur(); // triggers commit
+                        }
+                      }}
+                      style={{ width: "60px" }}
+                    />{" "}
+                    of {entries.length}: {entries[index]?.recording.url}
+                  </p>
                 </div>
+
               )}
               <div id="stage" className={styles.stage} ref={stageRef}>
                 {/* Zoom Controls Overlay */}
