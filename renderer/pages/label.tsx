@@ -15,8 +15,10 @@ import { SpeciesDropdown } from "../components/SpeciesDropdown";
 const DEFAULT_ZOOM_X = 1;
 const DEFAULT_ZOOM_Y = 1;
 const ZOOM_STEP = 0.25;
+
 const BASE_WAVE_HEIGHT = 128;
 const BASE_SPECTRO_HEIGHT = 256;
+const TIMELINE_HEIGHT = 20;
 
 const fftSamplesForZoom = (zoom: number): 256 | 512 | 1024 => {
   if (zoom >= 4) return 1024;
@@ -123,7 +125,6 @@ const AudioPlayer: React.FC = () => {
   // DOM refs
 
   const stageRef = useRef<HTMLDivElement>();
-  const timelineDotRef = useRef<HTMLDivElement | null>(null);
 
   // ================================================================================================================
   // Region refs
@@ -148,9 +149,10 @@ const AudioPlayer: React.FC = () => {
     zoomX,
     zoomY,
     fftSamplesForZoom,
+    BASE_WAVE_HEIGHT,
     BASE_SPECTRO_HEIGHT,
+    TIMELINE_HEIGHT,
     stageRef,
-    timelineDotRef,
     instances,
     regionListRef,
     selectedRegionRef,
@@ -478,8 +480,6 @@ const AudioPlayer: React.FC = () => {
 
       {showSpec && (
         <>
-          <div id="wave-timeline" style={{ height: "20px", margin: "20px" }} />
-
           <div className={styles.controls}>
             <button className={styles.prevClip} onClick={clickPrev} disabled={isPrevDisabled || index === 0}>
               <Image src="/images/LArrow.png" alt="Previous Button" width={45} height={45} />

@@ -38,7 +38,6 @@
 .waveContainerWrapper {
 	position: absolute;
 	width: 100%;
-	height: 384px;
 	overflow-x: hidden;
 	overflow-y: hidden;
 	scrollbar-width: none; /* Firefox */
@@ -46,7 +45,6 @@
 .waveContainer {
 	position: absolute;
 	width: 100%;
-	height: 384px;
 	z-index: 2;
 }
 .waveContainerWrapper::-webkit-scrollbar {
@@ -55,15 +53,12 @@
 
 .spectrogramContainerWrapper {
 	position: absolute;
-	top: 128px;
 	width: 100%;
-	height: 256px;
 	overflow: auto; /* clipping only — scroll is driven on the inner spectrogramContainer */
 }
 .spectrogramContainer {
 	position: absolute;
 	width: 100%;
-	height: 256px;
 	z-index: 1;
 	pointer-events: none;
 	scrollbar-width: none; /* Firefox — hide both scrollbars */
@@ -74,6 +69,14 @@
 
 .spectrogramContainer canvas {
 	position: relative;
+}
+
+.timelineContainer {
+	position: relative;
+	width: 100%;
+	top: 0;
+	box-sizing: border-box;
+	border-bottom: 1px solid #000000;
 }
 
 .play:hover {
@@ -263,7 +266,7 @@
 
 .zoomControls {
 	position: absolute;
-	top: 8px;
+	bottom: 8px;
 	right: 10px;
 	z-index: 200;
 

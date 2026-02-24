@@ -28,9 +28,12 @@ export interface WavesurferInstanceDependencies {
   zoomX: number;
   zoomY: number;
   fftSamplesForZoom: (zoom: number) => 256 | 512 | 1024;
+
+  BASE_WAVE_HEIGHT: number;
   BASE_SPECTRO_HEIGHT: number;
+  TIMELINE_HEIGHT: number;
+
   stageRef: React.MutableRefObject<HTMLDivElement>;
-  timelineDotRef: React.MutableRefObject<HTMLDivElement | null>;
   instances: React.MutableRefObject<Record<string, WavesurferInstance>>;
 
   // Region callbacks — set by the parent after creation so the class can
@@ -57,6 +60,7 @@ export class WavesurferInstance {
   container!: HTMLDivElement;
     waveformWrapper!: HTMLDivElement;
       waveformContainer!: HTMLDivElement;
+        timelineContainer!: HTMLDivElement;
     spectrogramWrapper!: HTMLDivElement;
       spectrogramContainer!: HTMLDivElement;
 
@@ -77,27 +81,51 @@ export class WavesurferInstance {
     this.deps = deps;
 
     // -------------------------------------------------------------------------
-    // DOM nodes
+    // DOM nodes 
+    // there might be a smarter way to do this with jsx but this works for now
 
     const container = document.createElement("div");
     container.className = `${styles.wavesurferContainer} ${styles.prefetchWave}`;
+    container.style = `height: ${
+      deps.TIMELINE_HEIGHT +
+      deps.BASE_WAVE_HEIGHT +
+      deps.BASE_SPECTRO_HEIGHT
+    }px`
 
     const waveformWrapper = document.createElement("div");
     waveformWrapper.classList.add(styles.waveContainerWrapper);
+    waveformWrapper.style = `height: ${
+      deps.TIMELINE_HEIGHT +
+      deps.BASE_WAVE_HEIGHT +
+      deps.BASE_SPECTRO_HEIGHT
+    }px`
     container.appendChild(waveformWrapper);
 
     const waveformContainer = document.createElement("div");
     waveformContainer.id = `waveform-${this.id}`;
     waveformContainer.classList.add(styles.waveContainer);
+    waveformContainer.style = `height: ${
+      deps.TIMELINE_HEIGHT +
+      deps.BASE_WAVE_HEIGHT +
+      deps.BASE_SPECTRO_HEIGHT
+    }px`
     waveformWrapper.appendChild(waveformContainer);
+
+    const timelineContainer = document.createElement("div");
+    timelineContainer.id = `timeline-${this.id}`;
+    timelineContainer.classList.add(styles.timelineContainer);
+    timelineContainer.style = `height: ${deps.TIMELINE_HEIGHT}px`
+    waveformContainer.appendChild(timelineContainer);
 
     const spectrogramWrapper = document.createElement("div");
     spectrogramWrapper.classList.add(styles.spectrogramContainerWrapper);
+    spectrogramWrapper.style = `height: ${deps.BASE_SPECTRO_HEIGHT}px; top: ${deps.TIMELINE_HEIGHT+deps.BASE_WAVE_HEIGHT}px`
     container.appendChild(spectrogramWrapper);
 
     const spectrogramContainer = document.createElement("div");
     spectrogramContainer.id = `spectrogram-${this.id}`;
     spectrogramContainer.classList.add(styles.spectrogramContainer);
+    spectrogramContainer.style = `height: ${deps.BASE_SPECTRO_HEIGHT}px`
     spectrogramWrapper.appendChild(spectrogramContainer);
 
     this.container = container;
@@ -105,6 +133,7 @@ export class WavesurferInstance {
     this.waveformContainer = waveformContainer;
     this.spectrogramWrapper = spectrogramWrapper;
     this.spectrogramContainer = spectrogramContainer;
+    this.timelineContainer = timelineContainer;
     document.body.appendChild(container);
 
     // -------------------------------------------------------------------------
@@ -137,7 +166,9 @@ export class WavesurferInstance {
     instances.current[entry.id] = instance;
     instance.isLoading = true;
 
+    // -------------------------------------------------------------------------
     // Spectrogram plugin
+
     const spectrogramPlugin = SpectrogramPlugin.create({
       container: instance.spectrogramContainer,
       colorMap: computeColormap(deps.colormap),
@@ -161,14 +192,50 @@ export class WavesurferInstance {
       return instance;
     }
 
-    // Expand the clickable shadow-dom wrapper to cover waveform + spectrogram
-    const shadowHost = instance.waveformContainer.querySelector<HTMLElement>("div");
+    // -------------------------------------------------------------------------
+    // Expand the clickable region
+    // expands shadow-dom wrapper to cover waveform + spectrogram
+    // make sure to do this BEFORE timeline plugin or it will be harder to grab the right DOM node
+
+    const shadowHost = instance.waveformContainer
+      .querySelector<HTMLElement>("div:not([id])");
+
     if (shadowHost?.shadowRoot) {
       const wrapper = shadowHost.shadowRoot.querySelector<HTMLElement>(".wrapper");
       if (wrapper) wrapper.style.height = "384px";
     }
 
+
+    // -------------------------------------------------------------------------
+    // Timeline plugin
+
+    instance.timelinePlugin = TimelinePlugin.create({
+      container: instance.timelineContainer,
+      height: 20,
+      timeInterval: 0.5,
+      primaryLabelInterval: 8,
+      secondaryLabelInterval: 2,
+      style: {
+        fontSize: '16px',
+        color: '#000000',
+      },
+    });
+    instance.wavesurfer.registerPlugin(instance.timelinePlugin);
+
+    const clickHandler = (event: MouseEvent) => {
+      const rect = instance.timelineContainer.getBoundingClientRect();
+      const clickX = event.clientX - rect.left;
+      const fraction = clickX / instance.waveformWrapper.scrollWidth;
+      instance.wavesurfer.seekTo(fraction);
+    };
+    instance.timelineContainer.addEventListener("click", clickHandler);
+    instance.wavesurfer.on("destroy", () =>
+      instance.timelineContainer.removeEventListener("click", clickHandler),
+    );
+
+    // -------------------------------------------------------------------------
     // Scroll forwarding
+
     const handleScroll = (e: WheelEvent) => {
       if (e.ctrlKey || e.metaKey || e.shiftKey) return;
       e.preventDefault();
@@ -195,7 +262,6 @@ export class WavesurferInstance {
 
     const {
       stageRef,
-      timelineDotRef,
       regionListRef,
       selectedRegionRef,
       removeListRef,
@@ -214,63 +280,6 @@ export class WavesurferInstance {
     stageRef.current.appendChild(this.container);
 
     const ws = this.wavesurfer;
-
-    // -------------------------------------------------------------------------
-    // Timeline plugin
-
-    const timelineContainer = document.getElementById("wave-timeline");
-    if (!timelineContainer) {
-      console.error("Missing timeline container, abort mount");
-      return;
-    }
-
-    this.timelinePlugin = TimelinePlugin.create({
-      container: "#wave-timeline",
-      height: 20,
-    });
-    ws.registerPlugin(this.timelinePlugin);
-
-    timelineContainer.style.position = "relative";
-    timelineContainer.style.overflow = "visible";
-
-    // Remove any leftover dot from a previous mount
-    timelineContainer
-      .querySelectorAll("div[data-timeline-dot]")
-      .forEach((d) => timelineContainer.removeChild(d));
-
-    const dot = document.createElement("div");
-    dot.setAttribute("data-timeline-dot", "true");
-    Object.assign(dot.style, {
-      position: "absolute",
-      width: "8px",
-      height: "8px",
-      borderRadius: "50%",
-      backgroundColor: "black",
-      top: "50%",
-      transform: "translateY(-50%)",
-      left: "0px",
-    });
-    timelineContainer.appendChild(dot);
-    timelineDotRef.current = dot;
-
-    ws.on("audioprocess", (currentTime) => {
-      const duration = ws.getDuration();
-      if (!duration) return;
-      const fraction = currentTime / duration;
-      dot.style.left = fraction * (timelineContainer.offsetWidth || 0) + "px";
-    });
-
-    const clickHandler = (event: MouseEvent) => {
-      const rect = timelineContainer.getBoundingClientRect();
-      const clickX =
-        event.clientX - rect.left + this.waveformWrapper.scrollLeft;
-      const fraction = clickX / this.waveformWrapper.scrollWidth;
-      dot.style.left = fraction * (timelineContainer.offsetWidth || 0) + "px";
-    };
-    this.waveformContainer.addEventListener("click", clickHandler);
-    ws.on("destroy", () =>
-      this.waveformContainer.removeEventListener("click", clickHandler),
-    );
 
     // -------------------------------------------------------------------------
     // Regions plugin
@@ -379,8 +388,6 @@ export class WavesurferInstance {
   public unmount() {
     if (!this.isMounted) return;
 
-    const { timelineDotRef } = this.deps;
-
     try {
       this.wavesurfer.unAll();
 
@@ -388,18 +395,6 @@ export class WavesurferInstance {
       this.regionsPlugin?.destroy();
       this.regionsPlugin = null;
       this.deps.wipeRegions();
-
-      this.timelinePlugin?.unAll();
-      this.timelinePlugin?.destroy();
-      this.timelinePlugin = null;
-
-      const timelineContainer = document.getElementById("wave-timeline");
-      if (timelineContainer && timelineDotRef.current) {
-        try {
-          timelineContainer.removeChild(timelineDotRef.current);
-        } catch (_) {}
-        timelineDotRef.current = null;
-      }
 
       this.isMounted = false;
     } catch (e) {
@@ -417,20 +412,10 @@ export class WavesurferInstance {
     if (this.isLoading) return;
     if (this.isMounted) this.unmount();
 
-    const { timelineDotRef, instances } = this.deps;
+    const { instances } = this.deps;
 
     try {
       this.wavesurfer.destroy();
-
-      if (timelineDotRef.current) {
-        const timelineContainer = document.getElementById("wave-timeline");
-        if (timelineContainer) {
-          try {
-            timelineContainer.removeChild(timelineDotRef.current);
-          } catch (_) {}
-        }
-        timelineDotRef.current = null;
-      }
     } catch (e) {
       console.warn("Error destroying wavesurfer:", e);
     }
