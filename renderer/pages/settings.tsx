@@ -305,11 +305,13 @@ export default function SettingsPage() {
                             onChange={(e) => newEmail(e.target.value)}
                             value={email}>
                         </input><br></br>
+                        {/*
                         <label >Dark Mode: </label>
                         <input type="checkbox" id="dark" name="dark"
                             onChange={(e) => newDarkMode(e.target.checked.toString())}
                             checked={darkMode === 'true'}>    
                         </input>
+                        */}
                     </form>
                 </div>}
             {!showGeneral && <br></br>}<br></br><button type="button" className={styles.collapsible} onClick={collapseData}>Database</button>
@@ -370,14 +372,22 @@ export default function SettingsPage() {
                             value = {sampleRate}>
                         </input><br></br>
                         <label >Disable Additional: </label>
-                        <input type="checkbox" id="disableAdditional" name="disableAdditional"
-                            onChange={(e) => newDisableAdditional(e.target.value)}
-                            value = {disableAdditional}>    
+                        <input
+                            type="checkbox"
+                            id="disableAdditional"
+                            name="disableAdditional"
+                            checked={disableAdditional == "true"}
+                            onChange={(e) => newDisableAdditional(e.target.checked)}
+                        > 
                         </input><br></br>
                         <label >Disable Confidence: </label>
-                        <input type="checkbox" id="disableConfidence" name="disableConfidence"
-                            onChange={(e) => newDisableConfidence(e.target.value)}
-                            value = {disableConfidence}>    
+                        <input
+                            type="checkbox"
+                            id="disableConfidence"
+                            name="disableConfidence"
+                            checked={disableConfidence == "true"}
+                            onChange={(e) => newDisableConfidence(e.target.checked)}
+                        >
                         </input><br></br>
                         <label>Confidence Range: </label>
                         <input type="number" id="range" name="range"
