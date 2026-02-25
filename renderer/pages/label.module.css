@@ -5,6 +5,43 @@
 	align-items: flex-start;
 }
 
+.audioInfo {
+	position: relative;
+	display: flex;
+	flex-direction: row;
+	gap: 5px;
+	justify-content: left;
+	align-items: center;
+}
+
+.navButton {
+	display: flex;
+	justify-content: center;
+	align-items: center;
+
+	gap: 1px;
+	background-color: white;
+	box-sizing: border-box;
+	border-radius: 10px;
+	border: none;
+
+	padding: 10;
+}
+.navButton:hover {
+	background-color: #b3fad1;
+	cursor: pointer;
+}
+.navButton:disabled {
+	background-color: white;
+	opacity: 50%;
+	cursor: default;
+}
+.yellowIcon {
+  filter: brightness(0) saturate(100%)
+          invert(73%) sepia(62%) saturate(749%)
+          hue-rotate(0deg) brightness(95%) contrast(101%);
+}
+
 .stage {
 	position: relative;
 	width: 100%;
@@ -150,21 +187,6 @@
 	gap: 6px;
 }
 
-.prevClip:hover {
-	background-color: #b3fad1;
-	cursor: pointer;
-}
-
-.nextClip:hover {
-	background-color: #b3fad1;
-	cursor: pointer;
-}
-
-.modelButton:hover {
-	background-color: #b3fad1;
-	cursor: pointer;
-}
-
 .play {
 	gap: 1px;
 	background-color: white;
@@ -174,8 +196,7 @@
 	border: none;
 }
 
-.modelButton {
-	background-color: orange;
+.controlsButton {
 	color: black;
 	font-size: 16px;
 	font-weight: bold;
@@ -186,6 +207,16 @@
 	display: inline-block;
 	align-self: center;
 	width: 150px;
+}
+.controlsButton:hover {
+	background-color: #d9f4e4;
+	cursor: pointer;
+}
+.orange {
+	background-color: orange;
+}
+.green {
+	background-color: greenyellow;
 }
 
 .pause {
@@ -198,24 +229,6 @@
 }
 
 .replay {
-	gap: 1px;
-	background-color: white;
-	padding: 1px;
-	margin-right: 20px;
-	border-radius: 10px;
-	border: none;
-}
-
-.prevClip {
-	gap: 1px;
-	background-color: white;
-	padding: 1px;
-	margin-right: 20px;
-	border-radius: 10px;
-	border: none;
-}
-
-.nextClip {
 	gap: 1px;
 	background-color: white;
 	padding: 1px;
