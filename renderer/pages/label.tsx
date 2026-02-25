@@ -401,6 +401,12 @@ const AudioPlayer: React.FC = () => {
   };
 
   const clearAllRegions = () => {
+    const confirmed = window.confirm(
+      "Are you sure you want to clear all regions? This cannot be undone."
+    );
+
+    if (!confirmed) return;
+
     Object.values(regionListRef.current).forEach((r) => r.remove());
     wipeRegions();
   };
