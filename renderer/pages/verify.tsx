@@ -14,6 +14,7 @@ import WaveSurfer from "wavesurfer.js";
 import SpectrogramPlugin from "wavesurfer.js/dist/plugins/spectrogram";
 import { LogSlider, Slider } from '../components/Slider'
 import { COLORMAP_OPTIONS, ColormapOption, computeColormap } from '../utils/colormaps'
+import { SelectRecordingsButton } from "../components/SelectRecordingsButton";
 
 // CONSTANTS //
 // modification in Settings page to be implemented
@@ -426,11 +427,12 @@ export default function VerifyPage() {
 	//// INITIALIZATION
 
 	// initial DB load
-	async function handleFileSelectionFromDB() {
+	const [modalEnable, setModalEnable] = useState(false);
+
+	async function handleFileSelectionFromDB(recordings, skippedCount = 0) {
 		let processed: ProcessedAnnotation[] = [...audioFiles];
 		let spawnPage = 1;
 
-		const recordings = await window.api.listRecordings();
 		const listOfSpecies: Species[] = await window.api.listSpecies();
 
 		const newSpeciesMap: Record<number, Species> = {};
@@ -711,13 +713,13 @@ export default function VerifyPage() {
 						className = {styles.verifyButtonMenu}
 						onMouseDown={(e) => {if (!showModal) {e.stopPropagation(); handleMouseDown(e, false)}}}
 					>
+						{/* <button onClick={() => setModalEnable(prev => !prev)}>Select Recordings</button> */}
+						<SelectRecordingsButton
+							modalEnable={modalEnable} 
+							setModalEnable={setModalEnable} 
+							importFromDB={handleFileSelectionFromDB} 
+						/>
 
-						<label className={styles.pickFiles} onClick={(e) => {
-							e.stopPropagation();
-							handleFileSelectionFromDB();
-						}}>
-							<p>Import files from Database</p>
-						</label> 
 						{audioFiles.length > 0 && (
 							<>
 								<div className={styles.smallContainer}>

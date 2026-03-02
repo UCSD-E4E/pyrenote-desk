@@ -22,6 +22,42 @@ export function SelectRecordingsButton({importFromDB}: SelectRecordingsProps) {
 	const [selectedSurveys, setSelectedSurveys] = useState([]);
 	const [selectedSpecies, setSelectedSpecies] = useState([]);
 	const [selectedVerifications, setSelectedVerifications] = useState([]);
+	const [unlinkedRecordings, setUnlinkedRecordings] = useState(['unlinked']);
+
+	const clearSelection = () => {
+		setSelectedSites([]);
+		setSelectedRecorders([]);
+		setSelectedDeployments([]);
+		setSelectedSurveys([]);
+		setSelectedSpecies([]);
+		setSelectedVerifications([]);
+		setUnlinkedRecordings([]);
+	}
+
+	const handleSaveSelection = () => {
+		const selection = {
+			sites: selectedSites,
+			recorders: selectedRecorders,
+			deployments: selectedDeployments,
+			surveys: selectedSurveys,
+			species: selectedSpecies,
+			verifications: selectedVerifications,
+			unlinkedRecordings: unlinkedRecordings
+		};
+
+		localStorage.setItem("recordingSelection", JSON.stringify(selection));
+	};
+
+	const handleLoadSelection = () => {
+		const selection = JSON.parse(localStorage.getItem("recordingSelection"));
+		setSelectedSites(selection.sites);
+		setSelectedRecorders(selection.recorders);
+		setSelectedDeployments(selection.deployments);
+		setSelectedSurveys(selection.surveys);
+		setSelectedSpecies(selection.species);
+		setSelectedVerifications(selection.verifications);
+		setUnlinkedRecordings(selection.unlinkedRecordings);
+	}
 
 	useEffect(() => {
 		if (!modalEnable) {

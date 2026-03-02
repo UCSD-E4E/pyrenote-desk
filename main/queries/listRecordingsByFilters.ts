@@ -38,6 +38,10 @@ const listRecordingsByFilters = async (filters): Promise<{ recordings: Recording
         parameters.push(...filters.surveys);
     }
 
+    if (filters.unlinked?.length > 0) {
+        clauses.push(`r.deploymentId IS NULL`);
+    }
+
     if ((filters.species?.length) || (filters.verifications?.length)) {
         query += `
             INNER JOIN RegionOfInterest roi ON roi.recordingId = r.recordingId
