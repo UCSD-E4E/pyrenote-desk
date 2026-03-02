@@ -713,7 +713,7 @@ export default function VerifyPage() {
 						className = {styles.verifyButtonMenu}
 						onMouseDown={(e) => {if (!showModal) {e.stopPropagation(); handleMouseDown(e, false)}}}
 					>
-						<button onClick={() => setModalEnable(prev => !prev)}>Select Recordings</button>
+						{/* <button onClick={() => setModalEnable(prev => !prev)}>Select Recordings</button> */}
 						<SelectRecordingsButton
 							modalEnable={modalEnable} 
 							setModalEnable={setModalEnable} 
