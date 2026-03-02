@@ -19,6 +19,7 @@ Then, clone the repo. Once cloned, in the "pyrenote-desk" directory, enter this 
 Then, in the pyrenote-desk directory, run `uv sync`
 
 Then, activate the virtual environment using `source .venv/bin/activate`
+For windows, activate it by using `.venv\Scripts\activate`
 
 Afterwards, please install `yarn` with `npm install -g yarn` ([tutorial](https://www.digitalocean.com/community/tutorials/how-to-install-and-use-the-yarn-package-manager-for-node-js)).
 

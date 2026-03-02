@@ -4,10 +4,8 @@ import { ProcessedAnnotation, SpectroStatus, VerifyContext, WavesurferInstance }
 import WaveSurfer from "wavesurfer.js";
 import SpectrogramPlugin from "wavesurfer.js/dist/plugins/spectrogram";
 import Select, { GroupBase, StylesConfig } from 'react-select';
-import { SingleValue } from 'react-select';
-import { uuid as v4 } from 'uuidv4';
-import { Species } from '../../main/schema';
 import { computeColormap } from '../utils/colormaps';
+import { SpeciesDropdown } from '../components/SpeciesDropdown';
 
 export interface SpectroRef { // public Spectrogram properties & functions
 	id: number,
@@ -247,13 +245,19 @@ export const Spectrogram = memo(function Spectrogram({
 			{id!=-1 && (<div className={styles.indexOverlay}>{index+1}</div>)} 
 			{id!=-1 && (<div className={styles.filePathOverlay}>{filePath}</div>)} 		
 			{id!=-1 && 
-				<SpeciesDropdown
-					speciesMap={speciesMap}
-					speciesId={speciesId}
-					index={index}
-					updateAudioFile={updateAudioFile}
-					styles={dropdownStyles}
-				/>
+				<div className="absolute left-10 top-1 w-64">
+					<SpeciesDropdown
+						speciesMap={speciesMap}
+						speciesId={speciesId}
+						onChange={
+							(selectedOption) => updateAudioFile(
+								index,
+								"speciesId",
+								selectedOption?.speciesId
+							)
+						}
+					/>
+				</div>
 			}
 			
 			{!isLoaded && (<div id={`loading-spinner-${index}`} className={styles.waveLoadingCircle}></div>)}
@@ -274,7 +278,6 @@ export const Spectrogram = memo(function Spectrogram({
 
 	return true;
 });
-
 
 export function ModalSpectrogram({
 	id, // index in currentFiles (in-page index)
@@ -322,8 +325,13 @@ export function ModalSpectrogram({
 					<SpeciesDropdown
 						speciesMap={speciesMap}
 						speciesId={speciesId}
-						index={index}
-						updateAudioFile={updateAudioFile}
+						onChange={
+							(selectedOption) => updateAudioFile(
+								index,
+								"speciesId",
+								selectedOption?.speciesId
+							)
+						}
 					/>
 				</div>
 				<button onClick={(e)=>{
@@ -331,142 +339,6 @@ export function ModalSpectrogram({
 					e.stopPropagation();
 				}}>Close</button>
 			</div>
-		</div>
-	);
-}
-
-
-const dropdownStyles: StylesConfig<any, false, GroupBase<any>> = {
-	control: (base: any) => ({
-		...base,
-		position: "absolute",
-		top: "4px",
-		left: "40px",
-		zIndex: "10",
-		backgroundColor: "rgba(0, 0, 0, 0.2)",
-		":hover": {
-			backgroundColor: "rgba(0, 0, 0, 0.8)"
-		},
-		padding: "0px 0px 0px 4px",
-		margin: "0px 0px",
-		borderRadius: "4px",
-		maxWidth: "50%",
-		minWidth: "50%",
-		maxHeight: "20px",
-		minHeight: "20px",
-	}),
-	menu: (base: any) => ({
-		...base,
-		zIndex: "1000",
-		borderRadius: "8px",
-		backgroundColor: "rgba(0, 0, 0, 0.8)",
-		color: "white",
-		marginTop: '24px',
-		width: '50%',
-		left: '40px',
-	}),
-	option: (base: any, state: any) => ({
-		...base,
-		display: "flex",
-		flexDirection: "column",
-		zIndex: "1000",
-		padding: "0px 15px",  // padding inside each option
-		color: "white",
-		":hover": {
-			backgroundColor: "rgba(255, 255, 255, 0.5)"
-		},
-		backgroundColor: state.selected ? "rgba(0,0,255,0.3)" : "transparent",
-		fontSize: '12px',
-		height: '20px',
-		justifyContent: 'center',
-	}),
-	singleValue: (base: any) => ({
-		...base,
-		fontSize: "12px",
-		color: "white",
-		padding: "0px",
-		margin: "0px",
-	}),
-	indicatorSeparator: (base: any) => ({
-		...base,
-		marginBottom: "4px",
-		marginTop: "4px",
-		flex: "1",
-	}),
-	dropdownIndicator: (base: any) => ({
-		...base,
-		padding: "0px",
-		margin: "0px",
-		width: '20px',
-		height: '20px',
-		flex: "0",
-	}),
-	valueContainer: (base: any) => ({
-		...base,
-		margin: '0 0',
-		padding: '0 0',
-	}),
-	input: (base: any) => ({
-		...base,
-		margin: '0 0',
-		padding: '0 0',
-		color: 'white',
-		fontSize: '12px',
-	})
-}
-
-type SpeciesOption = {
-	speciesId: number;
-	label: string;
-};
-
-type SpeciesDropdownProps = {
-	speciesMap: Record<number, Species>;
-	speciesId: number | "";
-	index: number;
-	updateAudioFile: (index: number, key: string, value: number | "") => void;
-	styles?: StylesConfig<any, false, GroupBase<any>>;
-};
-
-export default function SpeciesDropdown({
-	speciesMap,
-	speciesId,
-	index,
-	updateAudioFile,
-	styles,
-}: SpeciesDropdownProps) {
-	const speciesOptions: SpeciesOption[] = Object.entries(speciesMap).map(([id, species]) => ({
-		speciesId: Number(id),
-		label: species.common,
-	}));
-
-	const [inputValue, setInputValue] = useState("");
-
-	return (
-		<div className="w-64">
-			<Select
-				value={speciesOptions.find(option => option.speciesId === Number(speciesId)) ?? null}
-				onChange={(selectedOption: SingleValue<SpeciesOption>) =>
-					updateAudioFile(
-						index,
-						"speciesId",
-						selectedOption?.speciesId ?? ""
-					)
-				}
-				styles={styles}
-				options={speciesOptions}
-				isClearable={false}
-				placeholder="Select a species..."
-				isSearchable
-				inputValue={inputValue}
-				onInputChange={(newValue) => setInputValue(newValue)}
-				onKeyDown={(e) => e.stopPropagation()} // prevent global keybinds
-				onMenuOpen={() => {}} // satisfy TS
-        		onMenuClose={() => {}} // satisfy TS
-				filterOption={(option, rawInput) =>
-					option.label.toLowerCase().includes(rawInput.toLowerCase())
-				}>
-			</Select>
 		</div>
 	);
 }
