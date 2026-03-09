@@ -5,6 +5,43 @@
 	align-items: flex-start;
 }
 
+.audioInfo {
+	position: relative;
+	display: flex;
+	flex-direction: row;
+	gap: 5px;
+	justify-content: left;
+	align-items: center;
+}
+
+.navButton {
+	display: flex;
+	justify-content: center;
+	align-items: center;
+
+	gap: 1px;
+	background-color: white;
+	box-sizing: border-box;
+	border-radius: 10px;
+	border: none;
+
+	padding: 10;
+}
+.navButton:hover {
+	background-color: #b3fad1;
+	cursor: pointer;
+}
+.navButton:disabled {
+	background-color: white;
+	opacity: 50%;
+	cursor: default;
+}
+.yellowIcon {
+  filter: brightness(0) saturate(100%)
+          invert(73%) sepia(62%) saturate(749%)
+          hue-rotate(0deg) brightness(95%) contrast(101%);
+}
+
 .stage {
 	position: relative;
 	width: 100%;
@@ -38,7 +75,6 @@
 .waveContainerWrapper {
 	position: absolute;
 	width: 100%;
-	height: 384px;
 	overflow-x: hidden;
 	overflow-y: hidden;
 	scrollbar-width: none; /* Firefox */
@@ -46,7 +82,6 @@
 .waveContainer {
 	position: absolute;
 	width: 100%;
-	height: 384px;
 	z-index: 2;
 }
 .waveContainerWrapper::-webkit-scrollbar {
@@ -55,15 +90,12 @@
 
 .spectrogramContainerWrapper {
 	position: absolute;
-	top: 128px;
 	width: 100%;
-	height: 256px;
 	overflow: auto; /* clipping only — scroll is driven on the inner spectrogramContainer */
 }
 .spectrogramContainer {
 	position: absolute;
 	width: 100%;
-	height: 256px;
 	z-index: 1;
 	pointer-events: none;
 	scrollbar-width: none; /* Firefox — hide both scrollbars */
@@ -74,6 +106,14 @@
 
 .spectrogramContainer canvas {
 	position: relative;
+}
+
+.timelineContainer {
+	position: relative;
+	width: 100%;
+	top: 0;
+	box-sizing: border-box;
+	border-bottom: 1px solid #000000;
 }
 
 .play:hover {
@@ -98,7 +138,6 @@
 	align-items: center;
 	justify-content: space-between;
 	gap: 30px;
-	margin-top: 10px;
 	margin: 20px;
 }
 
@@ -148,21 +187,6 @@
 	gap: 6px;
 }
 
-.prevClip:hover {
-	background-color: #b3fad1;
-	cursor: pointer;
-}
-
-.nextClip:hover {
-	background-color: #b3fad1;
-	cursor: pointer;
-}
-
-.modelButton:hover {
-	background-color: #b3fad1;
-	cursor: pointer;
-}
-
 .play {
 	gap: 1px;
 	background-color: white;
@@ -172,8 +196,7 @@
 	border: none;
 }
 
-.modelButton {
-	background-color: orange;
+.controlsButton {
 	color: black;
 	font-size: 16px;
 	font-weight: bold;
@@ -184,6 +207,16 @@
 	display: inline-block;
 	align-self: center;
 	width: 150px;
+}
+.controlsButton:hover {
+	background-color: #d9f4e4;
+	cursor: pointer;
+}
+.orange {
+	background-color: orange;
+}
+.green {
+	background-color: greenyellow;
 }
 
 .pause {
@@ -204,29 +237,10 @@
 	border: none;
 }
 
-.prevClip {
-	gap: 1px;
-	background-color: white;
-	padding: 1px;
-	margin-right: 20px;
-	border-radius: 10px;
-	border: none;
-}
-
-.nextClip {
-	gap: 1px;
-	background-color: white;
-	padding: 1px;
-	margin-right: 20px;
-	border-radius: 10px;
-	border: none;
-}
-
 .controls {
 	display: flex;
 	justify-content: center;
 	height: 90px;
-	margin-top: 10px;
 }
 
 .controls button {
@@ -263,7 +277,7 @@
 
 .zoomControls {
 	position: absolute;
-	top: 8px;
+	bottom: 8px;
 	right: 10px;
 	z-index: 200;
 

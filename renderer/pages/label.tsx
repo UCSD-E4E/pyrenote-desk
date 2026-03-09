@@ -15,8 +15,10 @@ import { SpeciesDropdown } from "../components/SpeciesDropdown";
 const DEFAULT_ZOOM_X = 1;
 const DEFAULT_ZOOM_Y = 1;
 const ZOOM_STEP = 0.25;
+
 const BASE_WAVE_HEIGHT = 128;
 const BASE_SPECTRO_HEIGHT = 256;
+const TIMELINE_HEIGHT = 20;
 
 const fftSamplesForZoom = (zoom: number): 256 | 512 | 1024 => {
   if (zoom >= 4) return 1024;
@@ -92,6 +94,22 @@ const AudioPlayer: React.FC = () => {
   playingRef.current = playing;
 
   const [index, setIndex] = useState(0);
+  const [indexInput, setIndexInput] = useState(String(index + 1));
+  const commitChange = () => {
+    const value = Number(indexInput);
+
+    if (!isNaN(value)) {
+      const clamped = Math.min(Math.max(value, 1), entries.length);
+      setIndex(clamped - 1);
+      setIndexInput(String(clamped-1));
+    } else {
+      setIndexInput(String(index + 1));
+    }
+  };
+  useEffect(() => {
+    setIndexInput(String(index + 1));
+  }, [index]);
+
   const [confidence, setConfidence] = useState(10);
   const [callType, setCallType] = useState("");
   const [notes, setNotes] = useState("");
@@ -123,7 +141,6 @@ const AudioPlayer: React.FC = () => {
   // DOM refs
 
   const stageRef = useRef<HTMLDivElement>();
-  const timelineDotRef = useRef<HTMLDivElement | null>(null);
 
   // ================================================================================================================
   // Region refs
@@ -148,9 +165,10 @@ const AudioPlayer: React.FC = () => {
     zoomX,
     zoomY,
     fftSamplesForZoom,
+    BASE_WAVE_HEIGHT,
     BASE_SPECTRO_HEIGHT,
+    TIMELINE_HEIGHT,
     stageRef,
-    timelineDotRef,
     instances,
     regionListRef,
     selectedRegionRef,
@@ -234,7 +252,7 @@ const AudioPlayer: React.FC = () => {
   const resetZoom = () => { setZoomX(DEFAULT_ZOOM_X); setZoomY(DEFAULT_ZOOM_Y); };
 
   // ================================================================================================================
-  // Playback / navigation
+  // Navigation
 
   const resetValues = () => { 
     setConfidence(maxConfidence); 
@@ -258,6 +276,60 @@ const AudioPlayer: React.FC = () => {
     setTimeout(() => setNextDisabled(false), 500);
   };
 
+  const clickJump = async () => {
+    if (isNextDisabled) return;
+
+    resetValues();
+    setIndex((currentIndex) => { // picks the next index with no regions, or stay
+      const nextIndex = entries.findIndex(
+        (entry, i) =>
+          i > currentIndex && entry.regions.length === 0
+      );
+
+      return nextIndex !== -1 ? nextIndex : currentIndex;
+    });
+    setNextDisabled(true);
+    setTimeout(() => setNextDisabled(false), 500);
+  };
+
+  // ================================================================================================================
+  // Import
+
+  const importFromDB = async (recordings: any[], skippedCount = 0) => {
+    Object.values(instances.current).forEach((inst) => inst.cleanup());
+
+    if (!Array.isArray(recordings)) return;
+
+    if (recordings.length === 0) {
+      alert(
+        skippedCount > 0
+          ? `No recordings found. ${skippedCount} file(s) were skipped.`
+          : "No recordings found. Try a different filter or upload recordings!",
+      );
+      return;
+    }
+
+    if (skippedCount > 0) {
+      alert(`Warning: ${skippedCount} file(s) were skipped. Loaded ${recordings.length} recording(s).`);
+    }
+
+    const newEntries: Entry[] = await Promise.all(
+      recordings.map(async (rec, i) => ({
+        recording: rec,
+        regions: (await window.api.listRegionOfInterestByRecordingId(rec.recordingId)) || [],
+        id: String(i),
+      })),
+    );
+
+    setEntries(newEntries);
+    setShowSpec(true);
+    setIndex(0);
+    wipeRegions();
+  };
+
+  // ================================================================================================================
+  // Controls
+
   const clickPlay = useCallback(async () => {
     const inst = instances.current[currentId];
     if (!inst) return;
@@ -274,10 +346,7 @@ const AudioPlayer: React.FC = () => {
     setPlaying(false);
   }, [entries, index]);
 
-  // ================================================================================================================
-  // Save / Delete
-
-  const clickSave = useCallback(async () => {
+  const clickFinish = useCallback(async () => {
     const inst = instances.current[currentId];
     if (!inst || isSaveDisabled) return;
     resetValues();
@@ -324,56 +393,6 @@ const AudioPlayer: React.FC = () => {
     setTimeout(() => setSaveDisabled(false), 500);
   }, [entries, index, isSaveDisabled, confidence, labelerId]);
 
-  const clickSkip = useCallback(async () => {
-    const inst = instances.current[currentId];
-    if (!inst || isSkipDisabled) return;
-    setSkipDisabled(true);
-    resetValues();
-
-    inst.cleanup();
-    if (entries.length === 1) setShowSpec(false);
-    else if (index === entries.length - 1) setIndex(index - 1);
-    setEntries((prev) => prev.filter((_, i) => i !== index));
-    setTimeout(() => setSkipDisabled(false), 500);
-  }, [entries, index, isSkipDisabled]);
-
-  // ================================================================================================================
-  // Import
-
-  const importFromDB = async (recordings: any[], skippedCount = 0) => {
-    Object.values(instances.current).forEach((inst) => inst.cleanup());
-
-    if (!Array.isArray(recordings)) return;
-
-    if (recordings.length === 0) {
-      alert(
-        skippedCount > 0
-          ? `No recordings found. ${skippedCount} file(s) were skipped.`
-          : "No recordings found. Try a different filter or upload recordings!",
-      );
-      return;
-    }
-
-    if (skippedCount > 0) {
-      alert(`Warning: ${skippedCount} file(s) were skipped. Loaded ${recordings.length} recording(s).`);
-    }
-
-    const newEntries: Entry[] = await Promise.all(
-      recordings.map(async (rec, i) => ({
-        recording: rec,
-        regions: (await window.api.listRegionOfInterestByRecordingId(rec.recordingId)) || [],
-        id: String(i),
-      })),
-    );
-
-    setEntries(newEntries);
-    setShowSpec(true);
-    setIndex(0);
-    wipeRegions();
-  };
-
-  // ================================================================================================================
-  // Region actions
 
   const deleteSelectedRegion = () => {
     if (!selectedRegionRef.current) return;
@@ -382,6 +401,12 @@ const AudioPlayer: React.FC = () => {
   };
 
   const clearAllRegions = () => {
+    const confirmed = window.confirm(
+      "Are you sure you want to clear all regions? This cannot be undone."
+    );
+
+    if (!confirmed) return;
+
     Object.values(regionListRef.current).forEach((r) => r.remove());
     wipeRegions();
   };
@@ -408,15 +433,14 @@ const AudioPlayer: React.FC = () => {
       const el = document.activeElement;
       if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA")) return;
       switch (e.key) {
-        case "w": clickSave(); break;
+        case "w": clickFinish(); break;
         case "p": playing ? clickPause() : clickPlay(); break;
-        case "d": clickSkip(); break;
         case "ArrowRight": clickNext(); break;
         case "a":
         case "ArrowLeft": clickPrev(); break;
       }
     },
-    [playing, clickSave, clickPlay, clickPause, clickSkip, clickNext, clickPrev],
+    [playing, clickFinish, clickPlay, clickPause, clickNext, clickPrev],
   );
 
   useEffect(() => {
@@ -447,9 +471,53 @@ const AudioPlayer: React.FC = () => {
           {showSpec && (
             <div>
               {entries.length > 0 && (
-                <div className={styles.audioInfo}>
-                  <p>File {index + 1} of {entries.length}: {currentEntry?.recording.url}</p>
-                </div>
+                <>
+                  <div className={styles.audioInfo}>
+                    <div>
+                      File{" "}
+                      <input
+                        type="number"
+                        value={indexInput}
+                        min={1}
+                        max={entries.length}
+                        onChange={(e) => setIndexInput(e.target.value)}
+                        onBlur={commitChange}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.currentTarget.blur(); // triggers commit
+                          }
+                        }}
+                        style={{ width: "60px" }}
+                      />{" "}
+                      of {entries.length}
+                    </div>
+                    <button 
+                      className={styles.navButton} 
+                      onClick={clickPrev} 
+                      disabled={isPrevDisabled || index === 0}
+                      title="Go to previous entry"
+                    >
+                      <Image src="/images/LArrow.png" alt="Previous Button" width={20} height={20} title="Go to previous entry" />
+                    </button>
+                    <button 
+                      className={styles.navButton} 
+                      onClick={clickNext} 
+                      disabled={isNextDisabled || index === entries.length - 1}
+                      title="Go to next entry"
+                    >
+                      <Image src="/images/RArrow.png" alt="Next Button" width={20} height={20} title="Go to next entry" />
+                    </button>
+                    <button 
+                      className={styles.navButton} 
+                      onClick={clickJump} 
+                      disabled={isNextDisabled || index === entries.length - 1}
+                      title="Jump to next unlabelled entry"
+                    >
+                      <Image src="/images/RArrow.png" alt="Next Button" width={20} height={20} className={styles.yellowIcon} title="Jump to next unlabelled entry"/>
+                    </button>
+                  </div>
+                  <p>{entries[index]?.recording.url}</p>
+                </>
               )}
               <div id="stage" className={styles.stage} ref={stageRef}>
                 {/* Zoom Controls Overlay */}
@@ -478,30 +546,20 @@ const AudioPlayer: React.FC = () => {
 
       {showSpec && (
         <>
-          <div id="wave-timeline" style={{ height: "20px", margin: "20px" }} />
-
           <div className={styles.controls}>
-            <button className={styles.prevClip} onClick={clickPrev} disabled={isPrevDisabled || index === 0}>
-              <Image src="/images/LArrow.png" alt="Previous Button" width={45} height={45} />
-            </button>
-            <button className={styles.modelButton} onClick={clickSave}>Save</button>
             {!playing
               ? <button className={styles.play} onClick={clickPlay}><Image src="/images/Play.png"  alt="Play Button"  width={45} height={45} /></button>
               : <button className={styles.pause} onClick={clickPause}><Image src="/images/Pause.png" alt="Pause Button" width={45} height={45} /></button>
             }
-            <button className={styles.modelButton} onClick={clickSkip}>Delete</button>
-            <button className={styles.nextClip} onClick={clickNext} disabled={isNextDisabled || index === entries.length - 1}>
-              <Image src="/images/RArrow.png" alt="Next Button" width={45} height={45} />
-            </button>
+            <div className={styles.regionButtons}>
+              <button className={`${styles.controlsButton} ${styles.orange}`} onClick={deleteSelectedRegion}>Delete region</button>
+              <button className={`${styles.controlsButton} ${styles.orange}`} onClick={clearAllRegions}>Clear regions</button>
+              <button className={`${styles.controlsButton} ${styles.green}`} onClick={clickFinish}>Finish</button>
+            </div>
           </div>
 
           <div className={styles.bottomBar}>
             <div className={styles.confidenceSection}>
-              <label>Region buttons</label>
-              <div className={styles.regionButtons}>
-                <button className={styles.regionButton} onClick={deleteSelectedRegion}>Delete</button>
-                <button className={styles.regionButton} onClick={clearAllRegions}>Clear</button>
-              </div>
               {useConfidence && (
                 <Slider displayLabel="Confidence" value={confidence} setValue={setConfidence} min={0} max={maxConfidence} />
               )}
