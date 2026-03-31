@@ -10,13 +10,14 @@ import listDatabases from "./listDatabases";
 import listSpecies from "./listSpecies";
 import listSites from "./listSites";
 import listRecorders from "./listRecorders"
-import listAnnotationsRecordings from "./listAnnotationsRecordings";
 import listModelAccuracyBySpecies from "./listModelAccuracyBySpecies";
 import { ApiWithoutEvent } from "../helpers/util-types";
 import listUnlabeledRecordings from "./listUnlabeledRecordings";
+import listAnnotationsByRecordingIds from "./listAnnotationsByRecordingIds"
 
 // List of queries to expose
 export const setupQueries = {
+  listAnnotationsByRecordingIds,
   listRecordingsByDeploymentId,
   listRecordings,
   listRecordingsByFilters,
@@ -29,7 +30,6 @@ export const setupQueries = {
   listSpecies,
   listSites,
   listRecorders,
-  listAnnotationsRecordings,
   listModelAccuracyBySpecies,
   listUnlabeledRecordings
 };

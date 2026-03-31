@@ -426,56 +426,41 @@ export default function VerifyPage() {
 	//// ================================================================================================================
 	//// INITIALIZATION
 
-	// initial DB load
-	const [modalEnable, setModalEnable] = useState(false);
+	async function handleFileSelectionFromDB(recordings) {
+		const recordingIds = recordings.map((rec) => rec.recordingId);
 
-	async function handleFileSelectionFromDB(recordings, skippedCount = 0) {
-		let processed: ProcessedAnnotation[] = [...audioFiles];
-		let spawnPage = 1;
+		// query
+		const [listOfSpecies, rows] = await Promise.all([
+			window.api.listSpecies(),
+			window.api.listAnnotationsByRecordingIds(recordingIds),
+		]);
 
-		const listOfSpecies: Species[] = await window.api.listSpecies();
-
+		// build species map
 		const newSpeciesMap: Record<number, Species> = {};
 		listOfSpecies.forEach((spec) => {
 			newSpeciesMap[spec.speciesId] = spec;
-		})
-		setSpeciesMap(newSpeciesMap);
-
-		const tasks = recordings.map(async (rec, i) => {
-			try {
-				const regions = await window.api.listRegionOfInterestByRecordingId(rec.recordingId);
-
-				await Promise.all(regions.map(async (region) => {
-					const anns = await window.api.listAnnotationsByRegionId(region.regionId);
-
-					if (!anns) {return;}
-
-					await Promise.all(anns.map(async (annotation, i) => {
-						processed.push({
-							annotationId: annotation.annotationId,
-							index: processed.length,
-							filePath: rec.url,
-							recordingId: rec.recordingId,
-							status: (
-								annotation.verified == "YES" ? SpectroStatus.YES :
-								annotation.verified == "NO" ? SpectroStatus.NO : SpectroStatus.UNVERIFIED
-							),
-							speciesId: (Math.trunc(annotation.speciesId) ?? defaultSpeciesId), // NEED CLARIFICATION HERE
-							speciesProbability: annotation.speciesProbability,
-							startOffset: region.starttime,
-							endOffset: region.endtime,
-						});
-					}))
-				}))
-			} catch (err) {
-				console.error(`Failed to read audio file at ${rec.url}:`, err);
-			}
 		});
-
-		await Promise.all(tasks);
+		setSpeciesMap(newSpeciesMap);
+		
+		const processed: ProcessedAnnotation[] = [
+			...audioFiles, // existing
+			...rows.map((row, i) => ({ // newly imported
+				annotationId: row.annotationId,
+				index: audioFiles.length + i,
+				filePath: row.filePath,
+				recordingId: row.recordingId,
+				status:
+					row.verified === "YES" ? SpectroStatus.YES :
+					row.verified === "NO"	? SpectroStatus.NO	: SpectroStatus.UNVERIFIED,
+				speciesId: Math.trunc(row.speciesId) ?? defaultSpeciesId,
+				speciesProbability: row.speciesProbability,
+				startOffset: row.startOffset,
+				endOffset: row.endOffset,
+			})),
+		];
 
 		setAudioFiles(processed);
-		setCurrentPage(spawnPage);
+		setCurrentPage(1);
 	}
 
 	//// ================================================================================================================
@@ -715,8 +700,6 @@ export default function VerifyPage() {
 					>
 						{/* <button onClick={() => setModalEnable(prev => !prev)}>Select Recordings</button> */}
 						<SelectRecordingsButton
-							modalEnable={modalEnable} 
-							setModalEnable={setModalEnable} 
 							importFromDB={handleFileSelectionFromDB} 
 						/>
 
