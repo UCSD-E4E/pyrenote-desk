@@ -2,6 +2,9 @@ import React from "react";
 import Head from "next/head";
 import Image from "next/image";
 import styles from "./model.module.css";
+import { useState } from 'react'; 
+
+import { SelectRecordingsButton } from "../components/SelectRecordingsButton";
 
 //File Upload Button appears at top left of model page and disappears while model runs
 function FileUploadButton({ onClick }) {
@@ -171,12 +174,27 @@ export default function ModelPage() {
     stopImageRotation();
   }
 
+  // recording filtering
+  const [modalEnable, setModalEnable] = useState(false);
+  const importFromDB = async (recordings, skippedCount = 0) => {
+    //backend calls here
+    return;
+  }
+
   return (
     <React.Fragment>
       <Head>
         <title>Model Page</title>
       </Head>
       <div className={styles.magnus}>
+        <div>
+          <button onClick={() => setModalEnable(prev => !prev)}>Select Recordings</button>
+          <SelectRecordingsButton
+            modalEnable={modalEnable} 
+            setModalEnable={setModalEnable} 
+            importFromDB={importFromDB} 
+          />
+        </div>
         <div className={styles.images}>
           <div>
             {isButtonVisible && <FileUploadButton onClick={HandleClick} />}
