@@ -366,7 +366,7 @@ ipcMain.handle("pick-model-file", async () => {
 ipcMain.handle("run-script", async () => {
 
   const python = "python"; 
-  const script = path.join(process.cwd(), "pyfiles/acoustic-multiclass-training/inference.py");
+  const script = path.join(process.cwd(), "pyfiles/acoustic-multiclass-training/inference_pipeline/main.py");
 
   return new Promise<string>((resolve, reject) => {
     // Pass DB path as a CLI argument
