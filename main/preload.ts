@@ -20,11 +20,11 @@ function invokeMutation<C extends keyof MutationsApi>(
 // Queries that are present in queries/index.ts while not
 // exposed here will result in type errors
 const exposedQueries: QueriesApi = {
+  listAnnotationsByRecordingIds: (...args) => invokeQuery("listAnnotationsByRecordingIds")(...args),
   listSurveys: () => invokeQuery("listSurveys")(),
   listRecordingsByDeploymentId: (...args) => invokeQuery("listRecordingsByDeploymentId")(...args),
   listRecordingsByFilters: (...args) => invokeQuery("listRecordingsByFilters")(...args),
   listRecordings: () => invokeQuery("listRecordings")(), 
-  listAnnotationsRecordings: () => invokeQuery("listAnnotationsRecordings")(),
   listSpecies: () => invokeQuery("listSpecies")(), 
   listRecorders: () => invokeQuery("listRecorders")(),
   listSites: () => invokeQuery("listSites")(),
@@ -41,6 +41,7 @@ const exposedQueries: QueriesApi = {
 // Mutations that are present in mutations/index.ts while not
 // exposed here will result in type errors
 const exposedMutations: MutationsApi = {
+  createModel: invokeMutation("createModel"),
   createSite: invokeMutation("createSite"),
   createSurvey: invokeMutation("createSurvey"),
   // Annotations
