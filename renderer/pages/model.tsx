@@ -73,6 +73,7 @@ export default function ModelPage() {
   const [messageIndex, setMessageIndex] = React.useState(0);
   const [models, setModels] = React.useState([]);
   const [selectedModelId, setSelectedModelId] = React.useState(null);
+  const [selectedRecordingIds, setSelectedRecordingIds] = useState<number[]>([]);
 
   //variables can have values NODEJS.Timeout OR null - initialize both to null
   const imageIntervalRef = React.useRef<NodeJS.Timeout | null>(null);
@@ -162,7 +163,9 @@ export default function ModelPage() {
     startImageRotation();
 
     try {
-      await window.api.runScript(); // resolves when Python exits (annotations inserted)
+      await window.api.runScript(
+        selectedRecordingIds.length > 0 ? selectedRecordingIds : undefined
+      ); // resolves when Python exits (annotations inserted)
       // success:
       setSuccessTextVisible(true);
     } catch (err) {
@@ -207,8 +210,8 @@ export default function ModelPage() {
   // recording filtering
   const [modalEnable, setModalEnable] = useState(false);
   const importFromDB = async (recordings, skippedCount = 0) => {
-    //backend calls here
-    return;
+    const recordingIds = recordings.map((rec) => rec.recordingId);
+    setSelectedRecordingIds(recordingIds);
   }
 
   return (
@@ -218,11 +221,10 @@ export default function ModelPage() {
       </Head>
       <div className={styles.magnus}>
         <div>
-          <button onClick={() => setModalEnable(prev => !prev)}>Select Recordings</button>
           <SelectRecordingsButton
             modalEnable={modalEnable} 
             setModalEnable={setModalEnable} 
-            importFromDB={importFromDB} 
+            importFromDB={importFromDB}      
           />
         </div>
         <div className={styles.images}>

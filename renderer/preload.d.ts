@@ -4,7 +4,7 @@ declare global {
   type QueriesApi = import("../main/queries").QueriesApi;
   type MutationsApi = import("../main/mutations").MutationsApi;
   type ScriptApi = {
-    runScript: () => Promise<string>;
+    runScript: (recordingIds?: number[]) => Promise<string>;
   };
   type WindowApi = QueriesApi & MutationsApi & ScriptApi;
   interface Window {
