@@ -3,11 +3,12 @@ import { useEffect, useState } from "react";
 import styles from './SelectRecordingsButton.module.css';
 
 interface SelectRecordingsProps {
+	modalEnable: boolean;
+  	setModalEnable: React.Dispatch<React.SetStateAction<boolean>>;
 	importFromDB: (recordings: any[], skippedCount?: number) => void;
 }
 
-export function SelectRecordingsButton({importFromDB}: SelectRecordingsProps) {
-	const [modalEnable, setModalEnable] = useState(false);
+export function SelectRecordingsButton({modalEnable, setModalEnable,importFromDB}: SelectRecordingsProps) {
 
 	const [siteList, setSiteList] = useState([]);
 	const [recorderList, setRecorderList] = useState([]);

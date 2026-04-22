@@ -363,17 +363,31 @@ ipcMain.handle("pick-model-file", async () => {
   return sourcePath;
 });
 
-ipcMain.handle("run-script", async () => {
+ipcMain.handle("run-script", async (event, recordingIds?: number[]) => {
 
   const python = "python"; 
-  const script = path.join(process.cwd(), "pyfiles/acoustic-multiclass-training/inference.py");
+  const projectRoot = path.join(process.cwd(), "pyfiles/acoustic-multiclass-training");
+  const script = path.join(process.cwd(), "pyfiles/acoustic-multiclass-training/inference_pipeline/main.py");
+  const dbPath = path.resolve(process.cwd(), selectedDbPath || "./databases/pyrenoteDeskDatabase.db");
 
   return new Promise<string>((resolve, reject) => {
     // Pass DB path as a CLI argument
+    const args = [script, "--db-path", dbPath];
+    if (recordingIds && recordingIds.length > 0) {
+      args.push("--recording-ids", recordingIds.join(","));
+    }
     execFile(
       python,
-      [script, "--db-path", selectedDbPath],
-      //{ env: { ...process.env } },  // add env if needed? would this prevent us from having to activate venv before running yarn && yarn dev?
+      args,
+      {
+        env: {
+          ...process.env,
+          INFERENCE_DB_PATH: dbPath,
+          PYTHONPATH: process.env.PYTHONPATH
+            ? `${projectRoot}${path.delimiter}${process.env.PYTHONPATH}`
+            : projectRoot,
+        },
+      },
       (error, stdout, stderr) => {
         if (error) return reject(stderr || error.message);
         resolve(stdout ?? "");
