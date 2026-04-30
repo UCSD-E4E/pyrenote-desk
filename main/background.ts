@@ -331,21 +331,55 @@ ipcMain.handle("pick-folder-for-recordings", async (_event) => {
 
 ipcMain.handle("saveMultipleRecordings", async (_event, { files, deploymentId, driveLabel }) => {
   let db = new BetterSqlite3(selectedDbPath);
-  let url: string;
   let skippedCount = 0;
-  for (const file of files) {
-    url = file.absolutePath;
-    try {
-      db.prepare(`INSERT INTO Recording (deploymentId, url, directory, datetime, duration, samplerate, bitrate) VALUES (?, ?, ?, ?, ?, ?, ?)`)
-      .run(deploymentId=== 0 ? null : deploymentId, url, file.folderPath, new Date().toISOString(), 0, 0, 0);
-    } catch (err: any) {
-      if (err.code === "SQLITE_CONSTRAINT_UNIQUE") {
-        skippedCount++;
-      } else {
-        throw err; // rethrow unknown errors
+  const normalizedDeploymentId = deploymentId === 0 ? null : deploymentId;
+  const insertRecording = db.prepare(
+    `INSERT INTO Recording (deploymentId, url, directory, datetime, duration, samplerate, bitrate) VALUES (?, ?, ?, ?, ?, ?, ?)`
+  );
+  const insertRecordingWithoutDeployment = db.prepare(
+    `INSERT INTO Recording (deploymentId, url, directory, datetime, duration, samplerate, bitrate)
+     SELECT NULL, ?, ?, ?, ?, ?, ?
+     WHERE NOT EXISTS (
+       SELECT 1 FROM Recording
+       WHERE deploymentId IS NULL AND url = ?
+     )`
+  );
+  const insertMany = db.transaction((recordings: typeof files) => {
+    for (const file of recordings) {
+      const now = new Date().toISOString();
+      try {
+        if (normalizedDeploymentId === null) {
+          const result = insertRecordingWithoutDeployment.run(
+            file.absolutePath,
+            file.folderPath,
+            now,
+            0,
+            0,
+            0,
+            file.absolutePath
+          );
+          if (result.changes === 0) skippedCount++;
+        } else {
+          insertRecording.run(
+            normalizedDeploymentId,
+            file.absolutePath,
+            file.folderPath,
+            now,
+            0,
+            0,
+            0
+          );
+        }
+      } catch (err: any) {
+        if (err.code === "SQLITE_CONSTRAINT_UNIQUE") {
+          skippedCount++;
+        } else {
+          throw err; // rethrow unknown errors
+        }
       }
     }
-  }
+  });
+  insertMany(files);
   db.close();
   return { skippedCount };
 });
