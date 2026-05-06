@@ -35,6 +35,7 @@ const exposedQueries: QueriesApi = {
   listDatabases: (...args) => invokeQuery("listDatabases")(...args),
   listModelAccuracyBySpecies: () => invokeQuery("listModelAccuracyBySpecies")(),
   listUnlabeledRecordings: () => invokeQuery("listUnlabeledRecordings")(),
+  listModels: () => invokeQuery("listModels")()
 };
 
 // Mutations that are exposed to renderer process
@@ -65,14 +66,15 @@ const exposedMutations: MutationsApi = {
   // Species
   createSpecies: (...args) => invokeMutation("createSpecies")(...args),
   createRecorder: (...args) => invokeMutation("createRecorder")(...args),
-  createDeployment: (...args) => invokeMutation("createDeployment")(...args)
+  createDeployment: (...args) => invokeMutation("createDeployment")(...args),
+  createModel: (...args) => invokeMutation("createModel")(...args)
 };
 
 // Exposes all backend queries & mutations
 contextBridge.exposeInMainWorld("api", {
   ...exposedQueries,
   ...exposedMutations,
-  runScript: () => ipcRenderer.invoke("run-script"),
+  runScript: (recordingIds?: number[]) => ipcRenderer.invoke("run-script", recordingIds),
 });
 
 const handler = {
